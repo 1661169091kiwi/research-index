@@ -74,40 +74,74 @@ function normalize(m) {
 function addInto(target, vec, w) { for (const [k, v] of vec) target.set(k, (target.get(k) || 0) + v * w); }
 
 export function createRecommender(store) {
-  let index = null;      // { version, vecs: Map(id -> Map), idf: Map }
+  // The TF-IDF index. It is built in full once; after that, papers that arrive are added (and removed ones taken
+  // out) without redoing the rest. A full build over a few thousand abstracts takes about a second on a PC and
+  // several on a phone, and during a refresh new papers arrive every few seconds: rebuilding each time froze the
+  // page whenever you changed tabs. Papers already indexed keep the document frequencies of when they were
+  // added, which hardly move; the whole index is rebuilt once the collection has grown by a third.
+  //   index: { version, gen (bumped by a full build), removals (count of removal passes), vecs, tfs, df, N, builtN }
+  let index = null;
   // One deck per view (mode + direction + search): a list that infinite scroll pages through. A refresh
   // deals a new deck. Papers that arrive while you scroll join the part of the deck you have not reached
   // yet (mergeNew), so nothing already on the page moves.
   const decks = new Map();
 
+  function termFreq(p) {
+    const tf = new Map();
+    for (const t of tokens(p.title)) tf.set(t, (tf.get(t) || 0) + 3);
+    for (const t of tokens(p.abstract)) tf.set(t, (tf.get(t) || 0) + 1);
+    return tf;
+  }
+  const idfOf = (df, N, t) => { const d = df.get(t); return d ? Math.log((N + 1) / (d + 1)) + 1 : 1; };
+  function vecOf(tf, df, N) {
+    const v = new Map();
+    for (const [t, c] of tf) {
+      const bigram = t.includes('_');
+      if (bigram && !(df.get(t) > 1)) continue; // a word pair no other paper has says nothing
+      v.set(t, (1 + Math.log(c)) * idfOf(df, N, t) * (bigram ? 1.4 : 1));
+    }
+    return normalize(v);
+  }
   function ensureIndex() {
     if (index && index.version === store.version) return index;
-    const df = new Map();
-    const tfs = new Map();
-    for (const p of Object.values(store.papers)) {
-      const tf = new Map();
-      for (const t of tokens(p.title)) tf.set(t, (tf.get(t) || 0) + 3);
-      for (const t of tokens(p.abstract)) tf.set(t, (tf.get(t) || 0) + 1);
+    const papers = store.papers;
+    if (index) {
+      const added = [], removed = [];
+      for (const id in papers) if (!index.tfs.has(id)) added.push(id);
+      for (const id of index.tfs.keys()) if (!papers[id]) removed.push(id);
+      const N = index.tfs.size - removed.length + added.length;
+      if (N <= index.builtN * 1.33 && added.length + removed.length < 0.25 * Math.max(1, N)) {
+        for (const id of removed) {
+          for (const t of index.tfs.get(id).keys()) { const d = index.df.get(t) - 1; if (d > 0) index.df.set(t, d); else index.df.delete(t); }
+          index.tfs.delete(id);
+          index.vecs.delete(id);
+        }
+        const fresh = added.map((id) => [id, termFreq(papers[id])]);
+        for (const [id, tf] of fresh) { index.tfs.set(id, tf); for (const t of tf.keys()) index.df.set(t, (index.df.get(t) || 0) + 1); }
+        for (const [id, tf] of fresh) index.vecs.set(id, vecOf(tf, index.df, N));
+        if (removed.length) index.removals++;
+        index.N = N;
+        index.version = store.version;
+        return index;
+      }
+    }
+    const df = new Map(), tfs = new Map();
+    for (const p of Object.values(papers)) {
+      const tf = termFreq(p);
       tfs.set(p.id, tf);
       for (const t of tf.keys()) df.set(t, (df.get(t) || 0) + 1);
     }
     const N = tfs.size || 1;
-    const idf = new Map();
-    for (const [t, d] of df) idf.set(t, Math.log((N + 1) / (d + 1)) + 1);
     const vecs = new Map();
-    for (const [id, tf] of tfs) {
-      const v = new Map();
-      for (const [t, c] of tf) if (df.get(t) > 1 || t.includes('_') === false) v.set(t, (1 + Math.log(c)) * idf.get(t) * (t.includes('_') ? 1.4 : 1));
-      vecs.set(id, normalize(v));
-    }
-    index = { version: store.version, vecs, idf };
+    for (const [id, tf] of tfs) vecs.set(id, vecOf(tf, df, N));
+    index = { version: store.version, gen: (index?.gen || 0) + 1, removals: 0, vecs, tfs, df, N, builtN: N };
     return index;
   }
 
   function textVec(text, weight = 1) {
-    const { idf } = ensureIndex();
+    const { df, N } = ensureIndex();
     const v = new Map();
-    for (const t of tokens(text)) v.set(t, (v.get(t) || 0) + weight * (idf.get(t) || 1));
+    for (const t of tokens(text)) v.set(t, (v.get(t) || 0) + weight * idfOf(df, N, t));
     return normalize(v);
   }
 
@@ -457,30 +491,66 @@ export function createRecommender(store) {
   // Similarity of one paper to every paper, cached until the paper set changes. Raw TF-IDF cosines
   // are small and vary from paper to paper, so each row is rescaled: 1 = as close as the paper's
   // 15th nearest neighbour (capped at 1.5).
-  const rescale = (a) => {
-    const sorted = Float32Array.from(a).sort().reverse();
-    const ref = Math.max(0.05, sorted[Math.min(15, sorted.length - 1)] || 0);
+  const refOf = (a) => Math.max(0.05, Float32Array.from(a).sort().reverse()[Math.min(15, a.length - 1)] || 0);
+  const rescale = (a, ref = refOf(a)) => {
     for (let i = 0; i < a.length; i++) a[i] = Math.min(1.5, a[i] / ref);
     return a;
   };
-  let sims = { version: -1, ids: [], byAnchor: new Map() };
+  // Papers that arrive are appended to the rows already worked out (with each row's own scale), instead of
+  // every row being worked out again; a full rebuild of the index, or a paper removed, starts over.
+  // A row is worked out through an inverted index (term -> papers that have it, with their weights): only the
+  // papers sharing a term with the anchor are visited, instead of a sparse dot product with every paper.
+  let sims = { gen: -1, removals: -1, ids: [], pos: new Map(), byAnchor: new Map(), post: new Map() };
+  function post(id, i, ix) {
+    for (const [t, w] of ix.vecs.get(id)) {
+      let pl = sims.post.get(t);
+      if (!pl) sims.post.set(t, (pl = { i: [], w: [] }));
+      pl.i.push(i);
+      pl.w.push(w);
+    }
+  }
+  function rowFor(v) {
+    const a = new Float32Array(sims.ids.length);
+    for (const [t, wa] of v) {
+      const pl = sims.post.get(t);
+      if (!pl) continue;
+      const I = pl.i, W = pl.w;
+      for (let k = 0; k < I.length; k++) a[I[k]] += wa * W[k];
+    }
+    return a;
+  }
   function syncSims() {
     const ix = ensureIndex();
-    if (sims.version !== ix.version) sims = { version: ix.version, ids: [...ix.vecs.keys()], byAnchor: new Map() };
+    if (sims.gen !== ix.gen || sims.removals !== ix.removals) {
+      const ids = [...ix.vecs.keys()];
+      sims = { gen: ix.gen, removals: ix.removals, ids, pos: new Map(ids.map((id, i) => [id, i])), byAnchor: new Map(), post: new Map() };
+      ids.forEach((id, i) => post(id, i, ix));
+    } else if (ix.vecs.size !== sims.ids.length) {
+      const from = sims.ids.length;
+      for (const id of ix.vecs.keys()) if (!sims.pos.has(id)) { const i = sims.ids.length; sims.pos.set(id, i); sims.ids.push(id); post(id, i, ix); }
+      for (const [aid, row] of sims.byAnchor) {
+        const v = ix.vecs.get(aid);
+        if (!v) { sims.byAnchor.delete(aid); continue; }
+        const a = new Float32Array(sims.ids.length);
+        a.set(row.a);
+        for (let i = from; i < sims.ids.length; i++) a[i] = Math.min(1.5, cos(v, ix.vecs.get(sims.ids[i])) / row.ref);
+        row.a = a;
+      }
+    }
     return ix;
   }
   function simsFor(id) {
     const ix = syncSims();
-    let a = sims.byAnchor.get(id);
-    if (!a) {
-      const v = ix.vecs.get(id);
-      a = new Float32Array(sims.ids.length);
-      for (let i = 0; i < sims.ids.length; i++) a[i] = cos(v, ix.vecs.get(sims.ids[i]));
-      rescale(a);
+    let row = sims.byAnchor.get(id);
+    if (!row) {
+      const a = rowFor(ix.vecs.get(id));
+      const ref = refOf(a);
+      rescale(a, ref);
       if (sims.byAnchor.size > 400) sims.byAnchor.clear();
-      sims.byAnchor.set(id, a);
+      row = { a, ref };
+      sims.byAnchor.set(id, row);
     }
-    return a;
+    return row.a;
   }
 
   // A candidate scores by its closest anchor (so separate interests stay separate instead of blurring
@@ -499,7 +569,7 @@ export function createRecommender(store) {
     const nEff = anc.reduce((s, a) => s + Math.min(1, a.e), 0);
     const seedW = nEff >= 5 ? 0.08 : anc.length ? 0.4 - 0.064 * nEff : 1;
     const seedVec = textVec(st.interests.split(/[,，;；\n]+/).join(' '));
-    const seed = seedW > 0.1 ? rescale(Float32Array.from(ids, (id) => cos(seedVec, ix.vecs.get(id)))) : null;
+    const seed = seedW > 0.1 ? rescale(rowFor(seedVec)) : null;
     const topicOf = topicSampler(sig.topics, rand);
     const seen = st.seen || {}, views = st.views || {};
     const gumbel = () => -Math.log(-Math.log(Math.min(1 - 1e-12, Math.max(1e-12, rand()))));

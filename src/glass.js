@@ -54,7 +54,7 @@
   // FlClash's two styles, light | dark: `regular` for bars and buttons, `menu` for what holds rows of text.
   const STYLE = {
     regular: [{ blur: 2.5, refraction: 60, bevel: 20, saturation: 2.08, brightness: 1 }, { blur: 2.5, refraction: 60, bevel: 20, saturation: 2.84, brightness: 1 }],
-    menu: [{ blur: 12, refraction: 60, bevel: 20, saturation: 2, brightness: 1.05 }, { blur: 12, refraction: 60, bevel: 20, saturation: 1.75, brightness: 1.25 }],
+    menu: [{ blur: 8, refraction: 70, bevel: 22, saturation: 2.3, brightness: 1.05 }, { blur: 8, refraction: 70, bevel: 22, saturation: 1.9, brightness: 1.2 }],
   };
   const KIND = { dock: 'regular', pill: 'regular', round: 'regular', panel: 'regular', banner: 'regular', menu: 'menu' };
   const NS = 'http://www.w3.org/2000/svg';

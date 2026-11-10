@@ -478,7 +478,7 @@ async function selfTest(dir) {
       fs.writeFileSync(path.join(dir, 'refresh-2.png'), (await wc.capturePage()).toPNG());
       report.push({ name: 'refresh', firstScreen: [a.length, b.length], sameOnFirstScreen: overlap(a, b), cardsAfter: afterRefresh.length,
         keptFromBefore: overlap(scrolled, afterRefresh), scrollTop: await wc.executeJavaScript(`document.getElementById('scroller').scrollTop`) });
-      await wc.executeJavaScript(`document.querySelector('#modes [data-mode="foryou"]').click()`);
+      await wc.executeJavaScript(`document.querySelector('#modes [data-mode="recommended"]').click()`);
       await wait(2500);
       const c = await firstScreen();
       report.push({ name: 'tab again', sameAsBefore: overlap(b, c), of: c.length });

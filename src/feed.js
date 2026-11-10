@@ -87,7 +87,9 @@
   // ---------- state ----------
   let META = null;
   const topicsById = {};
-  const view = Object.assign({ mode: 'foryou', topic: '', collection: '' }, store.get('ri-feed-view', {}));
+  const view = Object.assign({ mode: 'recommended', topic: '', collection: '' }, store.get('ri-feed-view', {}));
+  // "For you" and "Recommended" are one tab now (the one that also learns from what you read right now)
+  if (view.mode === 'foryou') view.mode = 'recommended';
   view.query = '';
   // "Liked" was a board inside Saved; it is a tab of its own now
   if (view.mode === 'saved' && view.collection === '__liked') Object.assign(view, { mode: 'liked', collection: '' });
@@ -466,7 +468,7 @@
   setInterval(() => { if (META) renderStatus(); }, 60000);
 
   // ---------- modes, directions, boards ----------
-  const MODES = ['foryou', 'recommended', 'latest', 'trending', 'venues', 'surveys', 'saved', 'liked'];
+  const MODES = ['recommended', 'latest', 'trending', 'venues', 'surveys', 'saved', 'liked'];
   const modeCount = (m) => (m === 'saved' ? META.savedTotal : m === 'liked' ? META.likedTotal : 0);
   // the tabs shown here (the phone app has no surveys)
   const shownModes = () => [...$('#modes').querySelectorAll('[data-mode]')].filter((b) => b.offsetParent !== null).map((b) => b.dataset.mode);
@@ -587,7 +589,7 @@
     store.set('ri-feed-view', { mode: view.mode, topic: view.topic, collection: view.collection });
     renderModes();
     renderChips();
-    load(true);
+    return load(true);
   }
   $('#modes').addEventListener('click', (e) => {
     const b = e.target.closest('[data-mode]');
@@ -665,7 +667,7 @@
     META.interests = await api.interests($('#tune-text').value);
     tune.hidden = true;
     renderCold();
-    if (view.mode !== 'foryou') setView({ mode: 'foryou', topic: '' }); else load(true, { fresh: true });
+    if (view.mode !== 'recommended') setView({ mode: 'recommended', topic: '' }); else load(true, { fresh: true });
   });
 
   // ---------- card clicks ----------
@@ -1409,7 +1411,7 @@
     if (open) return openSheet(open.dataset.open);
     if (e.target.closest('[data-abs-toggle]')) { absShowOriginal = !absShowOriginal; return renderAbstract(); }
     const topic = e.target.closest('[data-topic-go]');
-    if (topic) { closeSheet(); return setView({ mode: personal() ? 'foryou' : view.mode, topic: topic.dataset.topicGo }); }
+    if (topic) { closeSheet(); return setView({ mode: personal() ? 'recommended' : view.mode, topic: topic.dataset.topicGo }); }
     if (!e.target.closest('.board-menu') && !e.target.closest('[data-sheet="save"]')) $('.board-menu', sheet)?.remove();
   });
 
@@ -1582,7 +1584,7 @@
   // "For you" with nothing to go on yet (no interests, likes or saves): say how to teach it
   const coldEl = $('#feed-cold');
   function renderCold() {
-    coldEl.hidden = !(META && view.mode === 'foryou' && !view.query && !String(META.interests || '').trim() && !META.savedTotal && !META.likedTotal);
+    coldEl.hidden = !(META && view.mode === 'recommended' && !view.query && !String(META.interests || '').trim() && !META.savedTotal && !META.likedTotal);
   }
   $('#cold-tune').addEventListener('click', (e) => { e.stopPropagation(); scroller.scrollTo({ top: 0, behavior: 'auto' }); $('#tune').click(); });
 
@@ -1645,10 +1647,12 @@
       m.style.transition = 'transform 0.16s ease-in, opacity 0.16s ease-in';
       m.style.transform = `translateX(${dir * 60}px)`;
       m.style.opacity = '0';
-      setTimeout(() => {
-        go(to);
+      setTimeout(async () => {
+        // the new tab's cards are dealt and drawn while nothing moves; then they slide in
         m.style.transition = 'none';
         m.style.transform = `translateX(${-dir * 50}px)`;
+        await Promise.race([Promise.resolve(go(to)), new Promise((r) => setTimeout(r, 700))]).catch(() => {});
+        await new Promise((r) => requestAnimationFrame(r));
         void m.offsetWidth;
         m.style.transition = 'transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s';
         m.style.transform = '';

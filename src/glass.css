@@ -29,7 +29,7 @@ html.fl {
   --platter: #dde5f6;
   --scrim: rgba(0, 0, 0, 0.32);
   --glass-tint: rgba(253, 253, 253, 0.56);
-  --glass-menu: rgba(250, 250, 252, 0.62);
+  --glass-menu: rgba(250, 250, 252, 0.5);
   --glass-line: rgba(0, 0, 0, 0.07);
   --rim-top: 0.85;
   --rim-bot: 0.5;
@@ -97,7 +97,7 @@ html.fl {
     --like-c: #ff453a;
     --platter: #0b0d12;
     --glass-tint: rgba(49, 50, 54, 0.62);
-    --glass-menu: rgba(49, 50, 54, 0.66);
+    --glass-menu: rgba(49, 50, 54, 0.56);
     --glass-line: rgba(0, 0, 0, 0.4);
     --rim-top: 0.32;
     --rim-bot: 0.16;
@@ -149,7 +149,8 @@ html.fl [data-glass] {
   box-shadow: 0 0 0 0.67px var(--glass-line), var(--shadow-float), inset 0 0 4.5px var(--rim-tail);
   isolation: isolate;
 }
-html.fl [data-glass="menu"] { background: var(--glass-menu); box-shadow: 0 0 0 0.67px var(--glass-line), var(--shadow-menu); }
+/* menus: thinner than the bars, so what lies behind shows through bent and saturated, even over a plain card */
+html.fl [data-glass="menu"] { background: var(--glass-menu); box-shadow: 0 0 0 0.67px var(--glass-line), var(--shadow-menu), inset 0 1px 0 rgba(255, 255, 255, calc(var(--rim-top) * 0.6)), inset 0 0 8px var(--rim-tail); }
 /* the lit rim: brightest along the top and bottom, fading round the ends (FlClash lights it by the normal's
    upward part, squared) */
 html.fl [data-glass]::before {
@@ -640,8 +641,23 @@ html.fl .sw-dir .dir-dot { top: 7px; right: 7px; box-shadow: 0 0 0 2px #fff; }
 html.fl .tune-pop { background: color-mix(in srgb, var(--card) 93%, transparent); }
 html.fl .tune-pop textarea, html.fl .tune-pop .ai-input, html.fl .tune-pop .ai-key-row input { background: color-mix(in srgb, var(--on) 6%, var(--card)); }
 html.fl .sw-dir .dir-dot { position: absolute; z-index: 2; }
-/* the directions panel is read, not glanced at: nearly solid, like the form panels */
-html.fl .dir-pop { background: color-mix(in srgb, var(--card) 92%, transparent); }
 html.fl .dir-list button i, html.fl .dir-btn .dir-name i { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16); }
 html.fl.is-mobile .sw-toast { top: calc(var(--sa-top) + 66px); }
 html.fl.is-mobile .share-modal { background: var(--page); }
+
+/* ---------- search, the back arrow, the grid of Saved / Liked ---------- */
+html.fl.is-mobile .sw-top-in { grid-template-columns: minmax(0, 1fr) 42px 42px 42px; gap: 6px; }
+html.fl.is-mobile .swipe.is-player .sw-top-in { grid-template-columns: 42px minmax(0, 1fr) 42px 42px 42px; }
+html.fl.is-mobile .sw-icon { width: 42px; height: 42px; }
+html.fl .sw-search-field { height: 42px; border: 0; border-radius: 999px; background: var(--glass-tint); color: var(--on-2); padding: 0 14px; }
+html.fl .sw-search-field input { color: var(--on); }
+html.fl .sw-search-cancel { height: 42px; padding: 0 16px; border-radius: 999px; color: var(--primary); }
+html.fl .swipe.is-shelf { background: var(--page); }
+html.fl .sw-shelf-grid { gap: 10px; }
+html.fl .sw-tile { border-radius: var(--r-md); background: var(--card); }
+html.fl.is-mobile .sw-shelf { padding: calc(var(--sa-top) + 64px) 10px calc(24px + var(--sa-bottom)); }
+html.fl.is-mobile .sw-shelf-grid { gap: 6px; }
+html.fl.is-mobile .sw-tile { border-radius: 12px; }
+@supports (corner-shape: superellipse(1.5)) { html.fl .sw-tile { corner-shape: superellipse(1.5); } }
+/* on thin glass, quiet grey text vanishes over a colourful figure: inside menus it is a step darker */
+html.fl [data-glass="menu"] { --muted: var(--on-2); }

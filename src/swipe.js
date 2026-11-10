@@ -13,10 +13,10 @@
   const bar = $('#sw-actions'), nav = $('#sw-nav');
   if (!root) return;
   const isMobile = document.documentElement.classList.contains('is-mobile');
-  const MODES = ['recommended', 'foryou', 'latest', 'trending', 'venues', 'saved', 'liked'];
-  // your own papers open in the grid (many at a glance), not here
-  const GRID_MODES = new Set(['saved', 'liked']);
-  const FEEDS = MODES.filter((m) => !GRID_MODES.has(m));
+  const MODES = ['recommended', 'latest', 'trending', 'venues', 'saved', 'liked'];
+  // your own papers: first a grid of them (many at a glance, like a profile page); tap one to read them one at a
+  // time from there
+  const SHELF = new Set(['saved', 'liked']);
   const LIVE = new Set(['recommended']);
   const AHEAD = 4;        // cards dealt after the next one
   const KEEP_FULL = 6;    // cards further back than this lose their contents (they are re-drawn on the way back)
@@ -24,9 +24,11 @@
   const sw = {
     on: false, mode: store.get('ri-sw-mode', 'recommended'), topic: store.get('ri-sw-topic', ''), deck: '', items: [], cards: new Map(),
     idx: -1, maxSeen: -1, loading: false, done: false, token: 0, redealAfter: false, atEnd: false, off: 0,
+    query: '', player: false, // player: reading Saved / Liked one at a time, opened from their grid
   };
-  if (!FEEDS.includes(sw.mode)) sw.mode = 'recommended';
-  const live = () => LIVE.has(sw.mode);
+  if (!MODES.includes(sw.mode)) sw.mode = 'recommended'; // "For you" is part of Recommended now
+  const live = () => LIVE.has(sw.mode) && !sw.query;
+  const shelfOn = () => SHELF.has(sw.mode) && !sw.query && !sw.player;
 
   // ---------- time on each card ----------
   // Counted only while the card is the one on screen, the app is visible and no paper is open on top.
@@ -129,12 +131,23 @@
     drawAround();
   }
   // cards near the current one carry their full contents; far ones are emptied (they are all the same height)
+  // The card on screen and the next one (which shows during a swipe) are drawn at once; the others around them
+  // when the page has a moment, so a new tab or batch does not hold up the first frames.
+  let drawLater = 0;
+  const idle = window.requestIdleCallback ? (fn) => requestIdleCallback(fn, { timeout: 250 }) : (fn) => setTimeout(fn, 60);
+  const cancelIdle = window.cancelIdleCallback || clearTimeout;
   function drawAround() {
-    const lo = Math.max(0, sw.idx - 2), hi = sw.idx + AHEAD + 2;
-    track.querySelectorAll('.sw-card').forEach((el) => {
-      const i = +el.dataset.i;
-      if (i >= lo && i <= hi) draw(i);
-      else if (i < sw.idx - KEEP_FULL && el.dataset.drawn === '1') { el.innerHTML = ''; el.dataset.drawn = ''; }
+    const cur = Math.max(0, sw.idx);
+    draw(cur);
+    draw(cur + 1);
+    cancelIdle(drawLater);
+    drawLater = idle(() => {
+      const lo = Math.max(0, sw.idx - 2), hi = sw.idx + AHEAD + 2;
+      track.querySelectorAll('.sw-card').forEach((el) => {
+        const i = +el.dataset.i;
+        if (i >= lo && i <= hi) draw(i);
+        else if (i < sw.idx - KEEP_FULL && el.dataset.drawn === '1') { el.innerHTML = ''; el.dataset.drawn = ''; }
+      });
     });
   }
   function endCard() {
@@ -144,7 +157,7 @@
   }
   function emptyCard() {
     const st = F.META.status;
-    const msg = !st.count ? `<b>${esc(t('firstRunTitle'))}</b><br>${esc(t('firstRun'))}` : esc(t(sw.mode === 'saved' ? 'emptySaved' : 'emptyFeed'));
+    const msg = !st.count ? `<b>${esc(t('firstRunTitle'))}</b><br>${esc(t('firstRun'))}` : esc(t(sw.query ? 'swNoResults' : 'emptyFeed'));
     track.innerHTML = `<section class="sw-card sw-end"><div class="sw-end-box"><p>${msg}</p></div></section>`;
     paintBar();
   }
@@ -158,7 +171,7 @@
     }
   }, { root: track, threshold: [0.6] });
 
-  function activate(i) {
+  function activate(i, { restored = false } = {}) {
     if (!sw.on || !sw.items[i] || (i === sw.idx && !sw.atEnd)) return;
     const prev = sw.atEnd ? sw.items.length : sw.idx;
     sw.atEnd = false;
@@ -172,7 +185,7 @@
     drawAround();
     prefetch(i);
     if (i > 0) hideHint();
-    if (live() && i > prev) scheduleRedeal();
+    if (live() && i > prev && !restored) scheduleRedeal();
     else if (!live() && !sw.done && i >= sw.items.length - 3) more();
     if (sw.done && i >= sw.items.length - 1) endCard();
   }
@@ -202,7 +215,6 @@
     };
     set('like', c.liked, String(likeCount(c) || t('like')));
     set('save', c.saved, c.saved ? t('swSaved') : t('save'));
-    set('ai', c.hasTake);
     set('hide', c.hiddenNow, c.hiddenNow ? t('swUndo') : t('hide'));
   }
   // a little bounce on the button that just changed
@@ -223,6 +235,7 @@
     const kind = b.dataset.sw;
     if (kind === 'like') like(c);
     else if (kind === 'save') save(c);
+    else if (kind === 'share') window.RIShare?.open(c);
     else if (kind === 'ai') ai(c);
     else if (kind === 'open') open(c);
     else if (kind === 'hide') {
@@ -240,13 +253,22 @@
   });
 
   // ---------- dealing ----------
+  // a search looks through every paper (any non-personal tab ranks a search the same way)
   const baseParams = () => ({
-    mode: sw.mode, topic: sw.topic, query: '', collection: '', slot: 'swipe', withAbstract: true,
+    mode: sw.query ? 'latest' : sw.mode, topic: sw.query ? '' : sw.topic, query: sw.query, collection: '', slot: 'swipe', withAbstract: true,
     ...(live() ? { focusAuto: true, div: 0.6, exploreEvery: 8, anchorCap: 3, capWindow: 3 } : {}),
   });
   async function reset({ fresh = false } = {}) {
     viewEnd();
     const token = ++sw.token;
+    paintChrome();
+    if (shelfOn()) {
+      Object.assign(sw, { items: [], idx: -1, maxSeen: -1, done: true, loading: false, atEnd: false });
+      io.disconnect();
+      track.innerHTML = '';
+      paintBar();
+      return loadShelf({ fresh });
+    }
     Object.assign(sw, { items: [], idx: -1, maxSeen: -1, done: false, loading: true, redealAfter: false, atEnd: false, off: 0, deck: fresh ? '' : sw.deck });
     io.disconnect();
     track.innerHTML = `<section class="sw-card sw-end"><div class="sw-end-box"><p class="sw-loading">${esc(t('swLoading'))}</p></div></section>`;
@@ -324,7 +346,12 @@
     if (!want.length) return;
     const res = await api.trTitles(want);
     if (res?.error) return;
-    for (const [id, zh] of Object.entries(res.titles || {})) { const c = sw.cards.get(id); if (c) { c.title_zh = zh; redraw(id); } }
+    for (const [id, zh] of Object.entries(res.titles || {})) { const c = sw.cards.get(id); if (c) { c.title_zh = zh; redraw(id); retitle(id); } }
+  }
+  // a tile in the grid of Saved / Liked shows the Chinese title once it is there
+  function retitle(id) {
+    const el = shelfGrid.querySelector(`[data-id="${CSS.escape(id)}"] .sw-tile-title`), c = sw.cards.get(id);
+    if (el && c) el.innerHTML = titleMath(F.trOn && c.title_zh ? c.title_zh : c.title);
   }
   function translateAbstracts(i) {
     for (const id of sw.items.slice(i, i + 2)) {
@@ -339,6 +366,8 @@
     if (!c || !cover) return;
     c.cover = cover;
     redraw(id);
+    const tile = shelfGrid.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    if (tile) { tile.outerHTML = tileHtml(c, +tile.dataset.tile); wireFigure(shelfGrid); }
   });
   api.on('feed:tr', (ev) => {
     const c = ev.id && sw.cards.get(ev.id);
@@ -346,10 +375,10 @@
     if (ev.title) c.title_zh = ev.title;
     if (ev.abstract) { c.abstract_zh = ev.abstract; c.trPending = false; }
     if (ev.abstractError) c.trPending = false;
-    if (F.trOn && (ev.title || ev.abstract)) redraw(ev.id);
+    if (F.trOn && (ev.title || ev.abstract)) { redraw(ev.id); if (ev.title) retitle(ev.id); }
   });
   api.on('feed:batch', (b) => {
-    if (!sw.on) return;
+    if (!sw.on || shelfOn()) return;
     if (!sw.items.length && !sw.loading) return reset();
     // papers that arrived meanwhile are mixed into the cards still to come; at the end, they are the next ones
     if (b?.added > 0 && sw.done && !live() && !sw.loading) { sw.done = false; more(); }
@@ -482,19 +511,176 @@
   $('#sw-modes').addEventListener('click', (e) => {
     const b = e.target.closest('[data-sw-mode]');
     if (!b) return;
-    if (GRID_MODES.has(b.dataset.swMode)) return F.showMode(b.dataset.swMode);
-    if (b.dataset.swMode === sw.mode) return reset({ fresh: true }); // the open tab again = a new batch
+    if (b.dataset.swMode === sw.mode && !sw.query) {
+      if (sw.player) return closePlayer(); // Saved / Liked again while reading them: back to their grid
+      return reset({ fresh: true }); // the open tab again = a new batch
+    }
     setMode(b.dataset.swMode);
   });
   function setMode(m) {
+    if (searchOpen || sw.query) { searchOpen = false; sw.query = ''; qInput.blur(); }
+    park();
     sw.mode = m;
+    sw.player = false;
+    shelf.mode = ''; // a grid of your papers is read afresh when you come to it from another tab
     sw.deck = '';
     store.set('ri-sw-mode', sw.mode);
     renderModes();
-    reset();
+    // the tab marker starts moving first; the cards follow a frame later
+    return new Promise((done) => requestAnimationFrame(() => setTimeout(() => done(unpark() || reset()), 0)));
   }
-  // a deliberate sideways swipe: the tab before or after (your own papers are left out: they open the grid)
-  F.sideSwipe?.(track, { tabs: () => FEEDS, current: () => sw.mode, go: setMode, moveEl: () => track, skip: '.sw-actions' });
+
+  // ---------- each tab keeps its place ----------
+  // Going back to a tab shows the same cards at the same place at once: its cards are put aside when you leave
+  // it, not dealt and drawn again when you return (as in a short-video app). One left for over 15 minutes, or
+  // refreshed, starts afresh.
+  const parked = new Map(); // mode|direction -> { frag, t, state }
+  const parkKey = () => `${sw.mode}|${sw.topic}`;
+  function park() {
+    if (!sw.items.length || sw.player || sw.query || shelfOn()) return;
+    viewEnd();
+    cancelIdle(drawLater);
+    const frag = document.createDocumentFragment();
+    track.querySelectorAll('.sw-card').forEach((el) => { io.unobserve(el); el.classList.remove('is-active'); frag.appendChild(el); });
+    parked.set(parkKey(), { frag, t: Date.now(), state: { items: sw.items.slice(), idx: sw.idx, maxSeen: sw.maxSeen, done: sw.done, off: sw.off, deck: sw.deck } });
+    if (parked.size > 6) parked.delete(parked.keys().next().value);
+  }
+  function unpark() {
+    const key = parkKey(), p = parked.get(key);
+    parked.delete(key);
+    if (!p || Date.now() - p.t > 15 * 60e3 || shelfOn() || sw.query) return false;
+    sw.token++;
+    Object.assign(sw, p.state, { idx: -1, atEnd: false, loading: false, redealAfter: false });
+    paintChrome();
+    io.disconnect();
+    track.innerHTML = '';
+    track.appendChild(p.frag);
+    track.querySelectorAll('.sw-card').forEach((el) => io.observe(el));
+    const i = Math.max(0, Math.min(p.state.idx, sw.items.length - 1));
+    track.scrollTop = i * track.clientHeight;
+    activate(i, { restored: true });
+    return true;
+  }
+  // a deliberate sideways swipe: the tab before or after
+  F.sideSwipe?.(track, { tabs: () => MODES, current: () => sw.mode, go: setMode, moveEl: () => track, skip: '.sw-actions' });
+
+  // the view's own state shows in its chrome: a grid of your papers, reading them, searching
+  function paintChrome() {
+    const shelfShown = shelfOn();
+    root.classList.toggle('is-shelf', shelfShown);
+    root.classList.toggle('is-player', sw.player && !sw.query);
+    root.classList.toggle('is-search', searchOpen);
+    shelfEl.hidden = !shelfShown;
+    searchForm.hidden = !searchOpen;
+    const back = $('#sw-back');
+    back.hidden = !(sw.player && !sw.query) || searchOpen;
+    // Android's back button closes the search first, then the paper you are reading from the grid
+    back.toggleAttribute('data-back-close', !back.hidden);
+    $('#sw-search-cancel').toggleAttribute('data-back-close', searchOpen);
+  }
+
+  // ---------- Saved / Liked: a grid of your papers; tap one to read them one at a time from there ----------
+  const shelfEl = $('#sw-shelf'), shelfGrid = $('#sw-shelf-grid'), shelfEmpty = $('#sw-shelf-empty');
+  const shelf = { mode: '', items: [], off: 0, done: false, loading: false, token: 0 };
+  function tileHtml(c, i) {
+    const zh = F.trOn && c.title_zh;
+    return `<button type="button" class="sw-tile${c.cover?.url ? ' has-fig' : ''}" data-tile="${i}" data-id="${esc(c.id)}">${coverHtml(c, { ratio: false })}<span class="sw-tile-title">${titleMath(zh ? c.title_zh : c.title)}</span></button>`;
+  }
+  async function loadShelf({ fresh = false } = {}) {
+    if (!fresh && shelf.mode === sw.mode && shelf.items.length) return; // back from reading them: the grid as it was
+    shelf.token++;
+    Object.assign(shelf, { mode: sw.mode, items: [], off: 0, done: false, loading: false });
+    shelfGrid.innerHTML = '';
+    shelfEmpty.hidden = true;
+    shelfEl.scrollTop = 0;
+    await shelfMore();
+  }
+  async function shelfMore() {
+    if (shelf.loading || shelf.done || !shelfOn()) return;
+    shelf.loading = true;
+    const token = shelf.token, mode = sw.mode;
+    const res = await api.list({ ...baseParams(), offset: shelf.off, limit: 36 });
+    shelf.loading = false;
+    if (token !== shelf.token || mode !== sw.mode) return;
+    const from = shelf.items.length;
+    for (const c of res.items) { sw.cards.set(c.id, { ...(sw.cards.get(c.id) || {}), ...c }); shelf.items.push(c.id); }
+    shelf.off += res.items.length;
+    shelf.done = shelf.off >= res.total || !res.items.length;
+    shelfGrid.insertAdjacentHTML('beforeend', res.items.map((c, k) => tileHtml(sw.cards.get(c.id), from + k)).join(''));
+    wireFigure(shelfGrid);
+    shelfEmpty.textContent = t(sw.mode === 'liked' ? 'shelfEmptyLiked' : 'shelfEmptySaved');
+    shelfEmpty.hidden = shelf.items.length > 0;
+    const noCover = res.items.filter((c) => !c.cover).map((c) => c.id);
+    if (noCover.length) api.covers(noCover);
+    if (F.trOn) translateTitles(res.items.map((c) => c.id));
+  }
+  new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) shelfMore(); }, { root: shelfEl, rootMargin: '700px 0px' }).observe($('#sw-shelf-more'));
+  shelfGrid.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tile]');
+    if (b) openPlayer(+b.dataset.tile);
+  });
+  F.sideSwipe?.(shelfEl, { tabs: () => MODES, current: () => sw.mode, go: setMode, moveEl: () => shelfGrid });
+  function openPlayer(i) {
+    if (!shelf.items[i]) return;
+    viewEnd();
+    sw.token++;
+    sw.player = true;
+    Object.assign(sw, { items: [], idx: -1, maxSeen: -1, done: shelf.done, loading: false, redealAfter: false, atEnd: false, off: shelf.off, deck: '' });
+    paintChrome();
+    io.disconnect();
+    track.innerHTML = '';
+    append(shelf.items.map((id) => sw.cards.get(id)), 0);
+    track.scrollTop = i * track.clientHeight;
+    activate(i);
+    track.focus({ preventScroll: true });
+  }
+  function closePlayer() {
+    if (!sw.player) return;
+    const last = sw.items[sw.idx];
+    viewEnd();
+    sw.token++;
+    sw.player = false;
+    Object.assign(sw, { items: [], idx: -1, atEnd: false });
+    io.disconnect();
+    track.innerHTML = '';
+    paintChrome();
+    paintBar();
+    shelfGrid.querySelector(`[data-id="${CSS.escape(last || '')}"]`)?.scrollIntoView({ block: 'nearest' });
+  }
+  $('#sw-back').addEventListener('click', closePlayer);
+
+  // ---------- search: the results one at a time, like any other tab ----------
+  const searchForm = $('#sw-search'), qInput = $('#sw-q');
+  let searchOpen = false;
+  $('#sw-search-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeMenu();
+    F.closeDirs?.();
+    searchOpen = true;
+    paintChrome();
+    qInput.value = sw.query;
+    qInput.focus();
+  });
+  function closeSearch() {
+    const had = !!sw.query;
+    searchOpen = false;
+    sw.query = '';
+    qInput.blur();
+    paintChrome();
+    if (had) { sw.deck = ''; reset(); }
+  }
+  $('#sw-search-cancel').addEventListener('click', closeSearch);
+  searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = qInput.value.trim();
+    qInput.blur();
+    if (!q) return closeSearch();
+    if (q === sw.query) return;
+    sw.query = q;
+    sw.player = false;
+    sw.deck = '';
+    reset();
+  });
   // ---------- directions (the categories of the grid view): one button opens them all ----------
   const dirBtn = $('#sw-dir');
   function renderChips() {
@@ -507,12 +693,13 @@
     closeMenu();
     F.openDirs(dirBtn, sw.topic, (id) => {
       if (id === sw.topic) return;
+      park();
       sw.topic = id;
       sw.deck = '';
       store.set('ri-sw-topic', sw.topic);
       renderChips();
       flash(id ? topicLabel(id) : t('dirAll'));
-      reset();
+      if (!unpark()) reset();
     });
   });
 
@@ -589,6 +776,7 @@
     renderMenu();
     if (!sw.items.length) reset();
     else {
+      paintChrome();
       track.scrollTop = restIndex() * track.clientHeight;
       if (sw.idx >= 0 && !sw.atEnd) viewStart(sw.items[sw.idx], false);
       paintBar();
@@ -628,6 +816,8 @@
     if (!sw.on || !$('#sheet').hidden) return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) return;
     if (!$('#tune-pop').hidden || !$('#ai-pop').hidden) return;
+    if (e.key === 'Escape' && searchOpen) { e.preventDefault(); return closeSearch(); }
+    if (e.key === 'Escape' && sw.player) { e.preventDefault(); return closePlayer(); }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     // Enter / Space on a focused button press that button, not the shortcut as well

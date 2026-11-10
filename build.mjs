@@ -121,7 +121,7 @@ const I18N = {
 const FEED = {
   en: {
     title: 'Papers', searchPapers: 'Search papers', interests: 'Interests', refresh: 'Refresh',
-    mode_foryou: 'For you', mode_recommended: 'Recommended', mode_latest: 'Latest', mode_trending: 'Trending', mode_surveys: 'Surveys', mode_saved: 'Saved', mode_liked: 'Liked', dirAll: 'All directions', dirPick: 'Show papers in',
+    mode_foryou: 'For you', mode_recommended: 'For you', mode_latest: 'Latest', mode_trending: 'Trending', mode_surveys: 'Surveys', mode_saved: 'Saved', mode_liked: 'Liked', dirAll: 'All directions', dirPick: 'Show papers in',
     mode_venues: 'Top venues', modeTip_venues: 'Accepted at a top conference or journal (NeurIPS, ICML, ICLR, CVPR, ACL, EMNLP, Nature…), as the authors say on arXiv; workshops not included',
     all: 'All', survey: 'Survey',
     count: '{n} papers', updated: 'updated {rel}', never: 'not fetched yet', justNow: 'just now',
@@ -140,7 +140,7 @@ const FEED = {
     view_swipe: 'One at a time', viewTip: 'One paper at a time, full screen (V)', view_grid: 'Grid',
     swMore: 'More', swHint: 'Swipe up for the next paper', swHintDesk: 'Scroll, or press ↓, for the next paper',
     swEnd: 'That is everything in this view for now.', swNewBatch: 'New batch', swOpen: 'Open',
-    swHidden: 'Got it: fewer papers like this.', swUndo: 'Undo', swLoading: 'Picking papers…', swAi: 'AI take',
+    swHidden: 'Got it: fewer papers like this.', swUndo: 'Undo', swLoading: 'Picking papers…', swAi: 'AI take', swShare: 'Share', swSearch: 'Search', swSearchCancel: 'Cancel', swBack: 'Back to the list', swNoResults: 'No papers match. Try fewer or other words.', shelfEmptySaved: 'Papers you save show up here.', shelfEmptyLiked: 'Papers you like show up here.',
     swKeys: '↑ ↓ previous / next · Enter open · L like · S save · A AI take · X not interested · V grid',
     swSurveys: 'Surveys', swLiked: 'Liked', swSaved: 'Saved',
     directions: 'Directions',
@@ -149,7 +149,7 @@ const FEED = {
     shareScan: 'Scan to read the paper', shareGet: 'Get Research Index', shareApp: 'Research Index · papers, one at a time',
     swPrev: 'Previous paper', swNext: 'Next paper', swActions: 'This paper',
     modeTip_foryou: 'Your interests and saved papers. A new batch on each refresh.',
-    modeTip_recommended: 'Follows what you read: open a paper, come back, and the cards below change to match.',
+    modeTip_recommended: 'Learns from your interests, likes and saves, and from what you read right now: the papers ahead change to match. A new batch on each refresh.',
     basis: 'Following what you just read', basisCold: 'Open any paper that catches your eye. This tab follows what you read and changes as you go.',
     etal: '{name} et al.', moreAuthors: '+{n} more',
     like: 'Like', liked: 'Liked', save: 'Save', savedTo: 'Saved', hide: 'Not interested', close: 'Close',
@@ -200,7 +200,7 @@ const FEED = {
   },
   zh: {
     title: '论文', searchPapers: '搜索论文', interests: '兴趣', refresh: '刷新',
-    mode_foryou: '推荐', mode_recommended: '猜你喜欢', mode_latest: '最新', mode_trending: '热门', mode_surveys: '综述', mode_saved: '收藏', mode_liked: '喜欢', dirAll: '全部方向', dirPick: '只看这个方向',
+    mode_foryou: '推荐', mode_recommended: '推荐', mode_latest: '最新', mode_trending: '热门', mode_surveys: '综述', mode_saved: '收藏', mode_liked: '喜欢', dirAll: '全部方向', dirPick: '只看这个方向',
     mode_venues: '顶会顶刊', modeTip_venues: '作者在 arXiv 上注明已被顶级会议或期刊录用（NeurIPS、ICML、ICLR、CVPR、ACL、EMNLP、Nature 等），不含 workshop',
     all: '全部', survey: '综述',
     count: '{n} 篇论文', updated: '{rel}更新', never: '尚未获取', justNow: '刚刚',
@@ -219,7 +219,7 @@ const FEED = {
     view_swipe: '单篇浏览', viewTip: '一次看一篇，全屏浏览（V）', view_grid: '多篇浏览',
     swMore: '更多', swHint: '上滑看下一篇', swHintDesk: '滚动或按 ↓ 看下一篇',
     swEnd: '这一栏暂时看完了。', swNewBatch: '换一批', swOpen: '展开',
-    swHidden: '好的，将减少此类推荐。', swUndo: '撤销', swLoading: '正在挑选论文…', swAi: 'AI 解读',
+    swHidden: '好的，将减少此类推荐。', swUndo: '撤销', swLoading: '正在挑选论文…', swAi: 'AI 解读', swShare: '分享', swSearch: '搜索', swSearchCancel: '取消', swBack: '返回列表', swNoResults: '没有匹配的论文，换几个词试试。', shelfEmptySaved: '收藏的论文会出现在这里。', shelfEmptyLiked: '点过喜欢的论文会出现在这里。',
     swKeys: '↑ ↓ 上一篇 / 下一篇 · Enter 展开 · L 喜欢 · S 收藏 · A AI 解读 · X 不感兴趣 · V 多篇浏览',
     swSurveys: '综述', swLiked: '已喜欢', swSaved: '已收藏',
     directions: '方向',
@@ -228,7 +228,7 @@ const FEED = {
     shareScan: '扫码阅读论文', shareGet: '下载 研究索引', shareApp: '研究索引 · 一次读一篇论文',
     swPrev: '上一篇', swNext: '下一篇', swActions: '这篇论文',
     modeTip_foryou: '按你的兴趣和收藏推荐，每次刷新换一批。',
-    modeTip_recommended: '跟着你看的内容走：点开一篇论文再返回，下面的卡片会随之调整。',
+    modeTip_recommended: '结合你的兴趣、喜欢和收藏，也跟着你此刻在看的内容走：后面的论文会随之调整。每次刷新换一批。',
     basis: '正在参考你刚看过的', basisCold: '点开任意感兴趣的论文。这一栏会跟着你看的内容实时调整。',
     etal: '{name} 等', moreAuthors: '等 {n} 人',
     like: '喜欢', liked: '已喜欢', save: '收藏', savedTo: '已收藏', hide: '不感兴趣', close: '关闭',
@@ -765,6 +765,7 @@ function papersPage(L, config) {
     mark: svg('M6 3.5h12v17l-6-4.2-6 4.2z'),
     spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l1.9 6.9 6.9 1.9-6.9 1.9-1.9 6.9-1.9-6.9L3.2 12l6.9-1.9z" fill="currentColor"/></svg>',
     open: svg('M7.5 16.5l9-9M9 7h8.5v8.5'),
+    share: svg('M12 14.5V3.8M7.6 8.2L12 3.8l4.4 4.4M5.5 11.5v8.5h13v-8.5', ' stroke-linejoin="round"'),
     hide: svg('M6.5 6.5l11 11M17.5 6.5l-11 11'),
     up: svg('M5.5 15l6.5-6.5 6.5 6.5'),
     down: svg('M5.5 9l6.5 6.5 6.5-6.5'),
@@ -774,7 +775,10 @@ function papersPage(L, config) {
   <header class="sw-top">
     <div class="sw-top-in">
       <button class="sw-icon" type="button" id="sw-grid" data-glass="round" aria-label="${F.view_grid}" title="${F.view_grid} (V)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      <button class="sw-icon sw-back" type="button" id="sw-back" data-glass="round" aria-label="${F.swBack}" title="${F.swBack}" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div class="sw-modes-wrap" data-glass="pill"><nav class="sw-modes" id="sw-modes" aria-label="${F.title}"></nav></div>
+      <button class="sw-icon sw-search-btn" type="button" id="sw-search-btn" data-glass="round" aria-label="${F.swSearch}" title="${F.swSearch}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.2 15.2l4.6 4.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+      <form class="sw-search" id="sw-search" role="search" hidden><label class="sw-search-field" data-glass="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.2 15.2l4.6 4.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><input type="search" id="sw-q" enterkeyhint="search" placeholder="${F.searchPapers}" autocomplete="off" spellcheck="false" aria-label="${F.searchPapers}"></label><button type="button" class="sw-search-cancel" id="sw-search-cancel" data-glass="pill">${F.swSearchCancel}</button></form>
       <button class="sw-icon sw-dir" type="button" id="sw-dir" data-glass="round" data-pop-opener aria-haspopup="dialog" aria-expanded="false" aria-label="${F.directions}" title="${F.directions}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><i class="dir-dot" hidden></i></button>
       <button class="sw-icon" type="button" id="sw-menu-btn" data-glass="round" data-pop-opener aria-label="${F.swMore}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="square"/></svg></button>
       <div class="sw-menu" id="sw-menu" data-glass="menu" data-pop hidden>
@@ -786,7 +790,6 @@ function papersPage(L, config) {
         <button type="button" data-sw-menu="tr">${F.translate}<span class="sw-check" aria-hidden="true"></span></button>
         <button type="button" data-sw-menu="tune">${F.interests}</button>
         <button type="button" data-sw-menu="ai">${F.aiTitle}</button>
-        <button type="button" data-sw-menu="share">${F.share}</button>
         <button type="button" data-sw-menu="about">${I18N[L].client.about}</button>
         <button type="button" data-sw-menu="grid">${F.view_grid}<kbd>V</kbd></button>
       </div>
@@ -794,6 +797,7 @@ function papersPage(L, config) {
   </header>
   <div class="sw-stage">
     <div class="sw-track" id="sw-track" tabindex="-1"></div>
+    <div class="sw-shelf" id="sw-shelf" hidden><div class="sw-shelf-grid" id="sw-shelf-grid"></div><p class="sw-shelf-empty" id="sw-shelf-empty" hidden></p><div class="sw-shelf-more" id="sw-shelf-more"></div></div>
     <div class="sw-nav" id="sw-nav">
       <button type="button" data-sw-go="-1" data-glass="round" aria-label="${F.swPrev}" title="${F.swPrev} (↑)">${SWI.up}</button>
       <button type="button" data-sw-go="1" data-glass="round" aria-label="${F.swNext}" title="${F.swNext} (↓)">${SWI.down}</button>
@@ -805,7 +809,7 @@ function papersPage(L, config) {
   <div class="sw-actions is-off" id="sw-actions" data-glass="dock" role="toolbar" aria-label="${F.swActions}">
     ${act('like', SWI.heart, F.like, ` aria-pressed="false" title="${F.like} (L)"`)}
     ${act('save', SWI.mark, F.save, ` aria-pressed="false" title="${F.save} (S)"`)}
-    ${act('ai', SWI.spark, F.swAi, ` title="${F.swAi} (A)"`)}
+    ${act('share', SWI.share, F.swShare, ` title="${F.share}"`)}
     ${act('open', SWI.open, F.swOpen, ` title="${F.swOpen} (Enter)"`)}
     ${act('hide', SWI.hide, F.hide, ` aria-pressed="false" title="${F.hide} (X)"`)}
   </div>
