@@ -458,3 +458,21 @@ body.swipe-on .scroller > main { animation: none; }
 .is-mobile .sw-tile-title { font-size: 11.5px; padding: 22px 7px 0; border-bottom-width: 7px; }
 /* a hidden button in the top row stays hidden (.sw-icon sets display) */
 .sw-top-in [hidden] { display: none !important; }
+
+/* the search field: focus shows on the whole pill, not as a box inside it */
+.sw-search-field input:focus, .sw-search-field input:focus-visible, html.fl .sw-search-field input:focus-visible { outline: none; }
+.sw-search-field:focus-within { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); color: var(--blue); }
+/* opening: the field grows out of the search button, Cancel follows; closing runs it back */
+.swipe.is-search .sw-search-field { animation: swSearchIn 0.46s cubic-bezier(0.2, 0.9, 0.25, 1.08) both; }
+.swipe.is-search .sw-search-cancel { animation: swCancelIn 0.32s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.swipe.is-search-out .sw-search-field { animation: swSearchOut 0.2s cubic-bezier(0.4, 0, 1, 1) both; }
+.swipe.is-search-out .sw-search-cancel { animation: swCancelOut 0.16s ease-in both; }
+.swipe.is-search-back .sw-top-in > :not([hidden]):not(.sw-menu) { animation: swBackIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes swSearchIn { from { clip-path: inset(0 0 0 calc(100% - 140px) round 999px); opacity: 0.4; } to { clip-path: inset(0 0 0 0 round 999px); opacity: 1; } }
+@keyframes swSearchOut { to { clip-path: inset(0 0 0 calc(100% - 140px) round 999px); opacity: 0; } }
+@keyframes swCancelIn { from { opacity: 0; transform: translateX(16px) scale(0.92); } }
+@keyframes swCancelOut { to { opacity: 0; transform: translateX(12px) scale(0.94); } }
+@keyframes swBackIn { from { opacity: 0; transform: scale(0.94); } }
+@media (prefers-reduced-motion: reduce) {
+  .swipe.is-search .sw-search-field, .swipe.is-search .sw-search-cancel, .swipe.is-search-out .sw-search-field, .swipe.is-search-out .sw-search-cancel, .swipe.is-search-back .sw-top-in > * { animation: none; }
+}

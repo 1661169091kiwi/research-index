@@ -22,6 +22,7 @@ export function setupFeed({ userDataDir, getWindow }) {
   const service = createFeedService({
     store, keys, send,
     providers: {
+      fetch: (url, init) => net.fetch(url, init), // the balance lookup (follows the Windows proxy)
       deepseek: { summarize: summarizeDeepSeek, stream: streamDeepSeek, complete: completeDeepSeek, classify: classifyDeepSeekError, defaults: DEEPSEEK_DEFAULTS },
       claude: { summarize: summarizeClaude, stream: streamClaude, complete: completeClaude, classify: classifyClaudeError, model: CLAUDE_MODEL },
     },

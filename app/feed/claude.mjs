@@ -34,7 +34,7 @@ function getClient(apiKey) {
 }
 
 // One-shot completion at low effort (used for translation).
-export async function completeClaude({ apiKey, system, user, maxTokens = 8000 }) {
+export async function completeClaude({ apiKey, system, user, maxTokens = 8000, onUsage }) {
   const msg = await getClient(apiKey).beta.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: maxTokens,
@@ -44,6 +44,7 @@ export async function completeClaude({ apiKey, system, user, maxTokens = 8000 })
     system,
     messages: [{ role: 'user', content: user }],
   });
+  if (msg.usage) onUsage?.(msg.usage, msg.model);
   if (msg.stop_reason === 'refusal') throw Object.assign(new Error('refusal'), { code: 'refusal', detail: msg.stop_details?.explanation || '' });
   return msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
 }
@@ -76,7 +77,7 @@ export function streamClaude({ apiKey, system, messages, effort = 'medium', onTe
     const cost = ((u.input_tokens || 0) + 1.25 * (u.cache_creation_input_tokens || 0) + 0.1 * (u.cache_read_input_tokens || 0)) * PRICE_PER_MTOK.input / 1e6
       + (u.output_tokens || 0) * PRICE_PER_MTOK.output / 1e6;
     return {
-      text, provider: 'claude', model: msg.model, truncated: msg.stop_reason === 'max_tokens', cost,
+      text, provider: 'claude', model: msg.model, truncated: msg.stop_reason === 'max_tokens', cost, usage: msg.usage,
       tokens: { input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0), output: u.output_tokens || 0 },
     };
   });

@@ -165,6 +165,18 @@ const FEED = {
     webOnly: 'The paper feed runs inside the Research Index desktop app. Open it there to browse, like and save papers.',
     translate: 'Translate to 中文', trNeedsKey: 'translation needs an API key (AI settings)', trAbstracting: 'Translating…',
     showOriginal: 'Show original', showTranslation: 'Show Chinese', trFailed: 'Translation failed: {message}',
+    usageMenu: 'AI usage', usageTitle: 'AI usage', usageBalance: 'DeepSeek balance', usageAvailable: 'Available', usageUnavailable: 'Too low to call the API',
+    usageToppedUp: 'Topped up {v}', usageGranted: 'Granted {v}', usageUpdated: 'Updated {rel}', usageRefresh: 'Refresh balance', usageChecking: 'Checking…',
+    usageNoKey: 'Add a DeepSeek key in AI settings to see its balance here.', usageAddKey: 'Open AI settings', usageBalanceFailed: 'Could not read the balance ({why}).',
+    usageApp: 'This app · {range}', usageToday: 'Today', usageCache: 'Cache hits', usageCacheHint: 'Repeated parts of a request (the paper, earlier questions) are billed at about 2% of the price.',
+    usageDaily: 'Spent per day', usageTable: 'Table', usageChart: 'Chart', usageDate: 'Date', usageTotal: 'Total',
+    usageKind_take: 'AI takes', usageKind_chat: 'Questions', usageKind_translate: 'Translation',
+    usageTokens: 'Tokens', usageIn: 'Input', usageInCached: '{n} cached', usageOut: 'Output', usageCalls: '{n} calls',
+    usageOutside: 'Used elsewhere with this key', usageOutsideNote: 'An estimate: how far the balance fell between readings, minus what this app spent. A reading is taken each time this panel opens.',
+    usageOutsideWait: 'Needs two balance readings: open this panel again later.', usageEmpty: 'No AI calls from this app in this period.',
+    usagePeakNow: 'Peak hours now', usageOffPeakNow: 'Off-peak now · half price',
+    usagePriceNote: 'Costs are worked out from the tokens each call used and DeepSeek’s published prices ({model}, per 1M tokens: {hit} cache hit · {miss} input · {out} output; half price off-peak). The balance is DeepSeek’s own figure. Calls that were stopped part-way are not counted.',
+    usageRange: '{n} days', usageOpen: 'Usage & balance',
     ai: 'AI', aiTitle: 'AI settings', aiProvider: 'Model provider',
     hideAsk: 'Not interested in this paper?', hideAskText: 'You will see fewer papers like it. You can undo it on the card.', cancel: 'Cancel',
     aiKeyFor: '{provider} API key', aiKeyPh: 'sk-…', aiKeySave: 'Save key', aiKeyRemove: 'Remove key',
@@ -244,6 +256,18 @@ const FEED = {
     webOnly: '论文流需要在 Research Index 桌面应用中使用。请在应用里浏览、点赞和收藏论文。',
     translate: '中文翻译', trNeedsKey: '翻译需要在 AI 设置中添加 API 密钥', trAbstracting: '正在翻译…',
     showOriginal: '显示原文', showTranslation: '显示译文', trFailed: '翻译失败：{message}',
+    usageMenu: 'AI 用量', usageTitle: 'AI 用量', usageBalance: 'DeepSeek 余额', usageAvailable: '可用', usageUnavailable: '余额不足，无法调用',
+    usageToppedUp: '充值 {v}', usageGranted: '赠送 {v}', usageUpdated: '{rel}更新', usageRefresh: '刷新余额', usageChecking: '正在查询…',
+    usageNoKey: '在 AI 设置里添加 DeepSeek 密钥后，这里会显示余额。', usageAddKey: '打开 AI 设置', usageBalanceFailed: '没能读取余额（{why}）。',
+    usageApp: '本应用 · {range}', usageToday: '今天', usageCache: '缓存命中', usageCacheHint: '请求里重复的部分（论文、之前的提问）按约 2% 的价格计费。',
+    usageDaily: '每日花费', usageTable: '表格', usageChart: '图表', usageDate: '日期', usageTotal: '合计',
+    usageKind_take: 'AI 解读', usageKind_chat: '提问', usageKind_translate: '翻译',
+    usageTokens: 'Tokens', usageIn: '输入', usageInCached: '缓存 {n}', usageOut: '输出', usageCalls: '{n} 次调用',
+    usageOutside: '这个密钥在别处的花费', usageOutsideNote: '估算值：两次读数之间余额减少的部分，减去本应用的花费。每次打开这个面板都会读一次余额。',
+    usageOutsideWait: '需要两次余额读数：过一段时间再打开这个面板。', usageEmpty: '这段时间本应用没有调用 AI。',
+    usagePeakNow: '现在是高峰时段', usageOffPeakNow: '现在是闲时 · 半价',
+    usagePriceNote: '花费按每次调用实际用的 tokens 和 DeepSeek 公布的价格计算（{model}，每百万 tokens：缓存命中 {hit} · 输入 {miss} · 输出 {out}；闲时半价）。余额是 DeepSeek 返回的数字。中途停止的调用没有计入。',
+    usageRange: '{n} 天', usageOpen: '用量与余额',
     ai: 'AI', aiTitle: 'AI 设置', aiProvider: '模型服务',
     hideAsk: '对这篇论文不感兴趣？', hideAskText: '之后会少推荐类似的论文，可在卡片上撤销。', cancel: '取消',
     aiKeyFor: '{provider} API 密钥', aiKeyPh: 'sk-…', aiKeySave: '保存密钥', aiKeyRemove: '移除密钥',
@@ -515,10 +539,11 @@ function layout({ L, title, bodyClass, bar, main, after = '' }) {
 <link rel="stylesheet" href="../assets/feed.css">
 <link rel="stylesheet" href="../assets/katex/katex.min.css">
 <link rel="stylesheet" href="../assets/swipe.css">
+<link rel="stylesheet" href="../assets/usage.css">
 <link rel="stylesheet" href="../assets/glass.css">${CTX.mobile ? '\n<script type="module" src="../assets/mobile/boot.mjs"></script>' : ''}
 <script src="../assets/glass.js" defer></script>
 <script src="../assets/update.js" defer></script>
-<script src="../assets/app.js" defer></script>${bodyClass === 'page-papers' ? '\n<script src="../assets/katex/katex.min.js" defer></script>\n<script src="../assets/feed.js" defer></script>\n<script src="../assets/swipe.js" defer></script>\n<script src="../assets/qrcode.js" defer></script>\n<script src="../assets/share.js" defer></script>' : ''}
+<script src="../assets/app.js" defer></script>${bodyClass === 'page-papers' ? '\n<script src="../assets/katex/katex.min.js" defer></script>\n<script src="../assets/feed.js" defer></script>\n<script src="../assets/swipe.js" defer></script>\n<script src="../assets/qrcode.js" defer></script>\n<script src="../assets/share.js" defer></script>\n<script src="../assets/usage.js" defer></script>' : ''}
 </head>
 <body class="${bodyClass}">
 <header class="bar"><div class="bar-inner">${bar}</div><div class="progress" aria-hidden="true"><span></span></div></header>
@@ -714,6 +739,7 @@ function papersPage(L, config) {
       <div class="tune-pop ai-pop" id="ai-pop" data-glass="menu" data-pop hidden>
         <button type="button" class="share-x pop-x" data-pop-close aria-label="${F.close}">×</button>
         <h3>${F.aiTitle}</h3>
+        <button type="button" class="ai-usage-row" id="ai-usage-open"><span class="aur-label">${F.usageOpen}</span><span class="aur-value" id="ai-usage-value"></span><span class="aur-go" aria-hidden="true">›</span></button>
         <span class="ai-label">${F.aiProvider}</span>
         <div class="seg" id="ai-provider"><button type="button" data-provider="deepseek">DeepSeek</button><button type="button" data-provider="claude">Claude</button></div>
         <p class="ai-status" id="ai-status"></p>
@@ -790,6 +816,7 @@ function papersPage(L, config) {
         <button type="button" data-sw-menu="tr">${F.translate}<span class="sw-check" aria-hidden="true"></span></button>
         <button type="button" data-sw-menu="tune">${F.interests}</button>
         <button type="button" data-sw-menu="ai">${F.aiTitle}</button>
+        <button type="button" data-sw-menu="usage">${F.usageMenu}</button>
         <button type="button" data-sw-menu="about">${I18N[L].client.about}</button>
         <button type="button" data-sw-menu="grid">${F.view_grid}<kbd>V</kbd></button>
       </div>
@@ -840,7 +867,7 @@ function copyIfChanged(from, to) {
 // The phone app runs the feed service inside the page: its modules (shared with the desktop app), the
 // phone-side glue (mobile/src), and optionally a snapshot of the desktop app's paper cache so the phone
 // starts with papers, their Chinese titles and your interests instead of an empty feed.
-const MOBILE_FEED = ['store-core.mjs', 'recommend.mjs', 'service.mjs', 'sources.mjs', 'topics.mjs', 'venues.mjs', 'prompts.mjs', 'deepseek.mjs'];
+const MOBILE_FEED = ['store-core.mjs', 'recommend.mjs', 'service.mjs', 'sources.mjs', 'topics.mjs', 'venues.mjs', 'prompts.mjs', 'deepseek.mjs', 'usage.mjs'];
 function copyMobile(dist, seedDir) {
   const out = path.join(dist, 'assets', 'mobile');
   fs.rmSync(out, { recursive: true, force: true });
@@ -891,7 +918,7 @@ export function build({ quiet = false, docsDir = DOCS_DIR, outDir = DIST, mobile
   }
 
   fs.mkdirSync(path.join(DIST, 'assets', 'fonts'), { recursive: true });
-  for (const f of ['style.css', 'app.js', 'icon.svg', 'feed.css', 'feed.js', 'swipe.css', 'swipe.js', 'glass.css', 'glass.js', 'update.js', 'share.js']) fs.writeFileSync(path.join(DIST, 'assets', f), fs.readFileSync(path.join(SRC, f)));
+  for (const f of ['style.css', 'app.js', 'icon.svg', 'feed.css', 'feed.js', 'swipe.css', 'swipe.js', 'glass.css', 'glass.js', 'update.js', 'share.js', 'usage.js', 'usage.css']) fs.writeFileSync(path.join(DIST, 'assets', f), fs.readFileSync(path.join(SRC, f)));
   if (mobile) copyMobile(DIST, seedDir);
 
   // KaTeX for formulas (bundled, so math renders offline too)

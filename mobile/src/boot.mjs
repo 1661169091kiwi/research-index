@@ -56,7 +56,7 @@ const ready = (async () => {
   await keys.load(['deepseek']);
   service = createFeedService({
     store, keys, send, maxPool: 4500,
-    providers: { deepseek: { summarize: summarizeDeepSeek, stream: streamDeepSeek, complete: completeDeepSeek, classify: classifyDeepSeekError, defaults: DEEPSEEK_DEFAULTS } },
+    providers: { fetch: httpFetch, deepseek: { summarize: summarizeDeepSeek, stream: streamDeepSeek, complete: completeDeepSeek, classify: classifyDeepSeekError, defaults: DEEPSEEK_DEFAULTS } },
   });
   // the native side adds the key only for the host it was saved for: keep that in step with the settings
   const aiHandler = service.handlers['feed:ai'];
@@ -120,6 +120,7 @@ window.portal = {
     takeGet: invoke('feed:take:get'), takeRun: invoke('feed:take:run'), takeStop: invoke('feed:take:stop'),
     chatGet: invoke('feed:chat:get'), chatAsk: invoke('feed:chat:ask'), chatStop: invoke('feed:chat:stop'), chatClear: invoke('feed:chat:clear'),
     trTitles: invoke('feed:tr:titles'), trAbstract: invoke('feed:tr:abstract'),
+    usage: invoke('feed:usage'), balance: invoke('feed:balance'),
     on(channel, cb) {
       if (!listeners.has(channel)) listeners.set(channel, new Set());
       listeners.get(channel).add(cb);

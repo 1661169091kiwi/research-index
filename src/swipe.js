@@ -661,13 +661,23 @@
     qInput.value = sw.query;
     qInput.focus();
   });
+  let searchAnim = 0;
   function closeSearch() {
+    if (!searchOpen && !sw.query) return;
     const had = !!sw.query;
-    searchOpen = false;
-    sw.query = '';
     qInput.blur();
-    paintChrome();
-    if (had) { sw.deck = ''; reset(); }
+    // the field folds back into the search button, then the tabs come back
+    root.classList.add('is-search-out');
+    clearTimeout(searchAnim);
+    searchAnim = setTimeout(() => {
+      root.classList.remove('is-search-out');
+      searchOpen = false;
+      sw.query = '';
+      paintChrome();
+      root.classList.add('is-search-back');
+      searchAnim = setTimeout(() => root.classList.remove('is-search-back'), 320);
+      if (had) { sw.deck = ''; reset(); }
+    }, 190);
   }
   $('#sw-search-cancel').addEventListener('click', closeSearch);
   searchForm.addEventListener('submit', (e) => {
@@ -748,6 +758,7 @@
     }
     if (kind === 'tune') { $('#tune').click(); return; }
     if (kind === 'ai') { $('#ai-btn').click(); return; }
+    if (kind === 'usage') { window.RIUsage?.open(); return; }
     if (kind === 'share') { const c = sw.atEnd ? null : current(); if (c) window.RIShare?.open(c); return; }
     if (kind === 'about') { window.RIUpdate?.about(); return; }
     if (kind === 'grid') exit();

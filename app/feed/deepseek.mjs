@@ -25,7 +25,8 @@ export function classifyDeepSeekError(err) {
 }
 
 // One-shot completion with thinking off (used for translation, where speed matters more than depth).
-export async function completeDeepSeek({ apiKey, baseUrl, model, system, user, maxTokens = 4000 }) {
+// onUsage(usage, model): the API's token counts for this call (for the usage meter)
+export async function completeDeepSeek({ apiKey, baseUrl, model, system, user, maxTokens = 4000, onUsage }) {
   const res = await doFetch(`${String(baseUrl || DEEPSEEK_DEFAULTS.baseUrl).replace(/\/+$/, '')}/chat/completions`, {
     method: 'POST',
     signal: timeoutSignal(120000),
@@ -44,6 +45,7 @@ export async function completeDeepSeek({ apiKey, baseUrl, model, system, user, m
     throw Object.assign(new Error(message || `HTTP ${res.status}`), { status: res.status });
   }
   const j = await res.json();
+  if (j.usage) onUsage?.(j.usage, j.model || model);
   const choice = j.choices?.[0];
   if (choice?.finish_reason === 'content_filter' && !choice?.message?.content) throw Object.assign(new Error('refusal'), { code: 'refusal' });
   return choice?.message?.content || '';
@@ -103,7 +105,7 @@ export function streamDeepSeek({ apiKey, baseUrl, model, system, messages, effor
     }
     if (finish === 'content_filter' && !text.trim()) throw Object.assign(new Error('refusal'), { code: 'refusal' });
     return {
-      text, provider: 'deepseek', model: modelName, truncated: finish === 'length', cost: null,
+      text, provider: 'deepseek', model: modelName, truncated: finish === 'length', cost: null, usage,
       tokens: { input: usage?.prompt_tokens || 0, output: usage?.completion_tokens || 0 },
     };
   })();

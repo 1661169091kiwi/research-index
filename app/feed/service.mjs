@@ -6,6 +6,7 @@ import { createRecommender } from './recommend.mjs';
 import { fetchAll, findFigure, fetchFullText } from './sources.mjs';
 import { TOPICS, PALETTE } from './topics.mjs';
 import { venueOf } from './venues.mjs';
+import { costOf, summarize as usageSummary } from './usage.mjs';
 import { systemPrompt, userPrompt, chatSystem, chatPaper, TITLES_SYSTEM, ABSTRACT_SYSTEM, parseTitleMap } from './prompts.mjs';
 
 // store: createStoreCore(); keys: { get(provider), set(provider, key), hint?(provider) };
@@ -271,6 +272,40 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       context: store.state.aiContext || '',
     };
   };
+  // ---------- the usage meter: every call's tokens and cost, and the DeepSeek balance ----------
+  function recordUsage(provider, model, kind, usage) {
+    if (!usage) return;
+    const t = Date.now();
+    const c = costOf(provider, model, usage, t);
+    store.addUsage({ t, p: provider, m: model || '', k: kind, hit: c.hit, miss: c.miss, out: c.out, CNY: c.CNY, USD: c.USD });
+    send('feed:usage', { t });
+  }
+  const httpFetch = providers.fetch || ((url, init) => fetch(url, init));
+  // DeepSeek's own figure for the key's balance (GET /user/balance); each reading is kept, so spending from the
+  // same key outside the app can be estimated
+  handle('feed:balance', async () => {
+    const s = aiSettings();
+    const apiKey = keyFor('deepseek');
+    if (!apiKey) return { error: { code: 'nokey' } };
+    try {
+      const res = await httpFetch(`${String(s.baseUrl || DEEPSEEK_DEFAULTS.baseUrl).replace(/\/+$/, '')}/user/balance`, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) return { error: DS.classify(Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })) };
+      const j = await res.json();
+      const infos = (j.balance_infos || []).map((b) => ({ currency: b.currency, total: +b.total_balance || 0, granted: +b.granted_balance || 0, toppedUp: +b.topped_up_balance || 0 }));
+      const main = infos.find((b) => b.currency === 'CNY') || infos[0];
+      if (!main) return { error: { code: 'api', message: 'no balance in the reply' } };
+      const reading = { t: Date.now(), ...main, available: !!j.is_available };
+      store.addBalance(reading);
+      return { ...reading, others: infos.filter((b) => b !== main) };
+    } catch (e) { return { error: DS.classify(e) }; }
+  });
+  handle('feed:usage', (opts = {}) => ({
+    ...usageSummary(store.state.usage || {}, { days: Math.min(90, Math.max(7, +opts.days || 30)) }),
+    provider: aiSettings().provider, hasKey: !!keyFor('deepseek'),
+  }));
+
   handle('feed:ai', (patch) => {
     if (patch?.provider) store.setAi({ provider: patch.provider === 'claude' && CL ? 'claude' : 'deepseek' });
     if (patch && 'key' in patch) keys.set(patch.keyProvider === 'claude' && CL ? 'claude' : 'deepseek', patch.key);
@@ -318,7 +353,9 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
         : DS.summarize({ ...args, baseUrl: settings.baseUrl, model: settings.model });
       running.set(slot, job);
       const res = await job.done;
-      const take = { ...res, mode, abstractOnly: mode === 'deep' && !fullText, t: Date.now() };
+      recordUsage(res.provider, res.model, 'take', res.usage);
+      const { usage: _u, ...kept } = res;
+      const take = { ...kept, mode, abstractOnly: mode === 'deep' && !fullText, t: Date.now() };
       store.setTake(id, key, take);
       send('feed:take', { id, key, done: true, take });
     })()
@@ -376,6 +413,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
         : DS.stream({ ...args, baseUrl: settings.baseUrl, model: settings.model, effort: 'low' });
       chatRuns.set(id, job);
       const res = await job.done;
+      recordUsage(res.provider, res.model, 'chat', res.usage);
       if (!res.text.trim()) throw Object.assign(new Error('empty answer'), { code: 'empty' });
       const t = Date.now();
       const q = { role: 'user', text: question, t };
@@ -397,9 +435,10 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   const complete = (args) => {
     const s = aiSettings();
     const apiKey = keyFor(s.provider);
+    const onUsage = (usage, model) => recordUsage(s.provider, model || s.model, 'translate', usage);
     return s.provider === 'claude'
-      ? CL.complete({ ...args, apiKey })
-      : DS.complete({ ...args, apiKey, baseUrl: s.baseUrl, model: s.model });
+      ? CL.complete({ ...args, apiKey, onUsage })
+      : DS.complete({ ...args, apiKey, baseUrl: s.baseUrl, model: s.model, onUsage });
   };
   const trError = (err) => (aiSettings().provider === 'claude' ? CL.classify : DS.classify)(err);
 

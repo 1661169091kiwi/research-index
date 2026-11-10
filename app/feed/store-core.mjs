@@ -176,6 +176,23 @@ export function createStoreCore(data, write, { delay = 400 } = {}) {
     // cards that were dealt but replaced before you scrolled to them
     unmarkSeen(ids) { const seen = state.seen || {}; for (const id of ids) delete seen[id]; if (ids.length) { dirty.add('state'); clearTimeout(timer); timer = setTimeout(flush, delay); } },
     clearChat(id) { delete chats[id]; persist('chats', 'state'); },
+    // the AI usage meter: one entry per call (kept for 120 days), and readings of the provider's balance
+    addUsage(entry) {
+      const u = state.usage || (state.usage = { log: [], balances: [] });
+      u.log.push(entry);
+      const cut = Date.now() - 120 * 864e5;
+      if (u.log[0]?.t < cut) u.log = u.log.filter((e) => e.t >= cut);
+      dirty.add('state'); clearTimeout(timer); timer = setTimeout(flush, delay); // not a signal for the recommender
+    },
+    addBalance(reading) {
+      const u = state.usage || (state.usage = { log: [], balances: [] });
+      const last = u.balances.at(-1);
+      // a reading that says the same as the last one within ten minutes is not kept
+      if (last && last.currency === reading.currency && last.total === reading.total && reading.t - last.t < 10 * 60e3) return;
+      u.balances.push(reading);
+      if (u.balances.length > 400) u.balances = u.balances.slice(-400);
+      dirty.add('state'); clearTimeout(timer); timer = setTimeout(flush, delay);
+    },
     setTranslation(id, patch) { translations[id] = { ...(translations[id] || {}), ...patch }; persist('translations'); },
     get version() { return version; },
     get stateRev() { return stateRev; },

@@ -661,3 +661,9 @@ html.fl.is-mobile .sw-tile { border-radius: 12px; }
 @supports (corner-shape: superellipse(1.5)) { html.fl .sw-tile { corner-shape: superellipse(1.5); } }
 /* on thin glass, quiet grey text vanishes over a colourful figure: inside menus it is a step darker */
 html.fl [data-glass="menu"] { --muted: var(--on-2); }
+html.fl .sw-search-field:focus-within {
+  color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary), 0 8px 24px color-mix(in srgb, var(--primary) 24%, transparent), inset 0 0 4.5px var(--rim-tail);
+}
+/* a field you type into reads best on a nearly solid surface, whatever the cover behind it */
+html.fl .sw-search-field { background: color-mix(in srgb, var(--card) 88%, transparent); }

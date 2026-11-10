@@ -1,7 +1,7 @@
 // Exposes the few things the pages may ask the desktop app to do.
 const { contextBridge, ipcRenderer } = require('electron');
 
-const EVENTS = new Set(['feed:batch', 'feed:progress', 'feed:cover', 'feed:take', 'feed:tr', 'feed:chat']);
+const EVENTS = new Set(['feed:batch', 'feed:progress', 'feed:cover', 'feed:take', 'feed:tr', 'feed:chat', 'feed:usage']);
 
 contextBridge.exposeInMainWorld('portal', {
   isApp: true,
@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('portal', {
     // Chinese translation of what is on screen
     trTitles: (ids) => ipcRenderer.invoke('feed:tr:titles', ids),
     trAbstract: (id) => ipcRenderer.invoke('feed:tr:abstract', id),
+    usage: (opts) => ipcRenderer.invoke('feed:usage', opts),
+    balance: () => ipcRenderer.invoke('feed:balance'),
     on: (channel, cb) => {
       if (!EVENTS.has(channel)) return () => {};
       const fn = (_e, data) => cb(data);
