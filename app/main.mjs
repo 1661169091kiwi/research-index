@@ -903,17 +903,27 @@ async function selfTest(dir) {
       const dips = (o) => { let top = 0, worst = 0; for (const v of o) { top = Math.max(top, v); if (top >= 0.99) worst = Math.max(worst, top - v); } return +worst.toFixed(3); };
       const grid = await trace(`document.querySelectorAll('#grid .card')[1].querySelector('.card-title').click()`);
       await wait(300);
-      fs.writeFileSync(path.join(dir, 'z-sheet-rest.png'), (await wc.capturePage()).toPNG());
-      await js(`document.querySelector('#sheet .sheet-body').scrollBy(0, 400)`);
-      await wait(150);
+      // the scrollbar: not under a resting pointer, shown while the wheel turns, gone a moment later
+      const body = await js(`(() => { const r = document.querySelector('#sheet .sheet-body').getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+      wc.sendInputEvent({ type: 'mouseMove', x: body.x, y: body.y });
+      await wait(400);
+      fs.writeFileSync(path.join(dir, 'z-sheet-hover.png'), (await wc.capturePage()).toPNG());
+      wc.sendInputEvent({ type: 'mouseWheel', x: body.x, y: body.y, deltaX: 0, deltaY: -240 });
+      await wait(200);
       fs.writeFileSync(path.join(dir, 'z-sheet-scrolling.png'), (await wc.capturePage()).toPNG());
-      await js(`document.querySelector('.sheet-close').click()`);
-      await wait(800);
+      const scrolling = await js(`document.querySelector('#sheet .sheet-body').classList.contains('is-scrolling')`);
+      await wait(1700);
+      fs.writeFileSync(path.join(dir, 'z-sheet-after.png'), (await wc.capturePage()).toPNG());
+      const after = await js(`document.querySelector('#sheet .sheet-body').classList.contains('is-scrolling')`);
+      // back in the grid: the card's blue ring plays and the card itself never fades (no replayed entrance)
+      const cardTrace = await js(`new Promise((done) => { document.querySelector('.sheet-close').click(); const card = document.querySelectorAll('#grid .card')[1]; const o = [], ring = []; const t0 = performance.now();
+        const tick = () => { const cs = getComputedStyle(card); o.push(+cs.opacity); ring.push(cs.boxShadow !== 'none'); if (performance.now() - t0 < 2200) requestAnimationFrame(tick); else done({ minOpacity: Math.min(...o), ringFrames: ring.filter(Boolean).length, frames: o.length, ringAfter: ring[ring.length - 1] }); }; requestAnimationFrame(tick); })`);
+      await wait(400);
       await js(`document.getElementById('view-btn').click()`);
       await wait(2500);
       const swipe = await trace(`document.querySelector('.sw-card.is-active .sw-abs').click()`);
       await js(`document.querySelector('.sheet-close').click(); document.getElementById('sw-grid').click()`);
-      report.push({ name: 'zoom', gridFrames: grid.o.length, gridDipAfterFull: dips(grid.o), gridArtFrames: grid.art, gridClipAfter: grid.clip, gridAnimsAfter: grid.anims,
+      report.push({ name: 'zoom', scrollbar: { scrolling, after }, cardAfterClose: cardTrace, gridFrames: grid.o.length, gridDipAfterFull: dips(grid.o), gridArtFrames: grid.art, gridClipAfter: grid.clip, gridAnimsAfter: grid.anims,
         swipeFrames: swipe.o.length, swipeDipAfterFull: dips(swipe.o), swipeArtFrames: swipe.art, swipeClipAfter: swipe.clip, swipeAnimsAfter: swipe.anims });
     } else if (process.env.RI_SELFTEST_PAGE) {
       // one page, e.g. RI_SELFTEST_PAGE=zh/papers.html

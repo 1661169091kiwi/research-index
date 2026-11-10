@@ -833,6 +833,18 @@
     if (!el) return;
     const r = el.getBoundingClientRect(), v = scroller.getBoundingClientRect();
     if (r.top < v.top + 60 || r.bottom > v.bottom - 20) el.scrollIntoView({ block: 'center', behavior: calm() ? 'auto' : 'smooth' });
+    // Glass: a blue ring that fades, run as its own animation. As a CSS animation on the card it took the place
+    // of the card's fade-in, which then replayed from transparent when the ring was taken off (a flicker).
+    if (glassOn()) {
+      if (calm()) return;
+      const c = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+      const m = /^#([0-9a-f]{6})$/i.exec(c), n = m ? parseInt(m[1], 16) : 0x007aff;
+      const rgb = `${n >> 16}, ${(n >> 8) & 255}, ${n & 255}`;
+      el.animate([
+        { boxShadow: `0 0 0 3px rgba(${rgb}, 1)` }, { boxShadow: `0 0 0 3px rgba(${rgb}, 1)`, offset: 0.3 }, { boxShadow: `0 0 0 3px rgba(${rgb}, 0)` },
+      ], { duration: 1400, easing: 'cubic-bezier(0.2, 0, 0, 1)' });
+      return;
+    }
     el.classList.remove('is-flash');
     void el.offsetWidth;
     el.classList.add('is-flash');

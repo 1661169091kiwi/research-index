@@ -194,14 +194,14 @@
   ['pointerup', 'pointercancel', 'blur'].forEach((t) => window.addEventListener(t, release, { passive: true }));
   document.addEventListener('scroll', release, { passive: true, capture: true });
 
-  // scrollbars show while something scrolls (glass.css hides them otherwise)
+  // scrollbars show while something scrolls, and for a moment after it stops (glass.css hides them otherwise)
   document.addEventListener('scroll', (e) => {
     if (!isGlass()) return;
     const el = e.target === document ? document.scrollingElement : e.target;
     if (!(el instanceof Element)) return;
     el.classList.add('is-scrolling');
     clearTimeout(el._riScroll);
-    el._riScroll = setTimeout(() => el.classList.remove('is-scrolling'), 900);
+    el._riScroll = setTimeout(() => el.classList.remove('is-scrolling'), 1200);
   }, { passive: true, capture: true });
 
   function start() {

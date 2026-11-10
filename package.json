@@ -1,7 +1,7 @@
 {
   "name": "research-index",
   "productName": "Research Index",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "private": true,
   "type": "module",
   "description": "Bilingual (English / 涓枃) desktop index for research survey Markdown files.",

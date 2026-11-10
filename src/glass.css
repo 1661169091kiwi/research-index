@@ -128,17 +128,18 @@ html.fl {
 html.fl body { background: var(--page); color: var(--on); font-feature-settings: "cv11"; }
 html.fl ::selection { background: rgba(0, 122, 255, 0.26); color: inherit; }
 html.fl :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-/* scrollbars: a thin bar flush with the edge, shown only while you scroll or point at the area, and kept
+/* scrollbars: a thin bar flush with the edge, shown only while you scroll (and a moment after) or point at the
+   bar itself, and kept
    clear of rounded corners (the track stops short of them) */
 html.fl ::-webkit-scrollbar { width: 10px; height: 10px; }
 html.fl ::-webkit-scrollbar-thumb { background-color: transparent; border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; min-height: 44px; }
-html.fl :hover::-webkit-scrollbar-thumb, html.fl .is-scrolling::-webkit-scrollbar-thumb { background-color: var(--thumb); }
+html.fl .is-scrolling::-webkit-scrollbar-thumb { background-color: var(--thumb); }
 html.fl ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--on) 42%, transparent); border-width: 2px; }
 html.fl ::-webkit-scrollbar-thumb:active { background-color: var(--primary); border-width: 2px; }
 html.fl .sheet-panel ::-webkit-scrollbar-track, html.fl .update-panel ::-webkit-scrollbar-track { margin-block: calc(var(--r-xxl) - 4px); }
 html.fl .tune-pop::-webkit-scrollbar-track, html.fl .up-notes::-webkit-scrollbar-track, html.fl .sw-menu::-webkit-scrollbar-track, html.fl .about-pop::-webkit-scrollbar-track { margin-block: calc(var(--r-xl) - 4px); }
 html.fl .toc::-webkit-scrollbar-thumb { background-color: transparent; }
-html.fl .toc:hover::-webkit-scrollbar-thumb, html.fl .toc.is-scrolling::-webkit-scrollbar-thumb { background-color: var(--thumb); }
+html.fl .toc.is-scrolling::-webkit-scrollbar-thumb { background-color: var(--thumb); }
 
 /* ---------- liquid glass (the shape and light; glass.js bends what lies behind) ---------- */
 html.fl [data-glass] {
@@ -295,9 +296,6 @@ html.fl .card::before {
 }
 @media (hover: hover) { html.fl .card:hover::before { opacity: 0.035; } }
 html.fl .card:active::before { opacity: 0.1; }
-html.fl .card.is-flash { animation: flFlash 1.4s var(--ease); }
-html.fl .card.is-flash .cover { animation: none; }
-@keyframes flFlash { 0%, 30% { box-shadow: 0 0 0 3px var(--primary); } 100% { box-shadow: 0 0 0 3px rgba(0, 122, 255, 0); } }
 html.fl .skeleton { background: var(--card); border-radius: var(--r-lg); overflow: hidden; padding-bottom: 12px; }
 html.fl .skeleton .cover, html.fl .skeleton .sk-line { background: linear-gradient(100deg, var(--block) 35%, var(--card) 50%, var(--block) 65%) 0 0 / 300% 100%; }
 html.fl .skeleton .sk-line { margin: 10px 13px 0; border-radius: 6px; }
