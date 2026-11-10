@@ -33,11 +33,14 @@ async function get(url, { tries = 3, timeout = 30000, as = 'text' } = {}) {
     try {
       const res = await doFetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(timeout), redirect: 'follow' });
       if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, retryAfter: +res.headers.get('retry-after') || 0 });
       return as === 'json' ? await res.json() : await res.text();
     } catch (e) {
       err = e;
-      await sleep(2000 * (i + 1));
+      // "too many requests" / "busy": wait properly before asking again (arXiv allows one request every 3 s
+      // per address, and another app on the same network counts too)
+      const busy = e.status === 429 || e.status === 503;
+      await sleep(busy ? Math.min(60000, Math.max(e.retryAfter * 1000, 12000 * (i + 1))) : 2000 * (i + 1));
     }
   }
   throw err;
