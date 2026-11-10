@@ -124,6 +124,8 @@ function writeResources() {
         <item name="windowSplashScreenBackground">#F6F5F1</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>`);
+  // the window behind the page (once: this runs on every build)
+  s = s.replace(/\n\s*<item name="android:windowBackground">@color\/ri_paper<\/item>/g, '');
   s = s.replace('<item name="android:background">@null</item>', '<item name="android:background">@null</item>\n        <item name="android:windowBackground">@color/ri_paper</item>');
   fs.writeFileSync(styles, s);
   fs.writeFileSync(path.join(res, 'values', 'ri_colors.xml'), '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ri_paper">#F6F5F1</color>\n</resources>\n');
