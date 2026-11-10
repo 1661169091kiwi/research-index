@@ -458,7 +458,7 @@ html.fl .sw-act:active .sw-ico { transform: none; }
 html.fl.is-mobile .swipe { background: var(--card); }
 html.fl.is-mobile .sw-top { position: absolute; z-index: 7; top: 0; left: 0; right: 0; padding-top: calc(var(--sa-top) + 6px); pointer-events: none; }
 html.fl.is-mobile .sw-top-in > *, html.fl.is-mobile .sw-sub > * { pointer-events: auto; }
-html.fl.is-mobile .sw-top-in { grid-template-columns: minmax(0, 1fr) 44px; padding: 0 12px; }
+html.fl.is-mobile .sw-top-in { grid-template-columns: minmax(0, 1fr) 44px 44px; padding: 0 12px; }
 html.fl.is-mobile #sw-grid { display: none; }
 html.fl.is-mobile .sw-modes-wrap { justify-self: start; }
 html.fl.is-mobile .sw-sub { padding: 8px 12px 0; justify-content: flex-start; }
@@ -468,11 +468,11 @@ html.fl.is-mobile .sw-track { inset: 0 -24px 0 0; }
 html.fl.is-mobile .sw-card { padding: 0; background: var(--card); grid-template-rows: minmax(0, 34%) minmax(0, 1fr); }
 /* a figure: as tall as its shape needs at the phone's width (known before it loads), at most 44% of the
    screen, so more of the abstract shows */
-html.fl.is-mobile .sw-card.has-fig { grid-template-rows: minmax(0, min(44%, calc((100vw - 32px) * var(--fr, 0.62) + var(--sa-top) + 140px))) minmax(0, 1fr); }
+html.fl.is-mobile .sw-card.has-fig { grid-template-rows: minmax(0, min(44%, calc((100vw - 32px) * var(--fr, 0.62) + var(--sa-top) + 96px))) minmax(0, 1fr); }
 html.fl.is-mobile .sw-media .cover.fig-on .cv-top { display: none; }
 html.fl.is-mobile .sw-media { border-radius: 0; background: var(--block); }
-html.fl.is-mobile .sw-media .cover .cv-top { top: calc(var(--sa-top) + 112px); }
-html.fl.is-mobile .sw-media .cover .cv-fig { padding: calc(var(--sa-top) + 106px) 16px 34px; }
+html.fl.is-mobile .sw-media .cover .cv-top { top: calc(var(--sa-top) + 66px); }
+html.fl.is-mobile .sw-media .cover .cv-fig { padding: calc(var(--sa-top) + 62px) 16px 34px; }
 html.fl.is-mobile .sw-media .cover .cv-word { bottom: 40px; }
 html.fl.is-mobile .sw-body { position: relative; z-index: 2; margin-top: -26px; border-radius: 26px 26px 0 0; padding: 22px 20px 0; }
 html.fl.is-mobile .sw-body::after { height: calc(var(--sa-bottom) + 150px); background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--card) 82%, transparent) 55%, var(--card) 92%); border-radius: 0; }
@@ -618,3 +618,30 @@ html.fl .up-more .link-btn:hover { color: var(--on); }
 @media (prefers-reduced-motion: reduce) {
   html.fl [data-glass].is-pressed { scale: 1 !important; }
 }
+
+/* ---------- directions: the button beside the tabs, and the panel it opens ---------- */
+html.fl .modes-row { border-bottom: 0; gap: 8px; }
+html.fl .dir-btn { border: 0; border-radius: 999px; background: var(--fill); color: var(--on-2); height: 34px; padding: 0 12px; font-size: 13.5px; transition: background 0.2s, color 0.2s; }
+html.fl .dir-btn:hover { color: var(--on); background: var(--fill-2); }
+html.fl .dir-btn.is-on { background: var(--primary); color: var(--on-primary); }
+html.fl .dir-btn .dir-name i, html.fl .dir-list button i { border-radius: 50%; }
+html.fl .dir-btn.is-on .dir-name i { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85); }
+html.fl .dir-pop { border: 0; border-radius: var(--r-xl); padding: 14px 14px 16px; transform-origin: top right; animation: flUnfold var(--sp-unfold-t) var(--sp-unfold) both; }
+html.fl .dir-head { color: var(--on-2); }
+html.fl .dir-list { gap: 7px; }
+html.fl .dir-list button { border: 0; border-radius: 999px; background: var(--fill); color: var(--on); height: 36px; padding: 0 14px; font-size: 14px; transition: background 0.2s, color 0.2s; }
+html.fl .dir-list button:hover { background: var(--fill-2); }
+html.fl .dir-list button.is-on { background: var(--primary); color: var(--on-primary); }
+html.fl .sw-dir.is-on { background: var(--primary); color: var(--on-primary); }
+html.fl .sw-dir .dir-dot { top: 7px; right: 7px; box-shadow: 0 0 0 2px #fff; }
+
+/* form panels (Interests, AI settings): a nearly solid surface and solid fields. Through a frosted panel and a
+   see-through field, an edge behind it (the cover meeting the card) showed as a faint line across the field. */
+html.fl .tune-pop { background: color-mix(in srgb, var(--card) 93%, transparent); }
+html.fl .tune-pop textarea, html.fl .tune-pop .ai-input, html.fl .tune-pop .ai-key-row input { background: color-mix(in srgb, var(--on) 6%, var(--card)); }
+html.fl .sw-dir .dir-dot { position: absolute; z-index: 2; }
+/* the directions panel is read, not glanced at: nearly solid, like the form panels */
+html.fl .dir-pop { background: color-mix(in srgb, var(--card) 92%, transparent); }
+html.fl .dir-list button i, html.fl .dir-btn .dir-name i { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16); }
+html.fl.is-mobile .sw-toast { top: calc(var(--sa-top) + 66px); }
+html.fl.is-mobile .share-modal { background: var(--page); }

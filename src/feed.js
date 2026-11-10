@@ -89,6 +89,10 @@
   const topicsById = {};
   const view = Object.assign({ mode: 'foryou', topic: '', collection: '' }, store.get('ri-feed-view', {}));
   view.query = '';
+  // "Liked" was a board inside Saved; it is a tab of its own now
+  if (view.mode === 'saved' && view.collection === '__liked') Object.assign(view, { mode: 'liked', collection: '' });
+  // your own papers (saved, liked): no directions, no "new papers" news
+  const personal = () => view.mode === 'saved' || view.mode === 'liked';
   const feed = { offset: 0, total: 0, loading: false, done: false, order: [], cards: new Map(), token: 0 };
   let newBelow = 0; // papers fetched since this deck was dealt: they join the pages below, nothing moves
   let learned = []; // papers read since "Recommended" last dealt (time on them, or something done with them)
@@ -329,7 +333,8 @@
       if (scroller.scrollTop > headH) scroller.scrollTop = headH;
     }
     const res = await api.list({
-      mode: view.mode, topic: view.topic, query: view.query, collection: view.collection,
+      mode: view.mode === 'liked' ? 'saved' : view.mode, topic: personal() ? '' : view.topic, query: view.query,
+      collection: view.mode === 'liked' ? '__liked' : view.collection,
       offset: feed.offset, limit: liveView() ? 12 : 30, deck: feed.deck || '', fresh: reset && fresh,
       ...(keep ? { keep } : {}),
       // a new "Recommended" batch starts with what you have just read
@@ -394,7 +399,7 @@
     msg.hidden = false;
     const st = META.status;
     if (!st.count) msg.innerHTML = `<b>${esc(t('firstRunTitle'))}</b><br>${esc(t('firstRun'))}`;
-    else if (view.mode === 'saved') msg.textContent = view.collection === '__liked' ? t('emptyLiked') : t('emptySaved');
+    else if (personal()) msg.textContent = view.mode === 'liked' ? t('emptyLiked') : t('emptySaved');
     else msg.textContent = t('emptyFeed');
   }
 
@@ -405,10 +410,11 @@
   // ---------- status line ----------
   // Progress labels arrive as English direction names ("World models", "World models surveys").
   function sourceLabel(label = '') {
-    const base = label.replace(/ surveys$/, '');
+    const base = label.replace(/ (surveys|venues)$/, '');
     const topic = META.topics.find((x) => x.en === base);
-    if (topic) return topicLabel(topic.id) + (base !== label ? ` · ${t('survey')}` : '');
+    if (topic) return topicLabel(topic.id) + (/ surveys$/.test(label) ? ` · ${t('survey')}` : / venues$/.test(label) ? ` · ${t('mode_venues')}` : '');
     if (label === 'Surveys') return t('mode_surveys');
+    if (label === 'Top venues') return t('mode_venues');
     return label || '…';
   }
   function renderStatus(st = META.status) {
@@ -418,7 +424,7 @@
     } else {
       status.textContent = `${t('count', { n: st.count.toLocaleString() })} · ${t('updated', { rel: relTime(st.lastFetch) })}`;
     }
-    if (newBelow > 0 && view.mode !== 'saved') status.insertAdjacentHTML('beforeend', ` · <span class="st-new">${esc(t('newBelow', { n: newBelow }))}</span>`);
+    if (newBelow > 0 && !personal()) status.insertAdjacentHTML('beforeend', ` · <span class="st-new">${esc(t('newBelow', { n: newBelow }))}</span>`);
     if (trOn && trNeedKey) status.insertAdjacentHTML('beforeend', ` · <b>${esc(trNeedKey === true ? t('trNeedsKey') : trNeedKey)}</b>`);
     $('#refresh').classList.toggle('is-busy', !!st.fetching && !p.finished);
   }
@@ -437,8 +443,8 @@
   api.on('feed:batch', (b) => {
     if (!META) return; // the phone starts fetching before the page has loaded
     META.status.count = b.count;
-    if (!feed.total && !view.query && view.mode !== 'saved') { renderStatus(); clearTimeout(emptyReload); emptyReload = setTimeout(() => load(true), 700); return; }
-    if (b.added > 0 && view.mode !== 'saved') {
+    if (!feed.total && !view.query && !personal()) { renderStatus(); clearTimeout(emptyReload); emptyReload = setTimeout(() => load(true), 700); return; }
+    if (b.added > 0 && !personal()) {
       newBelow += b.added;
       // you had reached the end: the new ones are there to scroll to now
       if (feed.done && !feed.loading && feed.order.length) { feed.done = false; end.hidden = true; load(false); }
@@ -460,10 +466,22 @@
   setInterval(() => { if (META) renderStatus(); }, 60000);
 
   // ---------- modes, directions, boards ----------
-  const MODES = ['foryou', 'recommended', 'latest', 'trending', 'venues', 'surveys', 'saved'];
+  const MODES = ['foryou', 'recommended', 'latest', 'trending', 'venues', 'surveys', 'saved', 'liked'];
+  const modeCount = (m) => (m === 'saved' ? META.savedTotal : m === 'liked' ? META.likedTotal : 0);
+  // the tabs shown here (the phone app has no surveys)
+  const shownModes = () => [...$('#modes').querySelectorAll('[data-mode]')].filter((b) => b.offsetParent !== null).map((b) => b.dataset.mode);
   function renderModes() {
-    $('#modes').innerHTML = MODES.map((m) => `<button type="button" data-mode="${m}" class="${view.mode === m && !view.query ? 'is-on' : ''}"${S[`modeTip_${m}`] ? ` title="${esc(t(`modeTip_${m}`))}"` : ''}>${esc(t(`mode_${m}`))}${m === 'saved' && META.savedTotal ? `<span class="count">${META.savedTotal}</span>` : ''}</button>`).join('');
+    $('#modes').innerHTML = MODES.map((m) => `<button type="button" data-mode="${m}" class="${view.mode === m && !view.query ? 'is-on' : ''}"${S[`modeTip_${m}`] ? ` title="${esc(t(`modeTip_${m}`))}"` : ''}>${esc(t(`mode_${m}`))}${modeCount(m) ? `<span class="count">${modeCount(m)}</span>` : ''}</button>`).join('');
     inkTo($('#modes'));
+    fitTabs($('#modes'));
+  }
+  // a tab row wider than the screen keeps the open tab in view
+  function fitTabs(row) {
+    const on = row?.querySelector('.is-on');
+    if (!on || row.scrollWidth <= row.clientWidth + 1) return;
+    const r = row.getBoundingClientRect(), b = on.getBoundingClientRect();
+    row.scrollTo({ left: row.scrollLeft + (b.left + b.width / 2) - (r.left + r.width / 2), behavior: row.dataset.fitted ? 'smooth' : 'instant' });
+    row.dataset.fitted = '1';
   }
   // The marker under the open tab glides over from the tab you were on (also used by the swipe view): a blue
   // line in Classic, a pill that springs across (and stretches on the way) in Glass.
@@ -493,22 +511,75 @@
     place(x, w);
   }
   new ResizeObserver(() => { const row = $('#modes'); if (row._ink) { row._ink = null; inkTo(row); } }).observe($('#modes'));
+  // ---------- directions: one button beside the tabs opens all of them (shared with the swipe view) ----------
+  const dirPop = document.createElement('div');
+  dirPop.className = 'dir-pop';
+  dirPop.dataset.glass = 'menu';
+  dirPop.dataset.pop = '';
+  dirPop.setAttribute('role', 'dialog');
+  dirPop.hidden = true;
+  document.body.appendChild(dirPop);
+  let dirState = { btn: null, pick: null };
+  function closeDirs() {
+    if (dirPop.hidden) return;
+    dirPop.hidden = true;
+    dirState.btn?.setAttribute('aria-expanded', 'false');
+  }
+  function openDirs(btn, topic, pick) {
+    if (!META) return;
+    if (!dirPop.hidden && dirState.btn === btn) return closeDirs();
+    dirState = { btn, pick };
+    const item = (id, label, color) => `<button type="button" data-dir="${id}" class="${topic === id ? 'is-on' : ''}" aria-pressed="${topic === id}">${color ? `<i style="background:${color}"></i>` : ''}${esc(label)}</button>`;
+    dirPop.setAttribute('aria-label', t('directions'));
+    dirPop.innerHTML = `<p class="dir-head">${esc(t('directions'))}</p><div class="dir-list">${item('', t('dirAll'))}${META.topics.map((x) => item(x.id, x[lang] || x.en, META.palette[x.color][0])).join('')}</div>`;
+    dirPop.hidden = false;
+    const r = btn.getBoundingClientRect();
+    const w = Math.min(380, innerWidth - 24);
+    dirPop.style.width = `${w}px`;
+    dirPop.style.top = `${Math.round(r.bottom + 10)}px`;
+    dirPop.style.left = `${Math.round(Math.max(12, Math.min(innerWidth - w - 12, r.right - w)))}px`;
+    btn.setAttribute('aria-expanded', 'true');
+  }
+  dirPop.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dir]');
+    if (!b) return;
+    const pick = dirState.pick;
+    closeDirs();
+    pick?.(b.dataset.dir);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !dirPop.hidden) { e.stopPropagation(); closeDirs(); } }, true);
+  addEventListener('resize', closeDirs);
+  // the button shows the open direction: its colour on the icon, and its name where there is room
+  function paintDirBtn(btn, topic) {
+    if (!btn || !META) return;
+    const tp = topicsById[topic];
+    btn.classList.toggle('is-on', !!tp);
+    const color = tp ? META.palette[tp.color][0] : '';
+    const name = btn.querySelector('.dir-name'), dot = btn.querySelector('.dir-dot');
+    if (name) name.innerHTML = tp ? `<i style="background:${color}"></i>${esc(tp[lang] || tp.en)}` : esc(t('directions'));
+    if (dot) { dot.hidden = !tp; dot.style.background = color; }
+    btn.title = tp ? `${t('directions')} · ${tp[lang] || tp.en}` : t('directions');
+  }
+  const dirBtn = $('#dir-btn');
+  dirBtn?.addEventListener('click', (e) => { e.stopPropagation(); openDirs(dirBtn, view.topic, (id) => { if (id !== view.topic) setView({ topic: id }); }); });
+
   function renderChips() {
     const chips = $('#chips');
+    // the boards of Saved are the only row under the tabs; the directions sit behind their button
+    chips.hidden = view.mode !== 'saved';
+    if (dirBtn) dirBtn.hidden = personal();
+    paintDirBtn(dirBtn, view.topic);
     if (view.mode === 'saved') {
       const b = META.collections;
       const item = (id, label, n, extra = '') => `<button type="button" class="chip-btn${view.collection === id ? ' is-on' : ''}${extra}" data-board="${esc(id)}">${esc(label)}${n != null ? ` <span class="n">${n}</span>` : ''}</button>`;
       const custom = b.find((c) => c.id === view.collection && c.id !== 'saved');
       chips.innerHTML = item('', t('boardsAll'), META.savedTotal)
         + b.map((c) => item(c.id, c.id === 'saved' ? t('boardDefault') : c.name, c.n)).join('')
-        + item('__liked', t('boardLiked'), META.likedTotal)
         + `<button type="button" class="chip-btn dashed" data-board-new>${esc(t('newBoard'))}</button>`
         + (custom ? `<span class="spacer"></span><button type="button" class="chip-btn" data-board-rename>${esc(t('rename'))}</button><button type="button" class="chip-btn" data-board-delete>${esc(t('deleteBoard'))}</button>` : '');
       return;
     }
-    const tp = META.topics;
-    chips.innerHTML = `<button type="button" class="chip-btn${!view.topic ? ' is-on' : ''}" data-topic="">${esc(t('all'))}</button>`
-      + tp.map((x) => `<button type="button" class="chip-btn${view.topic === x.id ? ' is-on' : ''}" data-topic="${x.id}"><span class="sw" style="background:${META.palette[x.color][0]}"></span>${esc(x[lang] || x.en)}</button>`).join('');
+    chips.innerHTML = '';
   }
   function setView(patch, { keepQuery = false } = {}) {
     Object.assign(view, patch);
@@ -923,6 +994,7 @@
     const cols = new Set(sheetState.data.cols);
     const menu = document.createElement('div');
     menu.className = 'board-menu';
+    menu.dataset.pop = 'remove';
     const render = () => {
       menu.innerHTML = META.collections.map((c) => `<button type="button" data-board-toggle="${esc(c.id)}" class="${cols.has(c.id) ? 'on' : ''}"><span class="box">${cols.has(c.id) ? '✓' : ''}</span>${esc(c.id === 'saved' ? t('boardDefault') : c.name)}</button>`).join('')
         + `<input type="text" placeholder="${esc(t('newBoard'))}" data-board-new-input>`;
@@ -1337,7 +1409,7 @@
     if (open) return openSheet(open.dataset.open);
     if (e.target.closest('[data-abs-toggle]')) { absShowOriginal = !absShowOriginal; return renderAbstract(); }
     const topic = e.target.closest('[data-topic-go]');
-    if (topic) { closeSheet(); return setView({ mode: view.mode === 'saved' ? 'foryou' : view.mode, topic: topic.dataset.topicGo }); }
+    if (topic) { closeSheet(); return setView({ mode: personal() ? 'foryou' : view.mode, topic: topic.dataset.topicGo }); }
     if (!e.target.closest('.board-menu') && !e.target.closest('[data-sheet="save"]')) $('.board-menu', sheet)?.remove();
   });
 
@@ -1514,12 +1586,95 @@
   }
   $('#cold-tune').addEventListener('click', (e) => { e.stopPropagation(); scroller.scrollTo({ top: 0, behavior: 'auto' }); $('#tune').click(); });
 
+  // ---------- a deliberate sideways swipe moves to the next tab (phone) ----------
+  // Only a clearly sideways stroke counts: it has to move at least 2.5× as far across as up or down, start away
+  // from the screen edges (Android's back gesture lives there), and travel far (30% of the width) or flick fast
+  // past 80px. Anything less springs back; a stroke that turns into a scroll is the scroll's.
+  function sideSwipe(area, { tabs, current, go, moveEl, skip = '' }) {
+    if (!document.documentElement.classList.contains('is-mobile') || !area) return;
+    area.style.touchAction = 'pan-y';
+    let g = null;
+    const el = () => moveEl() || area;
+    const reset = (animate) => {
+      const m = el();
+      m.style.transition = animate ? 'transform 0.42s var(--sp-press, cubic-bezier(0.2, 0.9, 0.3, 1.2)), opacity 0.3s' : '';
+      m.style.transform = '';
+      m.style.opacity = '';
+      if (animate) setTimeout(() => { m.style.transition = ''; }, 450);
+    };
+    area.addEventListener('pointerdown', (e) => {
+      g = null;
+      if (e.pointerType !== 'touch' || !e.isPrimary) return;
+      if (e.clientX < 28 || e.clientX > innerWidth - 28) return;
+      if (e.target.closest(`input, textarea, [data-pop], .modes-row, .chips, .feed-head, .sw-top, .katex-display, pre${skip ? `, ${skip}` : ''}`)) return;
+      g = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, pts: [[e.clientX, performance.now()]] };
+    });
+    area.addEventListener('pointermove', (e) => {
+      if (!g || e.pointerId !== g.id) return;
+      const dx = e.clientX - g.x, dy = e.clientY - g.y;
+      g.pts.push([e.clientX, performance.now()]);
+      if (g.pts.length > 6) g.pts.shift();
+      if (!g.on) {
+        if (Math.abs(dy) > 12 && Math.abs(dy) * 1.2 > Math.abs(dx)) { g = null; return; }
+        if (Math.abs(dx) < 16 || Math.abs(dx) < 2.5 * Math.abs(dy)) return;
+        g.on = true;
+      }
+      const list = tabs(), i = list.indexOf(current());
+      const edge = (dx > 0 && i <= 0) || (dx < 0 && i >= list.length - 1);
+      const m = el();
+      m.style.transition = 'none';
+      m.style.transform = `translateX(${(dx * (edge ? 0.12 : 0.35)).toFixed(1)}px)`;
+      m.style.opacity = String(1 - Math.min(0.35, Math.abs(dx) / innerWidth * (edge ? 0.1 : 0.6)));
+    });
+    const end = (e) => {
+      if (!g || e.pointerId !== g.id) return;
+      const s = g;
+      g = null;
+      if (!s.on) return;
+      // the stroke was a swipe, not a tap: no click after it
+      const eat = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+      addEventListener('click', eat, { capture: true, once: true });
+      setTimeout(() => removeEventListener('click', eat, { capture: true }), 400);
+      const dx = e.clientX - s.x, dy = e.clientY - s.y;
+      const [x0, t0] = s.pts[0];
+      const v = Math.abs(e.clientX - x0) / Math.max(1, performance.now() - t0);
+      const list = tabs(), i = list.indexOf(current()), to = list[i + (dx < 0 ? 1 : -1)];
+      const far = Math.abs(dx) >= Math.max(110, innerWidth * 0.3) || (Math.abs(dx) >= 80 && v >= 0.6);
+      if (e.type === 'pointercancel' || !to || i < 0 || !far || Math.abs(dx) < 2.5 * Math.abs(dy)) return reset(true);
+      const m = el(), dir = dx < 0 ? -1 : 1;
+      m.style.transition = 'transform 0.16s ease-in, opacity 0.16s ease-in';
+      m.style.transform = `translateX(${dir * 60}px)`;
+      m.style.opacity = '0';
+      setTimeout(() => {
+        go(to);
+        m.style.transition = 'none';
+        m.style.transform = `translateX(${-dir * 50}px)`;
+        void m.offsetWidth;
+        m.style.transition = 'transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s';
+        m.style.transform = '';
+        m.style.opacity = '';
+        setTimeout(() => { m.style.transition = ''; }, 420);
+      }, 160);
+    };
+    area.addEventListener('pointerup', end);
+    area.addEventListener('pointercancel', end);
+  }
+  // the grid: every tab shown, in order
+  sideSwipe(scroller, {
+    tabs: () => shownModes(), current: () => (view.query ? '' : view.mode),
+    go: (m) => setView({ mode: m, collection: m === 'saved' ? view.collection : '' }),
+    moveEl: () => grid,
+  });
+
   // ---------- shared with swipe.js ----------
   let readyResolve;
   window.RIFeed = {
     api, t, S, lang, esc, tex, titleMath, mathHtml, abstractHtml, abstractZhHtml, coverHtml, wireFigure, reasonText, whoText,
     topicLabel, shortDate, ICON, hooks, store, inkTo, pop, venueHtml, confirmHide,
-    openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView,
+    openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView, openDirs, closeDirs, paintDirBtn, fitTabs,
+    // the swipe view's Saved / Liked tabs open here, in the grid
+    showMode(mode) { hooks.exit?.(); if (view.mode !== mode || view.query) setView({ mode, collection: '' }); else relayout(); },
+    sideSwipe,
     act: async (c, kind) => (kind === 'like' ? toggleLike(c) : toggleSave(c)),
     get META() { return META; }, get AI() { return AI; }, get trOn() { return trOn; }, get sheetId() { return sheetState.id; }, get sheetPaper() { return sheetState.data?.paper || null; },
     gridShown() { if (!feed.order.length && !feed.loading) load(true); else relayout(); },

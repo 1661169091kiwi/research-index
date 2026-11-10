@@ -643,3 +643,5 @@ html:lang(zh-CN) body { line-height: 1.75; }
 .up-more { display: flex; justify-content: center; gap: 28px; margin-top: 4px; }
 .up-more .link-btn { color: var(--muted); font-size: 13px; padding: 6px 2px; }
 .up-more .link-btn:hover { color: var(--ink); text-decoration: none; }
+/* on the phone the share image is the whole view: nothing of the paper behind it shows round the buttons */
+.is-mobile .share-modal { background: var(--paper-2); }

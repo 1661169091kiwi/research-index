@@ -734,7 +734,7 @@ async function selfTest(dir) {
           page: getComputedStyle(document.body).backgroundColor }; })()`);
       const swState = () => js(`(() => { const t = document.getElementById('sw-track');
         return { ids: [...t.querySelectorAll('.sw-card[data-id]')].map((e) => e.dataset.id), active: t.querySelector('.sw-card.is-active')?.dataset.id || '',
-          chips: document.querySelectorAll('#sw-chips button').length, topic: document.querySelector('#sw-chips .is-on')?.dataset.swTopic ?? null,
+          dirBtn: !!document.getElementById('sw-dir'), topic: JSON.parse(localStorage.getItem('ri-sw-topic') || 'null'),
           lang: document.documentElement.dataset.lang, swipe: !document.getElementById('swipe').hidden }; })()`);
       nativeTheme.themeSource = 'light';
       await js(`localStorage.removeItem('ri-style'); localStorage.setItem('ri-feed-view', JSON.stringify({ mode: 'latest', topic: '', collection: '' })); localStorage.setItem('ri-view', '"grid"'); localStorage.setItem('ri-sw-topic', '""'); localStorage.setItem('ri-sw-mode', '"latest"'); localStorage.setItem('ri-sw-hinted', 'true')`);
@@ -764,8 +764,10 @@ async function selfTest(dir) {
       await wait(2600);
       await snap('g-swipe');
       const sw0 = await swState();
-      const topic = await js(`document.querySelectorAll('#sw-chips button')[2]?.dataset.swTopic || ''`);
-      await js(`document.querySelectorAll('#sw-chips button')[2]?.click()`);
+      await js(`document.getElementById('sw-dir').click()`);
+      await wait(400);
+      const topic = await js(`document.querySelectorAll('.dir-pop [data-dir]')[2]?.dataset.dir || ''`);
+      await js(`document.querySelectorAll('.dir-pop [data-dir]')[2]?.click()`);
       await wait(2600);
       const sw1 = await swState();
       await snap('g-swipe-topic');

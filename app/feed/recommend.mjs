@@ -194,7 +194,15 @@ export function createRecommender(store) {
       (!f.venuesOnly || venueOf(p)));
   }
 
-  function rank({ mode = 'foryou', topic = '', query = '', collection = '', deck = '' }) {
+  // In the swipe feed every card is read full screen: one you have swiped past goes behind the ones you have not
+  // seen (a list sorted by date or upvotes would otherwise start over at the same cards every time it opens).
+  const viewedLast = (list) => {
+    const views = store.state.views || {};
+    const fresh = [], old = [];
+    for (const p of list) (views[p.id] ? old : fresh).push(p);
+    return old.length ? [...fresh, ...old] : list;
+  };
+  function rank({ mode = 'foryou', topic = '', query = '', collection = '', deck = '', slot = '' }) {
     const ix = ensureIndex();
     const now = Date.now();
     const st = store.state;
@@ -233,12 +241,12 @@ export function createRecommender(store) {
     // Latest, Surveys and Top venues (accepted at a top conference or journal): newest first
     if (mode === 'latest' || mode === 'surveys' || mode === 'venues') {
       list = base.sort((a, b) => (b.published || '').localeCompare(a.published || '') || (b.firstSeen || 0) - (a.firstSeen || 0));
-      return { list, reasons };
+      return { list: slot === 'swipe' ? viewedLast(list) : list, reasons };
     }
     if (mode === 'trending') {
       list = base.filter((p) => (p.hf?.upvotes || 0) > 0 && ageDays(p, now) <= 21)
         .sort((a, b) => (b.hf.upvotes - a.hf.upvotes) || (b.published || '').localeCompare(a.published || ''));
-      return { list, reasons };
+      return { list: slot === 'swipe' ? viewedLast(list) : list, reasons };
     }
 
     // "For you" (optionally within one direction): score, hold back what was shown recently, shake up
@@ -247,10 +255,11 @@ export function createRecommender(store) {
     const prof = profiles();
     const rand = rng(deck || 'default');
     const gumbel = () => -Math.log(-Math.log(Math.min(1 - 1e-12, Math.max(1e-12, rand()))));
-    const seen = st.seen || {};
+    const seen = st.seen || {}, views = st.views || {};
     const scored = base.map((p) => {
       const x = score(p, prof, now, maxUp);
-      const held = seenFactor(seen[p.id], now);
+      // shown lately → held back; swiped past in the swipe feed → only once nothing unseen is left
+      const held = seenFactor(seen[p.id], now) * (views[p.id] ? 0.05 : 1);
       return { p, ...x, held, s: x.s * held + NOISE * gumbel() };
     }).sort((a, b) => b.s - a.s);
     const pool = scored.slice(0, 450);
@@ -286,7 +295,7 @@ export function createRecommender(store) {
         if (c > maxSim[i]) maxSim[i] = c;
       }
     }
-    list = [...picked.map((x) => x.p), ...scored.filter((x) => !used.has(x.p.id)).map((x) => x.p)];
+    list = viewedLast([...picked.map((x) => x.p), ...scored.filter((x) => !used.has(x.p.id)).map((x) => x.p)]);
     for (const x of picked.slice(0, 220)) if (!reasons.has(x.p.id)) { const r = reasonFor(x.p, prof); if (r) reasons.set(x.p.id, r); }
     return { list, reasons };
   }
@@ -477,7 +486,8 @@ export function createRecommender(store) {
   // A candidate scores by its closest anchor (so separate interests stay separate instead of blurring
   // into one average), plus a smaller pull from all anchors together, minus its closeness to what you
   // skipped, plus the sampled interest in its direction. New, popular and survey papers get a nudge.
-  function liveScores({ topic = '' }, served, rand, now) {
+  function liveScores(params, served, rand, now) {
+    const { topic = '' } = params;
     const ix = syncSims(), st = store.state;
     const sig = signals(now);
     const { anc, neg } = sig;
@@ -514,7 +524,9 @@ export function createRecommender(store) {
       const rec = Math.pow(0.5, ageDays(p, now) / 21);
       const pop = p.hf?.upvotes ? Math.log1p(p.hf.upvotes) / Math.log1p(maxUp) : 0;
       const tp = topicOf(p);
-      const held = 0.5 + 0.5 * seenFactor(seen[id], now); // shown elsewhere lately → softer hold-back than For you
+      // shown lately: in the grid as firmly as For you (its cards were on screen); in the swipe feed more softly (dealt
+      // there is not necessarily read, and what was read is left out above)
+      const held = params.slot === 'swipe' ? 0.5 + 0.5 * seenFactor(seen[id], now) : seenFactor(seen[id], now);
       const s = (rel + 0.12 * rec + 0.08 * pop + (p.survey ? 0.03 : 0) + 0.6 * (tp - 0.5) - 0.6 * away) * held + 0.05 * gumbel();
       out.push({ i, p, v, s, rel, rec, pop, tp, held, away, anchor: best >= 0 ? anc[best].id : '', anchorSim: best >= 0 ? rows[best][i] : 0 });
     }
@@ -626,7 +638,7 @@ export function createRecommender(store) {
     else r.basis = signals(Date.now()).anc;
     const items = r.served.slice(offset, offset + limit).map((id) => store.papers[id]).filter(Boolean);
     const basis = r.basis.slice().sort((a, b) => b.t - a.t).slice(0, 3).map((a) => ({ id: a.id, title: store.papers[a.id]?.title || '' }));
-    return { items, reasons: r.reasons, total: r.served.length + r.left, deck: r.deck, dropped, basis, offset };
+    return { items, reasons: r.reasons, total: r.served.length + r.left, deck: r.deck, dropped, basis, offset, unseenLeft: r.left };
   }
 
   // Papers fetched while you page through a deck go into the part you have not been sent yet: in date
@@ -687,7 +699,21 @@ export function createRecommender(store) {
       decks.set(key, r);
     } else if (r.version !== store.version) mergeNew(r, params, Math.max(r.sent || 0, offset));
     r.sent = Math.max(r.sent || 0, Math.min(r.list.length, offset + limit));
-    return { items: r.list.slice(offset, offset + limit), reasons: r.reasons, total: r.list.length, deck: r.deck };
+    return { items: r.list.slice(offset, offset + limit), reasons: r.reasons, total: r.list.length, deck: r.deck, unseenLeft: unseenAfter(r, offset + limit, params) };
+  }
+
+  // How many papers further down a deck this reader has not seen (For you and the swipe feed's lists): when it runs
+  // low, the app reads further back (service.mjs).
+  function unseenAfter(r, from, params) {
+    if (params.mode === 'saved' || params.mode === 'liked' || params.query) return null;
+    if (params.slot !== 'swipe' && params.mode !== 'foryou') return null;
+    const st = store.state, views = st.views || {}, seen = st.seen || {}, now = Date.now();
+    let n = 0;
+    for (let i = from; i < r.list.length && n < 400; i++) {
+      const id = r.list[i].id;
+      if (!views[id] && !(seen[id] && now - seen[id] < 2 * DAY)) n++;
+    }
+    return n;
   }
 
   function similar(id, n = 8) {

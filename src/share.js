@@ -95,10 +95,11 @@
     // measure, then draw on a canvas of the height that came out
     const m = document.createElement('canvas').getContext('2d');
     const inner = W - 2 * PAD;
-    m.font = font(700, 60); const T = lines(m, title, inner, 6);
+    m.font = font(700, 60); const T = lines(m, title, inner, 8);
     m.font = font(500, 31); const O = zhTitle ? lines(m, p.title, inner, 3) : [];
     m.font = font(400, 28); const A = who ? lines(m, who, inner, 2) : [];
-    m.font = font(400, 34); const B = lines(m, abstract, inner, fig ? (absZh ? 8 : 7) : (absZh ? 12 : 11));
+    // the whole abstract: the image grows as long as it needs (a long image, not a cut-off one)
+    m.font = font(400, 34); const B = lines(m, abstract, inner, Infinity);
     const FIG = fig ? Math.round(Math.min(620, Math.max(260, (inner - 40) * (fig.naturalHeight / fig.naturalWidth)) + 40)) : 0;
     const QR = 196, FOOT = 250;
     let h = PAD + 34 + 44 + T.length * 74 + (O.length ? 18 + O.length * 44 : 0) + (A.length ? 26 + A.length * 40 : 0)

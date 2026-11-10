@@ -71,12 +71,15 @@ export function createStoreCore(data, write, { delay = 400 } = {}) {
     return added;
   }
 
-  function prune(days = 200) {
+  // papers older than `days` go, unless you did something with them; `longer(p)` ones stay twice as long
+  function prune(days = 200, longer = null) {
     const cutoff = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+    const cutoff2 = new Date(Date.now() - 2 * days * 864e5).toISOString().slice(0, 10);
     let removed = 0;
     for (const [id, p] of Object.entries(papers)) {
       const keep = state.likes[id] || state.saves[id] || state.notes[id] || takes[id] || chats[id];
-      if (!keep && (p.published || '9999') < cutoff) { delete papers[id]; removed++; }
+      const pub = p.published || '9999';
+      if (!keep && pub < cutoff && (pub < cutoff2 || !longer?.(p))) { delete papers[id]; removed++; }
     }
     if (removed) { version++; persist('papers'); }
     return removed;

@@ -77,8 +77,8 @@ export function parseAtom(xml) {
   return out;
 }
 
-export function arxivSearch(query, max = 60) {
-  const params = new URLSearchParams({ search_query: query, sortBy: 'submittedDate', sortOrder: 'descending', start: '0', max_results: String(max) });
+export function arxivSearch(query, max = 60, start = 0) {
+  const params = new URLSearchParams({ search_query: query, sortBy: 'submittedDate', sortOrder: 'descending', start: String(start), max_results: String(max) });
   return apiQueue(() => get(`https://export.arxiv.org/api/query?${params}`)).then((xml) => (xml ? parseAtom(xml) : []));
 }
 
@@ -201,19 +201,43 @@ export async function fetchFullText(id, { tries = 2, timeout = 60000 } = {}) {
   return text.length > 2000 ? text : null;
 }
 
+// ---------- top venues ----------
+// Papers whose arXiv comment says they were accepted at a top venue (venues.mjs then reads each comment
+// strictly: no workshops, Findings or submissions).
+const VENUE_CO = '(' + ['NeurIPS', 'ICML', 'ICLR', 'ACL', 'EMNLP', 'NAACL', 'COLM', 'CVPR', 'ICCV', 'ECCV', 'AAAI', 'IJCAI', 'KDD', 'SIGIR', 'CoRL', 'ICRA', 'TMLR', 'TACL', 'JMLR', 'TPAMI']
+  .map((v) => `co:${v}`).join(' OR ') + ')';
+const TAKEN_CO = '(co:accepted OR co:"to appear" OR co:"camera ready" OR co:"camera-ready" OR co:published OR co:proceedings)';
+
 // ---------- one full refresh ----------
 // Calls onBatch(papers, label) as each source arrives so the feed fills progressively.
-export async function fetchAll({ onBatch, onProgress, deepSurveys = false, firstRun = false }) {
+//   firstRun        a bigger first look at every direction
+//   deepSurveys     also the surveys of every direction (weekly)
+//   venues          'recent': the newest accepted papers; 'deep': also per direction (weekly)
+//   backfill        { topicId: start }: one older page per direction, so the pool reaches further back
+//                   than the newest papers (onCursor(topicId, papers) reports what that page held)
+//   only            'backfill': nothing but the older pages (the reader is running out of unseen papers)
+export async function fetchAll({ onBatch, onProgress, onCursor, deepSurveys = false, firstRun = false, venues = '', backfill = null, only = '' }) {
   const jobs = [];
   const per = firstRun ? 100 : 60;
-  for (const t of TOPICS) jobs.push({ label: t.en, run: () => arxivSearch(`(${t.q}) AND ${CATS}`, per) });
-  jobs.push({ label: 'Surveys', run: () => arxivSearch(`(ti:survey OR ti:review OR ti:overview OR ti:tutorial) AND ${CATS}`, 200) });
-  if (deepSurveys) {
-    for (const t of TOPICS) jobs.push({ label: `${t.en} surveys`, run: () => arxivSearch(`(ti:survey OR ti:review OR ti:overview) AND (${t.q}) AND ${CATS}`, 30) });
+  if (only !== 'backfill') {
+    for (const t of TOPICS) jobs.push({ label: t.en, run: () => arxivSearch(`(${t.q}) AND ${CATS}`, per) });
+    jobs.push({ label: 'Surveys', run: () => arxivSearch(`(ti:survey OR ti:review OR ti:overview OR ti:tutorial) AND ${CATS}`, 200) });
+    if (deepSurveys) {
+      for (const t of TOPICS) jobs.push({ label: `${t.en} surveys`, run: () => arxivSearch(`(ti:survey OR ti:review OR ti:overview) AND (${t.q}) AND ${CATS}`, 30) });
+    }
+    if (venues) jobs.push({ label: 'Top venues', run: () => arxivSearch(`${VENUE_CO} AND ${TAKEN_CO} AND ${CATS}`, 200) });
+    if (venues === 'deep') {
+      for (const t of TOPICS) jobs.push({ label: `${t.en} venues`, run: () => arxivSearch(`(${t.q}) AND ${VENUE_CO} AND ${TAKEN_CO} AND ${CATS}`, 100) });
+    }
+  }
+  for (const t of TOPICS) {
+    const start = backfill?.[t.id];
+    if (start == null) continue;
+    jobs.push({ label: t.en, run: () => arxivSearch(`(${t.q}) AND ${CATS}`, 100, start), after: (papers) => onCursor?.(t.id, papers) });
   }
   let done = 0, failed = 0;
   // Hugging Face runs alongside the arXiv searches: where it is slow or blocked, arXiv does not wait for it
-  const hf = hfDaily(100)
+  const hf = only === 'backfill' ? Promise.resolve() : hfDaily(100)
     .then((papers) => onBatch(papers.map(finish), 'Hugging Face'))
     .catch((e) => { failed++; console.error('[feed] source failed: Hugging Face', e.message); });
   for (const job of jobs) {
@@ -221,6 +245,7 @@ export async function fetchAll({ onBatch, onProgress, deepSurveys = false, first
     try {
       const papers = await job.run();
       onBatch(papers.map(finish), job.label);
+      job.after?.(papers);
     } catch (e) {
       failed++;
       console.error('[feed] source failed:', job.label, e.message);

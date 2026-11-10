@@ -20,6 +20,35 @@
 
   if (portal) root.classList.add('is-app');
 
+  // ---------- pop-ups: a tap outside one only closes it ----------
+  // Menus and panels carry data-pop, the buttons that open them data-pop-opener. A press anywhere else while one
+  // is open closes them all, and the click that press makes is swallowed: tapping a paper next to an open menu
+  // closes the menu without also opening the paper.
+  {
+    const shown = () => [...document.querySelectorAll('[data-pop]')].filter((el) => !el.hidden && el.getClientRects().length);
+    let swallowUntil = 0;
+    window.addEventListener('pointerdown', (e) => {
+      swallowUntil = 0;
+      if (e.button > 0) return;
+      const open = shown();
+      if (!open.length || e.target.closest?.('[data-pop], [data-pop-opener], .ri-confirm, .share-modal, .update-modal')) return;
+      for (const el of open) {
+        if (el.dataset.pop === 'remove') el.remove(); else el.hidden = true;
+        el.dispatchEvent(new CustomEvent('ri:pop-closed', { bubbles: true }));
+      }
+      document.querySelectorAll('[data-pop-opener][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+      swallowUntil = performance.now() + 1500;
+    }, true);
+    const swallow = (e) => {
+      if (!swallowUntil) return;
+      if (performance.now() > swallowUntil) { swallowUntil = 0; return; }
+      e.stopPropagation();
+      e.preventDefault();
+      if (e.type === 'click') swallowUntil = 0;
+    };
+    for (const type of ['click', 'dblclick', 'contextmenu']) window.addEventListener(type, swallow, true);
+  }
+
   // ---------- crisp lines at any display scaling (also re-runs when zoom changes) ----------
   let dprQuery;
   const snapLines = () => {

@@ -10,13 +10,15 @@ import { systemPrompt, userPrompt, chatSystem, chatPaper, TITLES_SYSTEM, ABSTRAC
 
 // store: createStoreCore(); keys: { get(provider), set(provider, key), hint?(provider) };
 // send(channel, data): events to the page; providers: { deepseek: {...}, claude?: {...} } (see index.mjs)
-export function createFeedService({ store, keys, send, providers, envKey = () => '', debug = false }) {
+// maxPool: reading further back stops at this many papers (the phone keeps fewer: its files are slower to write)
+export function createFeedService({ store, keys, send, providers, envKey = () => '', debug = false, maxPool = 7000 }) {
   const rec = createRecommender(store);
   // the translator sometimes repeats the title first ("标题：… 摘要：…"); only the abstract is kept
   const zhAbs = (s) => String(s || '').replace(/^\s*标题\s*[:：][\s\S]*?摘要\s*[:：]\s*/, '').trim();
   const handlers = {};
   const handle = (channel, fn) => { handlers[channel] = fn; };
   let fetching = null;
+  let lastMore = 0;
   let progress = { done: 0, total: 0, label: '', finished: true };
 
   // ---------- serialisation ----------
@@ -49,15 +51,42 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   }
 
   // ---------- fetching ----------
-  function refresh({ force = false } = {}) {
+  // Every direction is also read further back, one older page (100 papers) per look, until its pages reach
+  // papers older than BACK_DAYS. Without that, the pool is only the newest few weeks, and a reader who
+  // swipes a lot runs out of papers they have not seen.
+  const BACK_DAYS = 150;
+  const VENUES_V = 1; // bump to look through every direction's accepted papers again
+  function backfillPlan() {
+    const b = store.state.meta.backfill || {};
+    if (Object.keys(store.papers).length >= maxPool) return null;
+    const plan = {};
+    for (const t of TOPICS) if (!b[t.id]?.done) plan[t.id] = b[t.id]?.start ?? 60;
+    return Object.keys(plan).length ? plan : null;
+  }
+  function onCursor(topicId, papers) {
+    const b = { ...(store.state.meta.backfill || {}) };
+    const cur = b[topicId] || { start: 60 };
+    const oldest = papers.reduce((m, p) => (p.published && p.published < m ? p.published : m), '9999');
+    const tooOld = oldest < new Date(Date.now() - BACK_DAYS * 864e5).toISOString().slice(0, 10);
+    b[topicId] = { start: cur.start + papers.length, done: !papers.length || tooOld, oldest: oldest === '9999' ? cur.oldest : oldest };
+    store.setMeta({ backfill: b });
+  }
+  // only: 'backfill' — just the older pages (asked for when a reader is running out of unseen papers)
+  function refresh({ force = false, only = '' } = {}) {
     if (fetching) return;
     const meta = store.state.meta;
     const firstRun = !meta.lastFetch;
-    const deep = force || firstRun || Date.now() - (meta.lastDeep || 0) > 7 * 864e5;
+    if (only === 'backfill' && !backfillPlan()) return;
+    const deep = !only && (force || firstRun || Date.now() - (meta.lastDeep || 0) > 7 * 864e5);
+    const venuesDeep = !only && (deep || (meta.venuesV || 0) < VENUES_V);
     let batches = 0;
     fetching = fetchAll({
       firstRun,
       deepSurveys: deep,
+      venues: only ? '' : venuesDeep ? 'deep' : 'recent',
+      backfill: firstRun ? null : backfillPlan(),
+      only,
+      onCursor,
       onBatch: (papers, label) => {
         const added = store.upsert(papers);
         send('feed:batch', { added, label, count: Object.keys(store.papers).length });
@@ -65,8 +94,8 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       },
       onProgress: (p) => { progress = { ...p, finished: false }; send('feed:progress', progress); },
     }).then(() => {
-      store.prune();
-      store.setMeta({ lastFetch: Date.now(), ...(deep ? { lastDeep: Date.now() } : {}) });
+      store.prune(200, (p) => !!venueOf(p)); // accepted papers stay for longer
+      if (!only) store.setMeta({ lastFetch: Date.now(), ...(deep ? { lastDeep: Date.now() } : {}), ...(venuesDeep ? { venuesV: VENUES_V } : {}) });
       store.flush();
       prefetchCovers();
     }).catch((e) => console.error('[feed] refresh failed:', e.message))
@@ -159,11 +188,13 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   handle('feed:status', () => status());
   handle('feed:list', (params = {}) => {
     const t0 = Date.now();
-    const { items, reasons, total, deck, dropped, basis, offset } = rec.page({ mode: 'foryou', offset: 0, limit: 30, ...params });
+    const { items, reasons, total, deck, dropped, basis, offset, unseenLeft } = rec.page({ mode: 'foryou', offset: 0, limit: 30, ...params });
     // what "For you" and "Recommended" have shown is held back from the next few refreshes
     const mode = params.mode || 'foryou';
     if ((mode === 'foryou' || mode === 'recommended') && !params.query) store.markSeen(items.map((p) => p.id));
     if (dropped?.length) store.unmarkSeen(dropped);
+    // running out of papers this reader has not seen: read further back (at most every 10 minutes)
+    if (unseenLeft != null && unseenLeft < 120 && !params.query && Date.now() - lastMore > 10 * 60e3) { lastMore = Date.now(); refresh({ only: 'backfill' }); }
     if (debug) console.error(`[feed] list ${mode} offset=${params.offset}${params.fresh ? ' fresh' : ''}${params.keep ? ` keep=${params.keep.length} dropped=${dropped.length}` : ''} deck=${deck} ${Date.now() - t0}ms`);
     return {
       items: items.map((p) => (params.withAbstract ? fullCard : card)(p, reasons.get(p.id))), total, deck, offset,

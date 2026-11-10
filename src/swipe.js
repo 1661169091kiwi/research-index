@@ -13,7 +13,10 @@
   const bar = $('#sw-actions'), nav = $('#sw-nav');
   if (!root) return;
   const isMobile = document.documentElement.classList.contains('is-mobile');
-  const MODES = ['recommended', 'foryou', 'latest', 'trending', 'venues', 'saved'];
+  const MODES = ['recommended', 'foryou', 'latest', 'trending', 'venues', 'saved', 'liked'];
+  // your own papers open in the grid (many at a glance), not here
+  const GRID_MODES = new Set(['saved', 'liked']);
+  const FEEDS = MODES.filter((m) => !GRID_MODES.has(m));
   const LIVE = new Set(['recommended']);
   const AHEAD = 4;        // cards dealt after the next one
   const KEEP_FULL = 6;    // cards further back than this lose their contents (they are re-drawn on the way back)
@@ -22,7 +25,7 @@
     on: false, mode: store.get('ri-sw-mode', 'recommended'), topic: store.get('ri-sw-topic', ''), deck: '', items: [], cards: new Map(),
     idx: -1, maxSeen: -1, loading: false, done: false, token: 0, redealAfter: false, atEnd: false, off: 0,
   };
-  if (!MODES.includes(sw.mode)) sw.mode = 'recommended';
+  if (!FEEDS.includes(sw.mode)) sw.mode = 'recommended';
   const live = () => LIVE.has(sw.mode);
 
   // ---------- time on each card ----------
@@ -85,6 +88,21 @@
     if (c.cover?.w && c.cover?.h) el.style.setProperty('--fr', (c.cover.h / c.cover.w).toFixed(3)); else el.style.removeProperty('--fr');
     el.innerHTML = cardInner(c) + (c.hiddenNow ? hiddenNote() : '');
     wireFigure(el);
+    fitWord(el);
+  }
+  // The big word on a cover without a figure grows up from the cover's foot; on a short cover a long word would
+  // run into the direction and date above it. Shrink it until it clears them.
+  function fitWord(el) {
+    const word = el.querySelector('.sw-media .cv-word'), top = el.querySelector('.sw-media .cv-top');
+    if (!word || !top || el.querySelector('.cover.fig-on')) return;
+    word.style.removeProperty('font-size'); // the stylesheet sizes it (with !important) for this view
+    if (!top.getClientRects().length || !word.getClientRects().length) return;
+    let px = parseFloat(getComputedStyle(word).fontSize) || 40;
+    const room = () => word.getBoundingClientRect().top - top.getBoundingClientRect().bottom;
+    for (let k = 0; k < 16 && room() < 12 && px > 20; k++) {
+      px = Math.max(20, Math.round(px * 0.9));
+      word.style.setProperty('font-size', `${px}px`, 'important');
+    }
   }
   function redraw(id) {
     const i = sw.items.indexOf(id);
@@ -464,48 +482,38 @@
   $('#sw-modes').addEventListener('click', (e) => {
     const b = e.target.closest('[data-sw-mode]');
     if (!b) return;
+    if (GRID_MODES.has(b.dataset.swMode)) return F.showMode(b.dataset.swMode);
     if (b.dataset.swMode === sw.mode) return reset({ fresh: true }); // the open tab again = a new batch
-    sw.mode = b.dataset.swMode;
+    setMode(b.dataset.swMode);
+  });
+  function setMode(m) {
+    sw.mode = m;
     sw.deck = '';
     store.set('ri-sw-mode', sw.mode);
     renderModes();
     reset();
-  });
-  // ---------- directions (the categories of the grid view) ----------
-  const chipsRow = $('#sw-chips');
+  }
+  // a deliberate sideways swipe: the tab before or after (your own papers are left out: they open the grid)
+  F.sideSwipe?.(track, { tabs: () => FEEDS, current: () => sw.mode, go: setMode, moveEl: () => track, skip: '.sw-actions' });
+  // ---------- directions (the categories of the grid view): one button opens them all ----------
+  const dirBtn = $('#sw-dir');
   function renderChips() {
     const tp = F.META?.topics || [];
     if (sw.topic && !tp.some((x) => x.id === sw.topic)) sw.topic = '';
-    chipsRow.innerHTML = `<button type="button" data-sw-topic="" class="${!sw.topic ? 'is-on' : ''}" aria-pressed="${!sw.topic}">${esc(t('all'))}</button>`
-      + tp.map((x) => `<button type="button" data-sw-topic="${x.id}" class="${sw.topic === x.id ? 'is-on' : ''}" aria-pressed="${sw.topic === x.id}"><i style="background:${F.META.palette[x.color][0]}"></i>${esc(x[lang] || x.en)}</button>`).join('');
-    requestAnimationFrame(fitChips);
+    F.paintDirBtn?.(dirBtn, sw.topic);
   }
-  function fitChips() {
-    const on = chipsRow.querySelector('.is-on');
-    if (on && chipsRow.scrollWidth > chipsRow.clientWidth + 1) {
-      const r = chipsRow.getBoundingClientRect(), b = on.getBoundingClientRect();
-      const to = chipsRow.scrollLeft + (b.left + b.width / 2) - (r.left + r.width / 2);
-      chipsRow.scrollTo({ left: to, behavior: chipsRow.dataset.ready ? 'smooth' : 'instant' });
-    }
-    chipsRow.dataset.ready = '1';
-    fadeChips();
-  }
-  function fadeChips() {
-    const max = chipsRow.scrollWidth - chipsRow.clientWidth;
-    chipsRow.classList.toggle('fade-l', max > 1 && chipsRow.scrollLeft > 2);
-    chipsRow.classList.toggle('fade-r', max > 1 && chipsRow.scrollLeft < max - 2);
-  }
-  chipsRow.addEventListener('scroll', fadeChips, { passive: true });
-  chipsRow.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-sw-topic]');
-    if (!b) return;
-    refocus(e);
-    if (b.dataset.swTopic === sw.topic) return;
-    sw.topic = b.dataset.swTopic;
-    sw.deck = '';
-    store.set('ri-sw-topic', sw.topic);
-    renderChips();
-    reset();
+  dirBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeMenu();
+    F.openDirs(dirBtn, sw.topic, (id) => {
+      if (id === sw.topic) return;
+      sw.topic = id;
+      sw.deck = '';
+      store.set('ri-sw-topic', sw.topic);
+      renderChips();
+      flash(id ? topicLabel(id) : t('dirAll'));
+      reset();
+    });
   });
 
   // ---------- language: the same page in the other language, on the paper you were reading ----------
@@ -530,6 +538,7 @@
   const closeMenu = () => { menu.hidden = true; $('#sw-menu-btn').setAttribute('aria-expanded', 'false'); };
   $('#sw-menu-btn').addEventListener('click', (e) => {
     e.stopPropagation();
+    F.closeDirs?.();
     menu.hidden = !menu.hidden;
     $('#sw-menu-btn').setAttribute('aria-expanded', String(!menu.hidden));
     renderMenu();
@@ -597,7 +606,7 @@
     closeMenu();
     F.gridShown();
   }
-  new ResizeObserver(() => { if (sw.on && sw.idx >= 0) track.scrollTop = restIndex() * track.clientHeight; }).observe(track);
+  new ResizeObserver(() => { if (sw.on && sw.idx >= 0) track.scrollTop = restIndex() * track.clientHeight; track.querySelectorAll('.sw-card[data-drawn="1"]').forEach(fitWord); }).observe(track);
   if (!isMobile) {
     let acc = 0, locked = false, quiet = 0;
     track.addEventListener('wheel', (e) => {

@@ -29,7 +29,7 @@ body.swipe-on .scroller { visibility: hidden; }
 .sw-top-in {
   position: relative; height: var(--sw-top-h); margin: 0 auto; padding: 0 4px;
   max-width: calc(var(--sw-card-w) + 2 * var(--sw-rail));
-  display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center;
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px; align-items: center;
 }
 .sw-icon {
   appearance: none; border: 0; background: none; color: var(--ink); cursor: pointer;
@@ -37,6 +37,12 @@ body.swipe-on .scroller { visibility: hidden; }
 }
 .sw-icon svg { width: 21px; height: 21px; }
 .sw-icon:hover { color: var(--blue); }
+/* the directions button: a dot in the open direction's colour */
+.sw-dir { position: relative; }
+.sw-dir svg { width: 20px; height: 20px; }
+.sw-dir.is-on { color: var(--blue); }
+.sw-dir .dir-dot { position: absolute; top: 8px; right: 8px; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px var(--paper); }
+.sw-dir .dir-dot[hidden] { display: none; }
 /* centred while the tabs fit; when they do not (long English labels on a small phone) they scroll from the
    start instead of being cut off on both sides, faded at the edges */
 .sw-modes {
@@ -314,7 +320,7 @@ body.swipe-on .tune-pop { position: fixed; z-index: 45; top: calc(var(--sw-top-h
 .is-mobile .app-only, .is-mobile .web-only { display: none !important; }
 
 @media (max-width: 480px) {
-  .sw-top-in { grid-template-columns: 40px minmax(0, 1fr) 40px; padding: 0 2px; }
+  .sw-top-in { grid-template-columns: 40px minmax(0, 1fr) 40px 40px; padding: 0 2px; }
   .sw-modes { gap: 15px; padding: 0 4px; }
   .sw-modes button { font-size: 14.5px; }
 }

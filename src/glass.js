@@ -60,7 +60,9 @@
   const NS = 'http://www.w3.org/2000/svg';
   const filters = new Map(); // key -> filter id
   let defs = null, seq = 0;
-  const canBend = () => CSS.supports('backdrop-filter', 'blur(1px)') && !plainMQ.matches && !lowEnd();
+  // only Chromium bends the backdrop through an SVG filter; Safari's WebKit (the iPhone app) keeps the plain blur
+  const chromium = /Chrome\/|Chromium|Electron/.test(navigator.userAgent);
+  const canBend = () => chromium && CSS.supports('backdrop-filter', 'blur(1px)') && !plainMQ.matches && !lowEnd();
   function lowEnd() {
     try { if (localStorage.getItem('ri-glass') === 'plain') return true; } catch { /* ignore */ }
     return (navigator.deviceMemory && navigator.deviceMemory < 3) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4);

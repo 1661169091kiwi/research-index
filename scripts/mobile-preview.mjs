@@ -51,6 +51,23 @@ app.whenReady().then(async () => {
   wc.on('console-message', (e) => { const m = e.message ?? e; if (OUT) fs.appendFileSync(path.join(OUT, 'console.txt'), `${e.level ?? ''} ${m}\n`); });
   const go = (rel) => wc.loadURL(`http://127.0.0.1:${port}/${rel}`).catch(() => {});
   if (!OUT) { await go('index.html'); return; }
+  // RI_MOBILE_STEPS=<file.mjs>: run your own checks. The module's default export gets
+  // { js, snap, wait, until, go, out, win } and returns a report (written to report.json).
+  if (process.env.RI_MOBILE_STEPS) {
+    fs.mkdirSync(OUT, { recursive: true });
+    fs.rmSync(path.join(OUT, 'console.txt'), { force: true });
+    const js = (code) => wc.executeJavaScript(code);
+    const snap = async (name) => fs.writeFileSync(path.join(OUT, `${name}.png`), (await wc.capturePage()).toPNG());
+    const until = async (code, ms = 12000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await js(code)) return Date.now() - t0; await wait(120); } return -1; };
+    let report;
+    try {
+      const steps = (await import(new URL(`file:///${path.resolve(process.env.RI_MOBILE_STEPS).replace(/\\/g, '/')}`).href)).default;
+      report = await steps({ js, snap, wait, until, go, out: OUT, win, wc });
+    } catch (e) { report = { error: String(e.stack || e) }; }
+    fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
+    app.quit();
+    return;
+  }
   if (process.env.RI_MOBILE_UPDATE) {
     wc.session.webRequest.onBeforeRequest({ urls: ['https://api.github.com/*'] }, (_d, cb) => cb({ redirectURL: `http://127.0.0.1:${port}/__release.json` }));
     fs.mkdirSync(OUT, { recursive: true });
@@ -117,8 +134,8 @@ app.whenReady().then(async () => {
       const s0 = await state();
       const native = await js('window.portal && window.portal.native');
       const look = await js(`({ fl: document.documentElement.classList.contains('fl'), dock: document.getElementById('sw-actions').style.backdropFilter, tabs: document.querySelector('.sw-modes-wrap').style.backdropFilter,
-        chips: document.querySelectorAll('#sw-chips button').length, lang: [...document.querySelectorAll('#sw-menu [data-sw-lang]')].map((b) => b.textContent + (b.classList.contains('is-current') ? '*' : '')).join(' '),
-        topBottom: Math.round(document.querySelector('.sw-sub').getBoundingClientRect().bottom), dockTop: Math.round(document.getElementById('sw-actions').getBoundingClientRect().top) })`);
+        dirBtn: !!document.getElementById('sw-dir'), lang: [...document.querySelectorAll('#sw-menu [data-sw-lang]')].map((b) => b.textContent + (b.classList.contains('is-current') ? '*' : '')).join(' '),
+        topBottom: Math.round(document.querySelector('.sw-top-in').getBoundingClientRect().bottom), dockTop: Math.round(document.getElementById('sw-actions').getBoundingClientRect().top) })`);
       await snap(`m-swipe-1-${lang}`);
       await next(6500);
       await next(500);
@@ -193,9 +210,12 @@ app.whenReady().then(async () => {
       report.push({ lang, url, boot, native, look, hideFlow, sheetOrder: await js(`(() => { const a = document.getElementById('abstract'), k = document.getElementById('take'); return a && k ? (a.compareDocumentPosition(k) & 4 ? 'abstract-first' : 'take-first') : 'closed'; })()`), first: s0, after: { idx: s1?.idx, n: s1?.n, reasons: s1?.reasons, bar: s1?.bar }, midSwipeBar: mid?.bar, viewsStored: views, barLiked, sheetMs, sheetScroll, backClosed, barAfterSheet: barAfterSheet?.bar, grid, navDown, navUp, backToSwipe });
     }
     // a direction filters the cards; the language switch keeps the paper on screen
-    await js(`document.querySelectorAll('#sw-chips button')[1].click()`);
+    await js(`document.getElementById('sw-dir').click()`);
+    await wait(400);
+    await snap('m-dirs');
+    await js(`document.querySelectorAll('.dir-pop [data-dir]')[1].click()`);
     await wait(2500);
-    const topic = await js(`document.querySelector('#sw-chips .is-on')?.dataset.swTopic`);
+    const topic = await js(`JSON.parse(localStorage.getItem('ri-sw-topic') || '""')`);
     await snap('m-topic');
     const before = await state();
     await js(`document.querySelector('#sw-menu [data-sw-lang]:not(.is-current)').click()`);
@@ -203,7 +223,7 @@ app.whenReady().then(async () => {
     await wait(1500);
     const after = await state();
     await snap('m-lang-switched');
-    report.push({ topic, langSwitch: { before: before?.active, after: after?.active, same: !!before?.active && before.active === after?.active, path: await js('location.pathname'), topicAfter: await js(`document.querySelector('#sw-chips .is-on')?.dataset.swTopic`) } });
+    report.push({ topic, langSwitch: { before: before?.active, after: after?.active, same: !!before?.active && before.active === after?.active, path: await js('location.pathname'), topicAfter: await js(`JSON.parse(localStorage.getItem('ri-sw-topic') || '""')`) } });
     // the phone app is the paper feed only: no surveys in it, and no Surveys tab
     report.push({ surveysInApp: fs.existsSync(path.join(WWW, 'en', 'index.html')) || fs.existsSync(path.join(WWW, 'zh', 'index.html')),
       tabs: await js(`document.querySelectorAll('.tabs a').length`), seedState: fs.existsSync(path.join(WWW, 'assets', 'mobile', 'seed', 'state.json')) ? Object.keys(JSON.parse(fs.readFileSync(path.join(WWW, 'assets', 'mobile', 'seed', 'state.json'), 'utf8'))) : null });

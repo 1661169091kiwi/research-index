@@ -121,7 +121,7 @@ const I18N = {
 const FEED = {
   en: {
     title: 'Papers', searchPapers: 'Search papers', interests: 'Interests', refresh: 'Refresh',
-    mode_foryou: 'For you', mode_recommended: 'Recommended', mode_latest: 'Latest', mode_trending: 'Trending', mode_surveys: 'Surveys', mode_saved: 'Saved',
+    mode_foryou: 'For you', mode_recommended: 'Recommended', mode_latest: 'Latest', mode_trending: 'Trending', mode_surveys: 'Surveys', mode_saved: 'Saved', mode_liked: 'Liked', dirAll: 'All directions', dirPick: 'Show papers in',
     mode_venues: 'Top venues', modeTip_venues: 'Accepted at a top conference or journal (NeurIPS, ICML, ICLR, CVPR, ACL, EMNLP, Nature…), as the authors say on arXiv; workshops not included',
     all: 'All', survey: 'Survey',
     count: '{n} papers', updated: 'updated {rel}', never: 'not fetched yet', justNow: 'just now',
@@ -170,7 +170,7 @@ const FEED = {
     aiKeyFor: '{provider} API key', aiKeyPh: 'sk-…', aiKeySave: 'Save key', aiKeyRemove: 'Remove key',
     aiKeyHint_deepseek: 'Stored encrypted on this computer and sent only to the DeepSeek API. Create a key at platform.deepseek.com.',
     aiKeyHint_claude: 'Stored encrypted on this computer and sent only to api.anthropic.com. Create a key at console.anthropic.com.',
-    aiKeyHint_deepseek_mobile: 'Stored encrypted on this phone (Android Keystore) and added only to requests to the DeepSeek API. Create a key at platform.deepseek.com.',
+    aiKeyHint_deepseek_mobile: 'Stored encrypted on this phone (Android Keystore or iOS Keychain) and added only to requests to the DeepSeek API. Create a key at platform.deepseek.com.',
     aiKeySaved: 'Key saved ({hint})', aiKeyEnv: 'Using the API key from the environment', aiNoKey: 'No key yet',
     aiBase: 'API URL', aiModel: 'Model',
     aiContext: 'About you and your project', aiContextHint: 'The model uses this to tailor “Ideas for you” to your own work.', aiSave: 'Save',
@@ -200,7 +200,7 @@ const FEED = {
   },
   zh: {
     title: '论文', searchPapers: '搜索论文', interests: '兴趣', refresh: '刷新',
-    mode_foryou: '推荐', mode_recommended: '猜你喜欢', mode_latest: '最新', mode_trending: '热门', mode_surveys: '综述', mode_saved: '收藏',
+    mode_foryou: '推荐', mode_recommended: '猜你喜欢', mode_latest: '最新', mode_trending: '热门', mode_surveys: '综述', mode_saved: '收藏', mode_liked: '喜欢', dirAll: '全部方向', dirPick: '只看这个方向',
     mode_venues: '顶会顶刊', modeTip_venues: '作者在 arXiv 上注明已被顶级会议或期刊录用（NeurIPS、ICML、ICLR、CVPR、ACL、EMNLP、Nature 等），不含 workshop',
     all: '全部', survey: '综述',
     count: '{n} 篇论文', updated: '{rel}更新', never: '尚未获取', justNow: '刚刚',
@@ -249,7 +249,7 @@ const FEED = {
     aiKeyFor: '{provider} API 密钥', aiKeyPh: 'sk-…', aiKeySave: '保存密钥', aiKeyRemove: '移除密钥',
     aiKeyHint_deepseek: '密钥加密保存在本机，只会发送给 DeepSeek API。可在 platform.deepseek.com 创建密钥。',
     aiKeyHint_claude: '密钥加密保存在本机，只会发送给 api.anthropic.com。可在 console.anthropic.com 创建密钥。',
-    aiKeyHint_deepseek_mobile: '密钥用 Android 密钥库加密保存在这部手机上，只会附加到发往 DeepSeek API 的请求中。可在 platform.deepseek.com 创建密钥。',
+    aiKeyHint_deepseek_mobile: '密钥加密保存在这部手机上（Android 密钥库或 iOS 钥匙串），只会附加到发往 DeepSeek API 的请求中。可在 platform.deepseek.com 创建密钥。',
     aiKeySaved: '已保存密钥（{hint}）', aiKeyEnv: '正在使用环境变量中的密钥', aiNoKey: '尚未设置密钥',
     aiBase: '接口地址', aiModel: '模型',
     aiContext: '关于你和你的项目', aiContextHint: '模型会据此把“给你的研究灵感”贴合到你自己的工作上。', aiSave: '保存',
@@ -540,8 +540,8 @@ function styleSwitch(L) {
 function barMenu(L, page) {
   const T = I18N[L], C = T.client;
   const row = (label, control) => `<div class="ab-row"><span class="ab-label">${label}</span>${control}</div>`;
-  return `<button class="bar-menu-btn" type="button" data-about aria-label="${C.more}" title="${C.more}" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="about-dot" hidden></span></button>
-<div class="about-pop" id="about-pop" data-glass="menu" role="dialog" aria-label="${C.about}" hidden>
+  return `<button class="bar-menu-btn" type="button" data-about data-pop-opener aria-label="${C.more}" title="${C.more}" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="about-dot" hidden></span></button>
+<div class="about-pop" id="about-pop" data-glass="menu" data-pop role="dialog" aria-label="${C.about}" hidden>
   <div class="ab-head"><img class="ab-icon" src="../assets/icon.svg" alt=""><div class="ab-name"><b>${T.siteTitle}</b><span>${C.version.replace('{v}', CTX.version)}</span></div></div>
   <div class="ab-group">${row(C.langName, langSwitch(L, page))}${row(C.styleLabel, styleSwitch(L))}</div>
   <div class="ab-group">
@@ -707,11 +707,11 @@ function papersPage(L, config) {
     </div>
     <div class="feed-tools">
       <button class="tool" type="button" id="tr-btn" aria-pressed="false">${F.translate}</button>
-      <button class="tool" type="button" id="tune">${F.interests}</button>
-      <button class="tool" type="button" id="ai-btn"><span class="spark" aria-hidden="true">✦</span> ${F.ai}</button>
+      <button class="tool" type="button" id="tune" data-pop-opener>${F.interests}</button>
+      <button class="tool" type="button" id="ai-btn" data-pop-opener><span class="spark" aria-hidden="true">✦</span> ${F.ai}</button>
       <button class="tool" type="button" id="refresh" title="${F.refreshTip}">${F.refresh}</button>
       <button class="tool tool-view" type="button" id="view-btn" title="${F.viewTip}"><span class="vb-icon" aria-hidden="true"></span>${F.view_swipe}</button>
-      <div class="tune-pop ai-pop" id="ai-pop" data-glass="menu" hidden>
+      <div class="tune-pop ai-pop" id="ai-pop" data-glass="menu" data-pop hidden>
         <button type="button" class="share-x pop-x" data-pop-close aria-label="${F.close}">×</button>
         <h3>${F.aiTitle}</h3>
         <span class="ai-label">${F.aiProvider}</span>
@@ -730,7 +730,7 @@ function papersPage(L, config) {
         <textarea id="ai-context" spellcheck="false" placeholder="${F.aiContextPh}"></textarea>
         <div class="row"><button class="btn-primary" type="button" id="ai-save">${F.aiSave}</button></div>
       </div>
-      <div class="tune-pop" id="tune-pop" data-glass="menu" hidden>
+      <div class="tune-pop" id="tune-pop" data-glass="menu" data-pop hidden>
         <button type="button" class="share-x pop-x" data-pop-close aria-label="${F.close}">×</button>
         <h3>${F.tuneTitle}</h3>
         <p>${F.tuneHint}</p>
@@ -741,7 +741,7 @@ function papersPage(L, config) {
   </section>
   <div class="feed-nav" data-glass="panel">
     <div class="wrap">
-      <nav class="modes" id="modes" aria-label="${F.title}"></nav>
+      <div class="modes-row"><nav class="modes" id="modes" aria-label="${F.title}"></nav><button class="dir-btn" type="button" id="dir-btn" data-pop-opener aria-haspopup="dialog" aria-expanded="false" aria-label="${F.directions}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="dir-name"></span></button></div>
       <div class="chips" id="chips"></div>
     </div>
   </div>
@@ -775,8 +775,9 @@ function papersPage(L, config) {
     <div class="sw-top-in">
       <button class="sw-icon" type="button" id="sw-grid" data-glass="round" aria-label="${F.view_grid}" title="${F.view_grid} (V)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
       <div class="sw-modes-wrap" data-glass="pill"><nav class="sw-modes" id="sw-modes" aria-label="${F.title}"></nav></div>
-      <button class="sw-icon" type="button" id="sw-menu-btn" data-glass="round" aria-label="${F.swMore}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="square"/></svg></button>
-      <div class="sw-menu" id="sw-menu" data-glass="menu" hidden>
+      <button class="sw-icon sw-dir" type="button" id="sw-dir" data-glass="round" data-pop-opener aria-haspopup="dialog" aria-expanded="false" aria-label="${F.directions}" title="${F.directions}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><i class="dir-dot" hidden></i></button>
+      <button class="sw-icon" type="button" id="sw-menu-btn" data-glass="round" data-pop-opener aria-label="${F.swMore}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="square"/></svg></button>
+      <div class="sw-menu" id="sw-menu" data-glass="menu" data-pop hidden>
         <div class="sw-sets">
           <div class="sw-set"><span>${I18N[L].langName}</span><div class="lang sw-seg">${LANGS.map((l) => `<button type="button" data-sw-lang="${l}"${l === L ? ' class="is-current" aria-current="true"' : ''} lang="${I18N[l].htmlLang}">${l === 'en' ? 'EN' : '中文'}</button>`).join('')}</div></div>
           <div class="sw-set"><span>${I18N[L].styleLabel}</span>${styleSwitch(L).replace('class="lang style-switch"', 'class="lang style-switch sw-seg"')}</div>
@@ -789,9 +790,6 @@ function papersPage(L, config) {
         <button type="button" data-sw-menu="about">${I18N[L].client.about}</button>
         <button type="button" data-sw-menu="grid">${F.view_grid}<kbd>V</kbd></button>
       </div>
-    </div>
-    <div class="sw-sub">
-      <div class="sw-chips-wrap" data-glass="pill"><div class="sw-chips" id="sw-chips" role="toolbar" aria-label="${F.directions}"></div></div>
     </div>
   </header>
   <div class="sw-stage">

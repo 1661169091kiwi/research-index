@@ -21,7 +21,9 @@
     return false;
   }
   let latest = null;
-  const pick = (info) => (info?.assets || []).find((a) => (android ? /\.apk$/i : /\.exe$/i).test(a.name));
+  // the file this platform installs (the iPhone app is installed by the reader, from the release page)
+  const ASSET = { android: /\.apk$/i, desktop: /\.exe$/i }[html.dataset.platform || 'desktop'];
+  const pick = (info) => (ASSET ? (info?.assets || []).find((a) => ASSET.test(a.name)) : null);
   const hasNew = () => !!latest && newer(latest.version, VERSION);
   const skipped = () => hasNew() && get('ri-update-skip', '') === latest.version;
 

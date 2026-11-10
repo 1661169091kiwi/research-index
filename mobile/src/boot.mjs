@@ -7,6 +7,12 @@ import { useFetch } from './feed/sources.mjs';
 import { summarizeDeepSeek, streamDeepSeek, completeDeepSeek, classifyDeepSeekError, DEEPSEEK_DEFAULTS, useAiFetch } from './feed/deepseek.mjs';
 import { files, httpFetch, createKeys, isNative, device } from './native.mjs';
 
+// the same pages run in the iPhone app: say so before the page's other scripts read it
+if (window.Capacitor?.getPlatform?.() === 'ios') {
+  document.documentElement.dataset.platform = 'ios';
+  document.documentElement.classList.add('is-ios');
+}
+
 // older Android WebViews lack these two
 if (!AbortSignal.timeout) AbortSignal.timeout = (ms) => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('timed out', 'TimeoutError')), ms); return c.signal; };
 if (!AbortSignal.any) AbortSignal.any = (list) => { const c = new AbortController(); for (const s of list) { if (s.aborted) { c.abort(s.reason); break; } s.addEventListener('abort', () => c.abort(s.reason), { once: true }); } return c.signal; };
@@ -49,7 +55,7 @@ const ready = (async () => {
   if (!data.papers || !Object.keys(data.papers).length) store.flush();
   await keys.load(['deepseek']);
   service = createFeedService({
-    store, keys, send,
+    store, keys, send, maxPool: 4500,
     providers: { deepseek: { summarize: summarizeDeepSeek, stream: streamDeepSeek, complete: completeDeepSeek, classify: classifyDeepSeekError, defaults: DEEPSEEK_DEFAULTS } },
   });
   // the native side adds the key only for the host it was saved for: keep that in step with the settings
@@ -129,9 +135,11 @@ window.__riBack = () => {
   if (top) { top.click(); return true; }
   const sheet = document.getElementById('sheet');
   if (sheet && !sheet.hidden) { sheet.querySelector('[data-close]')?.click(); return true; }
-  for (const id of ['about-pop', 'sw-menu', 'tune-pop', 'ai-pop']) {
-    const el = document.getElementById(id);
-    if (el && !el.hidden) { el.hidden = true; return true; }
+  const pops = [...document.querySelectorAll('[data-pop]')].filter((el) => !el.hidden && el.getClientRects().length);
+  if (pops.length) {
+    for (const el of pops) { if (el.dataset.pop === 'remove') el.remove(); else el.hidden = true; }
+    document.querySelectorAll('[data-pop-opener][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+    return true;
   }
   const swipe = document.getElementById('swipe');
   if (swipe && swipe.hidden && document.getElementById('grid')) { document.getElementById('view-btn')?.click(); return true; }
