@@ -2,6 +2,7 @@
 // in a phone-sized Electron window (the page's network falls back to plain fetch, files to localStorage).
 //   npx electron scripts/mobile-preview.mjs              open it to look around
 //   RI_MOBILE_TEST=<folder> npx electron scripts/mobile-preview.mjs   run the checks, save screenshots, quit
+//   RI_MOBILE_UPDATE=1 (with RI_MOBILE_TEST): only the update flow, against a pretend release 9.9.9
 import { app, BrowserWindow, nativeTheme } from 'electron';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -20,6 +21,11 @@ function serve() {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
       const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'index.html';
+      if (rel === '__release.json' && process.env.RI_MOBILE_UPDATE) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ tag_name: 'v9.9.9', name: '9.9.9', body: '## New\n- A pretend release for the update check', html_url: 'https://github.com/1661169091kiwi/research-index/releases/tag/v9.9.9',
+          assets: [{ name: 'Research-Index-9.9.9.apk', size: 1, browser_download_url: 'https://github.com/1661169091kiwi/research-index/releases/download/v9.9.9/Research-Index-9.9.9.apk' }] }));
+      }
       const file = path.join(WWW, rel);
       if (!file.startsWith(WWW) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end(); }
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
@@ -45,6 +51,45 @@ app.whenReady().then(async () => {
   wc.on('console-message', (e) => { const m = e.message ?? e; if (OUT) fs.appendFileSync(path.join(OUT, 'console.txt'), `${e.level ?? ''} ${m}\n`); });
   const go = (rel) => wc.loadURL(`http://127.0.0.1:${port}/${rel}`).catch(() => {});
   if (!OUT) { await go('index.html'); return; }
+  if (process.env.RI_MOBILE_UPDATE) {
+    wc.session.webRequest.onBeforeRequest({ urls: ['https://api.github.com/*'] }, (_d, cb) => cb({ redirectURL: `http://127.0.0.1:${port}/__release.json` }));
+    fs.mkdirSync(OUT, { recursive: true });
+    const js = (code) => wc.executeJavaScript(code);
+    const snap = async (name) => fs.writeFileSync(path.join(OUT, `${name}.png`), (await wc.capturePage()).toPNG());
+    const until = async (code, ms = 12000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await js(code)) return true; await wait(150); } return false; };
+    const out = {};
+    try {
+      await go('index.html');
+      await wait(400);
+      await js(`localStorage.setItem('ri-lang', 'zh'); localStorage.removeItem('ri-update-skip'); localStorage.removeItem('ri-update-auto'); sessionStorage.clear(); localStorage.setItem('ri-sw-hinted', 'true')`);
+      await go('index.html');
+      out.offeredOnOpen = await until(`!!document.querySelector('.update-modal')`);
+      await wait(700);
+      await snap('u-offer');
+      out.offerText = await js(`document.querySelector('.update-panel')?.innerText || ''`);
+      await js(`document.querySelector('[data-up="skip"]').click()`);
+      await wait(500);
+      out.skipStored = await js(`localStorage.getItem('ri-update-skip')`);
+      await js(`sessionStorage.removeItem('ri-update-asked')`); // the app opened again
+      await go('index.html');
+      await wait(7000);
+      out.offeredAfterSkip = await js(`!!document.querySelector('.update-modal')`);
+      out.dotAfterSkip = await js(`[...document.querySelectorAll('.about-dot')].some((d) => !d.hidden)`);
+      await js(`document.getElementById('sw-menu-btn').click()`);
+      await wait(300);
+      await js(`document.querySelector('[data-sw-menu="about"]').click()`);
+      await wait(700);
+      await snap('u-about');
+      await js(`document.querySelector('.about-pop [data-ab="check"]').click()`);
+      out.offeredOnManual = await until(`!!document.querySelector('.update-modal')`, 8000);
+      await wait(700);
+      await snap('u-manual');
+      out.back = await js(`window.__riBack()`) && await js(`!document.querySelector('.update-modal:not(.is-leaving)')`);
+    } catch (e) { out.error = String(e.stack || e); }
+    fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(out, null, 2));
+    app.quit();
+    return;
+  }
 
   fs.mkdirSync(OUT, { recursive: true });
   fs.rmSync(path.join(OUT, 'console.txt'), { force: true });
