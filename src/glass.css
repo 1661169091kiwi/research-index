@@ -128,8 +128,17 @@ html.fl {
 html.fl body { background: var(--page); color: var(--on); font-feature-settings: "cv11"; }
 html.fl ::selection { background: rgba(0, 122, 255, 0.26); color: inherit; }
 html.fl :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-html.fl ::-webkit-scrollbar-thumb { border-radius: 999px; }
-html.fl ::-webkit-scrollbar-thumb:active { background-color: var(--primary); }
+/* scrollbars: a thin bar flush with the edge, shown only while you scroll or point at the area, and kept
+   clear of rounded corners (the track stops short of them) */
+html.fl ::-webkit-scrollbar { width: 10px; height: 10px; }
+html.fl ::-webkit-scrollbar-thumb { background-color: transparent; border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; min-height: 44px; }
+html.fl :hover::-webkit-scrollbar-thumb, html.fl .is-scrolling::-webkit-scrollbar-thumb { background-color: var(--thumb); }
+html.fl ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--on) 42%, transparent); border-width: 2px; }
+html.fl ::-webkit-scrollbar-thumb:active { background-color: var(--primary); border-width: 2px; }
+html.fl .sheet-panel ::-webkit-scrollbar-track, html.fl .update-panel ::-webkit-scrollbar-track { margin-block: calc(var(--r-xxl) - 4px); }
+html.fl .tune-pop::-webkit-scrollbar-track, html.fl .up-notes::-webkit-scrollbar-track, html.fl .sw-menu::-webkit-scrollbar-track { margin-block: calc(var(--r-xl) - 4px); }
+html.fl .toc::-webkit-scrollbar-thumb { background-color: transparent; }
+html.fl .toc:hover::-webkit-scrollbar-thumb, html.fl .toc.is-scrolling::-webkit-scrollbar-thumb { background-color: var(--thumb); }
 
 /* ---------- liquid glass (the shape and light; glass.js bends what lies behind) ---------- */
 html.fl [data-glass] {
@@ -167,6 +176,13 @@ html.fl .lang { border: 0; background: var(--fill); border-radius: 999px; paddin
 html.fl .lang a { border-radius: 999px; padding: 4px 11px; color: var(--on-2); }
 html.fl .lang a + a { border-left: 0; }
 html.fl .lang a.is-current { background: var(--thumb-fill); color: var(--on); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14); }
+html.fl .lang > * + * { border-left: 0; }
+html.fl .lang button { border-radius: 999px; padding: 4px 11px; color: var(--on-2); }
+html.fl .lang button.is-current, html.fl .style-switch [data-style-set="glass"] { background: var(--thumb-fill); color: var(--on); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14); }
+html.fl .lang button:not(.is-current):hover { color: var(--on); }
+html.fl .sw-sets { border-bottom-color: var(--hair); padding: 8px 10px 12px 14px; }
+html.fl .sw-menu .sw-seg button { padding: 5px 12px; border-radius: 999px; }
+html.fl .sw-menu .sw-seg button:hover { background: none; }
 html.fl .theme-btn { color: var(--primary); }
 
 /* ---------- buttons, chips, fields ---------- */
@@ -425,7 +441,8 @@ html.fl .sw-act:active .sw-ico { transform: none; }
 }
 /* desktop, wide window: a glass column beside the card */
 @media (min-width: 900px) {
-  html.fl:not(.is-mobile) .sw-actions { border-radius: 999px; width: 86px; left: calc(50% + var(--sw-card-w) / 2 + 16px); padding: 10px 0; gap: 4px; bottom: 34px; }
+  html.fl:not(.is-mobile) .sw-actions { border-radius: 999px; width: 86px; left: calc(50% + var(--sw-card-w) / 2 + 16px); padding: 12px 0 22px; gap: 4px; bottom: 34px; }
+  html.fl:not(.is-mobile) .sw-act.hide .sw-lbl { max-width: 62px; font-size: 10px; line-height: 1.2; white-space: normal; overflow: visible; }
   html.fl:not(.is-mobile) .sw-act { height: auto; padding: 4px 4px; font-size: 10.5px; color: var(--on); border-radius: 22px; }
   html.fl:not(.is-mobile) .sw-act::before { inset: 0 6px; border-radius: 20px; }
   html.fl:not(.is-mobile) .sw-ico { width: 46px; height: 46px; border: 0; border-radius: 999px; background: none; transition: background 0.2s, color 0.2s, transform 0.2s; }
@@ -538,24 +555,33 @@ html.fl .ab-head b { font-weight: 700; }
 html.fl .share-x { border-radius: 999px; background: var(--fill); color: var(--on); font-size: 18px; }
 html.fl .share-x:hover { background: var(--fill-2); color: var(--on); }
 html.fl .share-backdrop { background: var(--scrim); }
-html.fl .share-panel, html.fl .update-panel {
+html.fl .update-panel {
   border: 0; border-radius: var(--r-xxl); background: var(--card); box-shadow: 0 30px 90px rgba(0, 0, 0, 0.3);
   animation: flSheetIn var(--sp-zoom-t) var(--sp-zoom) both; overflow: hidden;
 }
-html.fl .share-head { padding: 12px 12px 10px 20px; font-weight: 700; }
-html.fl .share-preview img { border-radius: 18px; box-shadow: 0 0 0 0.67px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.12); }
-html.fl .share-wait { border-radius: 18px; background: linear-gradient(100deg, var(--block) 35%, var(--card) 50%, var(--block) 65%) 0 0 / 300% 100%; }
-html.fl .share-actions { padding: 14px 20px 2px; }
+/* the share view: the card on a dim backdrop, the buttons and × floating on glass over it */
+html.fl .share-modal { background: rgba(0, 0, 0, 0.5); }
+html.fl .share-img img { border-radius: 26px; animation: flSheetIn var(--sp-zoom-t) var(--sp-zoom) both; }
+html.fl .share-wait { border-radius: 26px; background: linear-gradient(100deg, var(--block) 35%, var(--card) 50%, var(--block) 65%) 0 0 / 300% 100%; }
+html.fl .share-modal > .share-x { border: 0; background: var(--glass-tint); color: var(--on); font-size: 20px; }
+html.fl .share-bar { background: var(--glass-tint); border-radius: 999px; padding: 6px; transform: none; translate: -50% 0; box-shadow: 0 0 0 0.67px var(--glass-line), var(--shadow-float), inset 0 0 4.5px var(--rim-tail); }
+html.fl .share-bar button { border-radius: 999px; color: var(--on); background: none; }
+html.fl .share-bar button:not(.primary):hover { background: var(--fill); }
+html.fl .share-bar button.primary { background: var(--primary); color: #fff; box-shadow: 0 2px 10px rgba(0, 122, 255, 0.35); }
+html.fl .share-note { border-radius: 999px; color: var(--on); animation: flPresence var(--sp-presence-t) var(--sp-presence) both; }
+@media (max-width: 640px) {
+  html.fl .share-img img, html.fl .share-wait { border-radius: 0; }
+}
 html.fl .update-panel { padding: 24px 24px 16px; }
 html.fl .up-eyebrow { color: var(--primary); }
 html.fl .update-panel h3 { font-weight: 700; }
 html.fl .up-notes { background: var(--block); border-radius: var(--r-md); padding: 12px 14px; }
 html.fl .tool.ghost { background: none; color: var(--muted); }
-html.fl .share-actions .tool, html.fl .up-actions .tool:not(.ghost) { background: var(--fill); }
-html.fl .share-actions .tool:hover, html.fl .up-actions .tool:not(.ghost):hover { background: var(--fill-2); }
+html.fl .up-actions .tool:not(.ghost) { background: var(--fill); }
+html.fl .up-actions .tool:not(.ghost):hover { background: var(--fill-2); }
 html.fl .act.share { color: var(--on); }
 @media (max-width: 640px) {
-  html.fl .share-panel, html.fl .update-panel { animation: flSheetUp var(--sp-sheet-t) var(--sp-sheet) both; }
+  html.fl .update-panel { animation: flSheetUp var(--sp-sheet-t) var(--sp-sheet) both; }
 }
 
 html.fl .venue { border-radius: 999px; padding: 3px 9px 3px 7px; }

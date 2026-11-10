@@ -819,7 +819,7 @@ async function selfTest(dir) {
       const js = (code) => wc.executeJavaScript(code);
       const snap = async (name) => fs.writeFileSync(path.join(dir, `${name}.png`), (await wc.capturePage()).toPNG());
       const saveCard = async (name) => {
-        const b64 = await js(`(async () => { const img = document.querySelector('.share-preview img'); if (!img) return ''; const buf = await (await fetch(img.src)).arrayBuffer(); let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); })()`);
+        const b64 = await js(`(async () => { const img = document.querySelector('.share-img img'); if (!img) return ''; const buf = await (await fetch(img.src)).arrayBuffer(); let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); })()`);
         if (b64) fs.writeFileSync(path.join(dir, `${name}.png`), Buffer.from(b64, 'base64'));
         return b64.length;
       };
@@ -888,6 +888,31 @@ async function selfTest(dir) {
       await js(`document.querySelector('.share-x')?.click(); document.querySelector('.sheet-close')?.click()`);
       await js(`document.querySelector('#modes [data-mode="latest"]').click()`);
       report.push({ name: 'share', venuesShown: venues.length, venuesAllBadged: venues.every((v) => v.badge), venueSample: venues.slice(0, 4), bar, cardBytes, copied, note, afterEsc, about, tune, savedCards: saved.length, savedTotal: Object.keys(feed.store.state.saves).length, savedOk, swipeCard });
+    } else if (process.env.RI_SELFTEST_ZOOM) {
+      // a paper zooming out of its card (grid and swipe): its opacity, every frame for 1.2 s, must rise and
+      // stay up (a dip after it reached 1 is the flash of a replayed entrance)
+      while (Object.keys(feed.store.papers).length < 50) await wait(2000);
+      const js = (code) => wc.executeJavaScript(code);
+      await js(`localStorage.setItem('ri-feed-view', JSON.stringify({ mode: 'latest', topic: '', collection: '' })); localStorage.setItem('ri-view', '"grid"'); localStorage.removeItem('ri-style')`);
+      await open(path.join(outDir, 'en/papers.html'));
+      await wait(3000);
+      const trace = (click) => js(`new Promise((done) => { const out = []; ${click}; const t0 = performance.now();
+        const tick = () => { const p = document.querySelector('#sheet .sheet-panel'); out.push(p ? +getComputedStyle(p).opacity : -1);
+          if (performance.now() - t0 < 1200) requestAnimationFrame(tick); else done(out); }; requestAnimationFrame(tick); })`);
+      const dips = (o) => { let top = 0, worst = 0; for (const v of o) { top = Math.max(top, v); if (top >= 0.99) worst = Math.max(worst, top - v); } return +worst.toFixed(3); };
+      const grid = await trace(`document.querySelectorAll('#grid .card')[1].querySelector('.card-title').click()`);
+      await wait(300);
+      fs.writeFileSync(path.join(dir, 'z-sheet-rest.png'), (await wc.capturePage()).toPNG());
+      await js(`document.querySelector('#sheet .sheet-body').scrollBy(0, 400)`);
+      await wait(150);
+      fs.writeFileSync(path.join(dir, 'z-sheet-scrolling.png'), (await wc.capturePage()).toPNG());
+      await js(`document.querySelector('.sheet-close').click()`);
+      await wait(800);
+      await js(`document.getElementById('view-btn').click()`);
+      await wait(2500);
+      const swipe = await trace(`document.querySelector('.sw-card.is-active .sw-abs').click()`);
+      await js(`document.querySelector('.sheet-close').click(); document.getElementById('sw-grid').click()`);
+      report.push({ name: 'zoom', gridFrames: grid.length, gridDipAfterFull: dips(grid), gridEnd: grid.slice(-3), swipeFrames: swipe.length, swipeDipAfterFull: dips(swipe), swipeEnd: swipe.slice(-3) });
     } else if (process.env.RI_SELFTEST_PAGE) {
       // one page, e.g. RI_SELFTEST_PAGE=zh/papers.html
       while (Object.keys(feed.store.papers).length < 50) await wait(2000);

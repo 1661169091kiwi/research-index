@@ -103,6 +103,11 @@ body.swipe-on .scroller { visibility: hidden; }
   padding: 12px 16px; font: 600 14.5px var(--display); text-align: left;
 }
 .sw-menu button:hover, .sw-menu a:hover { background: var(--paper-2); }
+/* language and style, at the top of the menu */
+.sw-sets { display: grid; gap: 8px; padding: 6px 16px 12px; margin-bottom: 4px; border-bottom: var(--line-w) solid var(--hair); }
+.sw-set { display: flex; align-items: center; justify-content: space-between; gap: 18px; font: 600 13px var(--display); color: var(--muted); }
+.sw-menu .sw-seg button { display: block; padding: 5px 11px; font-size: 12.5px; }
+.sw-menu .sw-seg button:hover { background: none; }
 .sw-menu kbd { font: 11px var(--mono); color: var(--muted); border: var(--line-w) solid var(--hair); padding: 1px 6px; }
 .is-mobile .sw-menu kbd { display: none; }
 .sw-check { width: 18px; height: 18px; border: var(--line); display: grid; place-items: center; }

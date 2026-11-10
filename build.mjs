@@ -31,6 +31,7 @@ const I18N = {
     tabSurveys: 'Surveys',
     tabPapers: 'Papers',
     themeTip: 'Style: Glass or Classic',
+    styleLabel: 'Style', styleGlass: 'Glass', styleClassic: 'Classic', langName: 'Language',
     surveys: 'Surveys',
     surveysOnFile: 'Surveys on file', readLatest: 'Read it',
     noSurveys: 'No surveys here yet. Put Markdown (.md) files in the survey folder, or choose another folder below.',
@@ -63,7 +64,7 @@ const I18N = {
       matches: '<b>{n}</b> matches for “{q}”', match: '<b>1</b> match for “{q}”', topN: ' · showing the top {n}',
       noMatches: 'No matches. Try fewer or shorter words.', findNone: 'No results', updated: 'Updated just now',
       readPct: '{p}% read',
-      about: 'About and updates', version: 'Version {v}', checkUpdates: 'Check for updates', checking: 'Checking…',
+      about: 'About and updates', langName: 'Language', styleLabel: 'Style', version: 'Version {v}', checkUpdates: 'Check for updates', checking: 'Checking…',
       upToDate: 'You have the latest version.', checkFailed: 'Could not reach GitHub. Check the network and try again.',
       updateTitle: 'Version {v} is available', updateDownload: 'Download', updateInstall: 'Download and install', updateSkip: 'Skip this version',
       updateLater: 'Later', updateNotes: 'What is new', downloading: 'Downloading… {p}%', updateOpening: 'Starting the installer…',
@@ -76,6 +77,7 @@ const I18N = {
     tabSurveys: '调研',
     tabPapers: '论文',
     themeTip: '风格：玻璃 / 经典',
+    styleLabel: '风格', styleGlass: '玻璃', styleClassic: '经典', langName: '语言',
     surveys: '调研',
     surveysOnFile: '已收录调研', readLatest: '打开阅读',
     noSurveys: '这里还没有调研文档。把 Markdown（.md）文件放进调研文件夹，或在下方换一个文件夹。',
@@ -108,7 +110,7 @@ const I18N = {
       matches: '“{q}”共 <b>{n}</b> 条结果', match: '“{q}”共 <b>1</b> 条结果', topN: '，显示前 {n} 条',
       noMatches: '没有匹配的结果，试试更少或更短的关键词。', findNone: '无结果', updated: '内容已更新',
       readPct: '已读 {p}%',
-      about: '关于与更新', version: '版本 {v}', checkUpdates: '检查更新', checking: '正在检查…',
+      about: '关于与更新', langName: '语言', styleLabel: '风格', version: '版本 {v}', checkUpdates: '检查更新', checking: '正在检查…',
       upToDate: '已是最新版本。', checkFailed: '无法连接 GitHub，请检查网络后重试。',
       updateTitle: '发现新版本 {v}', updateDownload: '下载', updateInstall: '下载并安装', updateSkip: '跳过此版本',
       updateLater: '以后再说', updateNotes: '更新内容', downloading: '正在下载… {p}%', updateOpening: '正在启动安装程序…',
@@ -532,8 +534,8 @@ ${after}
 
 // Glass (the default, after FlClash) or Classic; glass.js switches it in place
 function themeBtn(L) {
-  const tip = I18N[L].themeTip;
-  return `<button class="theme-btn" type="button" data-theme-toggle title="${tip}" aria-label="${tip}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>`;
+  const T = I18N[L];
+  return `<nav class="lang style-switch" aria-label="${T.themeTip}"><button type="button" data-style-set="glass">${T.styleGlass}</button><button type="button" data-style-set="classic">${T.styleClassic}</button></nav>`;
 }
 
 function aboutBtn(L) {
@@ -764,18 +766,20 @@ function papersPage(L, config) {
       <div class="sw-modes-wrap" data-glass="pill"><nav class="sw-modes" id="sw-modes" aria-label="${F.title}"></nav></div>
       <button class="sw-icon" type="button" id="sw-menu-btn" data-glass="round" aria-label="${F.swMore}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="square"/></svg></button>
       <div class="sw-menu" id="sw-menu" data-glass="menu" hidden>
+        <div class="sw-sets">
+          <div class="sw-set"><span>${I18N[L].langName}</span><div class="lang sw-seg">${LANGS.map((l) => `<button type="button" data-sw-lang="${l}"${l === L ? ' class="is-current" aria-current="true"' : ''} lang="${I18N[l].htmlLang}">${l === 'en' ? 'EN' : '中文'}</button>`).join('')}</div></div>
+          <div class="sw-set"><span>${I18N[L].styleLabel}</span><div class="lang style-switch sw-seg"><button type="button" data-style-set="glass">${I18N[L].styleGlass}</button><button type="button" data-style-set="classic">${I18N[L].styleClassic}</button></div></div>
+        </div>
         <button type="button" data-sw-menu="refresh">${F.swNewBatch}<kbd>R</kbd></button>
         <button type="button" data-sw-menu="tr">${F.translate}<span class="sw-check" aria-hidden="true"></span></button>
         <button type="button" data-sw-menu="tune">${F.interests}</button>
         <button type="button" data-sw-menu="ai">${F.aiTitle}</button>
         <button type="button" data-sw-menu="share">${F.share}</button>
-        <button type="button" data-sw-menu="style">${F.styleGlass}<span class="sw-check" aria-hidden="true"></span></button>
         <button type="button" data-sw-menu="about">${I18N[L].client.about}</button>
         <button type="button" data-sw-menu="grid">${F.view_grid}<kbd>V</kbd></button>
       </div>
     </div>
     <div class="sw-sub">
-      <div class="sw-lang" data-glass="pill" role="group" aria-label="${F.langLabel}">${LANGS.map((l) => `<button type="button" data-sw-lang="${l}"${l === L ? ' class="is-on" aria-pressed="true"' : ' aria-pressed="false"'} lang="${I18N[l].htmlLang}">${l === 'en' ? 'EN' : '中'}</button>`).join('')}</div>
       <div class="sw-chips-wrap" data-glass="pill"><div class="sw-chips" id="sw-chips" role="toolbar" aria-label="${F.directions}"></div></div>
     </div>
   </header>

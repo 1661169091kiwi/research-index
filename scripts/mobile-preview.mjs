@@ -117,7 +117,7 @@ app.whenReady().then(async () => {
       const s0 = await state();
       const native = await js('window.portal && window.portal.native');
       const look = await js(`({ fl: document.documentElement.classList.contains('fl'), dock: document.getElementById('sw-actions').style.backdropFilter, tabs: document.querySelector('.sw-modes-wrap').style.backdropFilter,
-        chips: document.querySelectorAll('#sw-chips button').length, lang: [...document.querySelectorAll('.sw-lang button')].map((b) => b.textContent + (b.classList.contains('is-on') ? '*' : '')).join(' '),
+        chips: document.querySelectorAll('#sw-chips button').length, lang: [...document.querySelectorAll('#sw-menu [data-sw-lang]')].map((b) => b.textContent + (b.classList.contains('is-current') ? '*' : '')).join(' '),
         topBottom: Math.round(document.querySelector('.sw-sub').getBoundingClientRect().bottom), dockTop: Math.round(document.getElementById('sw-actions').getBoundingClientRect().top) })`);
       await snap(`m-swipe-1-${lang}`);
       await next(6500);
@@ -179,7 +179,7 @@ app.whenReady().then(async () => {
     const topic = await js(`document.querySelector('#sw-chips .is-on')?.dataset.swTopic`);
     await snap('m-topic');
     const before = await state();
-    await js(`document.querySelector('.sw-lang button:not(.is-on)').click()`);
+    await js(`document.querySelector('#sw-menu [data-sw-lang]:not(.is-current)').click()`);
     await until(`document.querySelectorAll('#sw-track .sw-card[data-id]').length > 0 && !!document.querySelector('#sw-track .sw-card.is-active')`, 15000);
     await wait(1500);
     const after = await state();

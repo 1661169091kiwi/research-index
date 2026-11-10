@@ -797,8 +797,12 @@
     const from = zoomTarget(id);
     const panel = from && $('.sheet-panel', sheet);
     if (!panel) return;
-    sheet.classList.add('is-zoom');
-    zoom(panel, from, true).finished.catch(() => {}).then(() => sheet.classList.remove('is-zoom'));
+    // this panel opens by the zoom, never by the stylesheet's own entrance: turning that back on afterwards
+    // replayed it from transparent, a flash just as the zoom ended
+    panel.style.animation = 'none';
+    const a = zoom(panel, from, true);
+    // its last frame is the panel's own look; drop the animation so nothing holds the clip or transform
+    a.finished.then(() => a.cancel(), () => {});
   }
   function zoom(panel, { rect, radius }, opening) {
     const P = panel.getBoundingClientRect();

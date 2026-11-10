@@ -31,11 +31,12 @@
     set: (name) => apply(name !== 'classic'),
     toggle: () => apply(!isGlass()),
   };
+  // the Glass | Classic toggles (top bar, the swipe menu, About); which half is on follows the class on <html>
   document.addEventListener('click', (e) => {
-    const b = e.target.closest?.('[data-theme-toggle]');
+    const b = e.target.closest?.('[data-style-set], [data-theme-toggle]');
     if (!b) return;
-    window.RITheme.toggle();
-    b.setAttribute('aria-pressed', String(isGlass()));
+    if (b.dataset.styleSet) { if ((b.dataset.styleSet === 'glass') !== isGlass()) apply(b.dataset.styleSet === 'glass'); }
+    else window.RITheme.toggle();
   });
 
   // The window around the page follows it: the desktop title bar (its buttons are drawn by Windows) and the
@@ -195,6 +196,16 @@
   }, { passive: true });
   ['pointerup', 'pointercancel', 'blur'].forEach((t) => window.addEventListener(t, release, { passive: true }));
   document.addEventListener('scroll', release, { passive: true, capture: true });
+
+  // scrollbars show while something scrolls (glass.css hides them otherwise)
+  document.addEventListener('scroll', (e) => {
+    if (!isGlass()) return;
+    const el = e.target === document ? document.scrollingElement : e.target;
+    if (!(el instanceof Element)) return;
+    el.classList.add('is-scrolling');
+    clearTimeout(el._riScroll);
+    el._riScroll = setTimeout(() => el.classList.remove('is-scrolling'), 900);
+  }, { passive: true, capture: true });
 
   function start() {
     scan();

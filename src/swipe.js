@@ -509,7 +509,7 @@
     try { r = JSON.parse(sessionStorage.getItem(RESUME) || 'null'); sessionStorage.removeItem(RESUME); } catch { /* ignore */ }
     return r && r.mode === sw.mode && r.topic === sw.topic && Date.now() - r.t < 120000 ? r.id : '';
   }
-  root.querySelector('.sw-lang')?.addEventListener('click', (e) => {
+  menu.addEventListener('click', (e) => {
     const b = e.target.closest('[data-sw-lang]');
     if (!b || b.dataset.swLang === lang) return;
     const c = sw.atEnd ? null : current();
@@ -520,7 +520,6 @@
 
   function renderMenu() {
     $('[data-sw-menu="tr"]', menu)?.classList.toggle('is-on', F.trOn);
-    $('[data-sw-menu="style"]', menu)?.classList.toggle('is-on', document.documentElement.classList.contains('fl'));
   }
   const closeMenu = () => { menu.hidden = true; $('#sw-menu-btn').setAttribute('aria-expanded', 'false'); };
   $('#sw-menu-btn').addEventListener('click', (e) => {
@@ -549,7 +548,6 @@
     if (kind === 'ai') { $('#ai-btn').click(); return; }
     if (kind === 'share') { const c = sw.atEnd ? null : current(); if (c) window.RIShare?.open(c); return; }
     if (kind === 'about') { window.RIUpdate?.about(); return; }
-    if (kind === 'style') { window.RITheme?.toggle(); renderMenu(); return; }
     if (kind === 'grid') exit();
   }
   $('#sw-grid').addEventListener('click', () => exit());

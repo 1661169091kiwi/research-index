@@ -200,30 +200,35 @@
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-label', t('shareTitle'));
-    modal.innerHTML = `<div class="share-backdrop" data-share-close></div>
-      <div class="share-panel">
-        <div class="share-head"><b>${esc(t('shareTitle'))}</b><button type="button" class="share-x" data-share-close data-back-close aria-label="${esc(t('close'))}">×</button></div>
-        <div class="share-preview"><div class="share-wait"></div></div>
-        <div class="share-actions">${phone
-          ? `<button type="button" class="btn-primary" data-share="send" disabled>${esc(t('shareSend'))}</button><button type="button" class="tool" data-share="save" disabled>${esc(t('shareSave'))}</button>`
-          : `${portal.copyImage ? `<button type="button" class="tool" data-share="copy" disabled>${esc(t('shareCopy'))}</button>` : ''}<button type="button" class="btn-primary" data-share="save" disabled>${esc(t('shareSave'))}</button>`}</div>
-        <p class="share-note" role="status"></p>
-      </div>`;
+    // the card is the whole view (it scrolls); the buttons float over it on glass
+    modal.innerHTML = `<div class="share-scroll" data-share-bg><div class="share-img" data-share-bg><div class="share-wait"></div></div></div>
+      <button type="button" class="share-x" data-glass="round" data-share-close data-back-close aria-label="${esc(t('close'))}">×</button>
+      <div class="share-bar" data-glass="dock">${phone
+        ? `<button type="button" class="primary" data-share="send" disabled>${esc(t('shareSend'))}</button><button type="button" data-share="save" disabled>${esc(t('shareSave'))}</button>`
+        : `${portal.copyImage ? `<button type="button" data-share="copy" disabled>${esc(t('shareCopy'))}</button>` : ''}<button type="button" class="primary" data-share="save" disabled>${esc(t('shareSave'))}</button>`}</div>
+      <p class="share-note" data-glass="banner" role="status" hidden></p>`;
     document.body.appendChild(modal);
     document.addEventListener('keydown', onKey, true);
     const m = modal;
-    const note = (s) => { const n = m.querySelector('.share-note'); n.textContent = s; };
+    let noteTimer = 0;
+    const note = (s) => {
+      const n = m.querySelector('.share-note');
+      n.textContent = s;
+      n.hidden = !s;
+      clearTimeout(noteTimer);
+      noteTimer = setTimeout(() => { n.hidden = true; }, 2600);
+    };
     let blob;
     try { blob = await card(p); } catch (e) { note(t('shareFailed')); console.error(e); return; }
     if (modal !== m) return;
     const url = URL.createObjectURL(blob);
     m.dataset.url = url;
-    m.querySelector('.share-preview').innerHTML = `<img src="${url}" alt="">`;
+    m.querySelector('.share-img').innerHTML = `<img src="${url}" alt="${esc(plain(p.title))}">`;
     m.querySelectorAll('[data-share]').forEach((b) => { b.disabled = false; });
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const name = `paper-${p.id}.png`;
     m.addEventListener('click', async (e) => {
-      if (e.target.closest('[data-share-close]')) return close();
+      if (e.target.closest('[data-share-close]') || e.target.matches('[data-share-bg]')) return close();
       const kind = e.target.closest('[data-share]')?.dataset.share;
       if (!kind) return;
       try {

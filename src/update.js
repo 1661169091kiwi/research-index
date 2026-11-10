@@ -87,6 +87,9 @@
   }
 
   // ---------- About ----------
+  // the language and style toggles, cloned from the top bar (which on the phone hides them)
+  const langRow = () => { const n = document.querySelector('.bar .lang:not(.style-switch)'); return n ? `<div class="sw-set"><span>${esc(S.langName || 'Language')}</span>${n.outerHTML}</div>` : ''; };
+  const styleRow = () => { const n = document.querySelector('.bar .style-switch'); return n ? `<div class="sw-set"><span>${esc(S.styleLabel || 'Style')}</span>${n.outerHTML}</div>` : ''; };
   let pop = null;
   function closeAbout() { pop?.remove(); pop = null; }
   function about() {
@@ -96,6 +99,7 @@
     pop.dataset.glass = 'menu';
     pop.innerHTML = `<div class="ab-head"><b>${esc(document.title.split(/[—·]/).pop().trim() || 'Research Index')}</b><button type="button" class="share-x" data-ab="close" data-back-close aria-label="×">×</button></div>
       <p class="ab-ver">${esc(t('version', { v: VERSION }))}</p>
+      <div class="ab-sets">${langRow()}${styleRow()}</div>
       ${U ? `<label class="ab-auto"><input type="checkbox" data-ab="auto"${get('ri-update-auto', true) ? ' checked' : ''}> ${esc(t('autoCheck'))}</label>
       <div class="ab-row"><button type="button" class="btn-primary" data-ab="check">${esc(t('checkUpdates'))}</button></div>
       <p class="ab-status" role="status"></p>` : ''}
