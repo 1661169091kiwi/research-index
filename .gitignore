@@ -1,0 +1,26 @@
+# dependencies and what the build makes
+node_modules/
+dist/
+release/
+.cache/
+*.log
+
+# the phone app: built pages, Gradle output, the local SDK path
+mobile/www/
+mobile/node_modules/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/src/main/assets/public/
+
+# the Android signing key and its password: never published (an update must be signed with it)
+mobile/keystore/
+*.jks
+*.keystore
+
+# editors and the OS
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

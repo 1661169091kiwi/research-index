@@ -1,0 +1,19 @@
+{
+  "name": "research-index-mobile",
+  "version": "1.8.0",
+  "private": true,
+  "type": "module",
+  "description": "Research Index for Android: the paper feed (swipe or grid) and the surveys.",
+  "scripts": {
+    "www": "node ../build.mjs --mobile",
+    "apk": "node ../scripts/android.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/filesystem": "8.1.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}
