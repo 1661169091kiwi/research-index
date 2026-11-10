@@ -2,6 +2,7 @@
 // Every host has its own polite queue — arXiv asks for at most one API request every 3 seconds.
 
 import { CATS, SURVEY_RE, TOPICS, tagTopics } from './topics.mjs';
+import { affiliationsFromHtml } from './affil.mjs';
 
 const UA = 'ResearchIndex/1.2 (personal paper reader; desktop app)';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -163,10 +164,17 @@ function cutCaption(text, max) {
 }
 
 // Image paths look like "2611.06500v1/overview.png", relative to https://arxiv.org/html/.
+// Returns the figure (or { none: true }) and, from the same page, the institutions in its author block (affil);
+// null when arXiv has no HTML version of the paper.
 export async function findFigure(id, { urgent = false } = {}) {
   const page = `https://arxiv.org/html/${id}`;
   const html = await figurePool(() => readUntilFigure(page), { urgent });
   if (!html) return null;
+  const affil = affiliationsFromHtml(html);
+  const fig = figureIn(html, page);
+  return { ...(fig || { none: true }), affil };
+}
+function figureIn(html, page) {
   const base = (/<base[^>]*href="([^"]+)"/.exec(html) || [])[1] || page;
   for (const m of html.matchAll(/<figure[^>]*>([\s\S]*?)<\/figure>/g)) {
     const img = /<img[^>]*src="([^"]+)"[^>]*>/.exec(m[1]);
@@ -184,6 +192,8 @@ export async function findFigure(id, { urgent = false } = {}) {
   }
   return null;
 }
+// get() for other modules (OpenAlex): the same fetch, retries and back-off as the arXiv lookups
+export { get as httpGet };
 
 // ---------- full text for "Deep read" ----------
 // Plain text of the arXiv HTML version: headings kept as Markdown, math as its LaTeX source,

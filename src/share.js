@@ -85,7 +85,8 @@
     const topic = tp ? topicLabel(tp) : 'arXiv';
     const color = F.META?.palette?.[F.META?.topics?.find((x) => x.id === tp)?.color || 'blue']?.[0] || C.blue;
     const names = p.authors || [];
-    const who = [names.slice(0, 6).join(', ') + (names.length > 6 ? (lang === 'zh' ? ' 等' : ' et al.') : ''), p.org].filter(Boolean).join(' · ');
+    const insts = (p.inst || []).slice(0, 3).map((x) => F.instName(x)).join(' · ') || p.org || '';
+    const who = [names.slice(0, 6).join(', ') + (names.length > 6 ? (lang === 'zh' ? ' 等' : ' et al.') : ''), insts].filter(Boolean).join(' · ');
     const link = `https://arxiv.org/abs/${p.id}`;
     const all = [title, p.title, abstract, who, topic, t('shareScan'), t('shareApp'), t('shareGet'), t('abstract'), link].join(' ');
     await Promise.all([font(700, 60), font(600, 30), font(500, 30), font(400, 34)].map((f) => document.fonts?.load(f, all).catch(() => {})));

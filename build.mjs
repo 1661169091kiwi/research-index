@@ -165,12 +165,20 @@ const FEED = {
     webOnly: 'The paper feed runs inside the Research Index desktop app. Open it there to browse, like and save papers.',
     translate: 'Translate to 中文', trNeedsKey: 'translation needs an API key (AI settings)', trAbstracting: 'Translating…',
     showOriginal: 'Show original', showTranslation: 'Show Chinese', trFailed: 'Translation failed: {message}',
+    qN: 'Novelty', qR: 'Rigour', qS: 'Significance', qC: 'Clarity',
+    q: 'Quality', qTier3: 'Excellent', qTier2: 'Good', qTier1: 'Fair', qTier0: 'Weak',
+    qTip: 'Quality {s}/100 · {tier}, from public evidence (50: none either way)', qCounted: 'Counted in the score', qRef: 'For reference',
+    qTitle: 'Quality', qOutOf: 'out of 100', qVenue: 'Accepted at {v}', qInst: 'From {names}', qH: 'Authors’ h-index up to {h}', qUp: '{n} upvotes on Hugging Face',
+    qStars: '{n} GitHub stars', qCites: 'Cited {n} times', qCode: 'Code released', qAi: 'AI review of the abstract', qAiParts: 'novelty {n} · rigour {r} · significance {s} · clarity {c}',
+    qNote: 'A rough guide from public evidence, not a verdict: 50 means no evidence either way. Acceptance at a top venue, citations, released code and the AI review move it; in a backtest these predicted top-venue acceptance better than upvotes, the authors’ record or the institution, which are shown for reference. Citations and authors’ records come from OpenAlex about a week after a paper appears.',
+    qNone: 'Little evidence so far: the score will firm up as citations, upvotes and reviews come in.', qOnly: 'High quality only', qOnlyHint: 'Scoring 70 or more',
+    rateOn: 'AI rating', rateHint: 'Rates the papers you see from their abstracts (about ¥0.001 each), once each, within a daily budget; older ones only off-peak, at half price.', rateCap: 'Daily budget', rateSpent: 'Today {v}',
     usageMenu: 'AI usage', usageTitle: 'AI usage', usageBalance: 'DeepSeek balance', usageAvailable: 'Available', usageUnavailable: 'Too low to call the API',
     usageToppedUp: 'Topped up {v}', usageGranted: 'Granted {v}', usageUpdated: 'Updated {rel}', usageRefresh: 'Refresh balance', usageChecking: 'Checking…',
     usageNoKey: 'Add a DeepSeek key in AI settings to see its balance here.', usageAddKey: 'Open AI settings', usageBalanceFailed: 'Could not read the balance ({why}).',
     usageApp: 'This app · {range}', usageToday: 'Today', usageCache: 'Cache hits', usageCacheHint: 'Repeated parts of a request (the paper, earlier questions) are billed at about 2% of the price.',
     usageDaily: 'Spent per day', usageTable: 'Table', usageChart: 'Chart', usageDate: 'Date', usageTotal: 'Total',
-    usageKind_take: 'AI takes', usageKind_chat: 'Questions', usageKind_translate: 'Translation',
+    usageKind_take: 'AI takes', usageKind_chat: 'Questions', usageKind_translate: 'Translation', usageKind_rate: 'Rating',
     usageTokens: 'Tokens', usageIn: 'Input', usageInCached: '{n} cached', usageOut: 'Output', usageCalls: '{n} calls',
     usageOutside: 'Used elsewhere with this key', usageOutsideNote: 'An estimate: how far the balance fell between readings, minus what this app spent. A reading is taken each time this panel opens.',
     usageOutsideWait: 'Needs two balance readings: open this panel again later.', usageEmpty: 'No AI calls from this app in this period.',
@@ -256,12 +264,20 @@ const FEED = {
     webOnly: '论文流需要在 Research Index 桌面应用中使用。请在应用里浏览、点赞和收藏论文。',
     translate: '中文翻译', trNeedsKey: '翻译需要在 AI 设置中添加 API 密钥', trAbstracting: '正在翻译…',
     showOriginal: '显示原文', showTranslation: '显示译文', trFailed: '翻译失败：{message}',
+    qN: '新颖', qR: '严谨', qS: '重要', qC: '清晰',
+    q: '质量', qTier3: '优秀', qTier2: '良好', qTier1: '一般', qTier0: '偏弱',
+    qTip: '质量 {s}/100 · {tier}，依据公开信号（50 表示还没有证据）', qCounted: '计入评分', qRef: '供参考',
+    qTitle: '质量评分', qOutOf: '满分 100', qVenue: '{v} 已接收', qInst: '来自 {names}', qH: '作者最高 h 指数 {h}', qUp: 'Hugging Face {n} 赞',
+    qStars: 'GitHub {n} 星', qCites: '被引用 {n} 次', qCode: '已开源代码', qAi: 'AI 对摘要的评审', qAiParts: '新颖 {n} · 严谨 {r} · 重要 {s} · 清晰 {c}',
+    qNote: '依据公开证据的粗略参考，不是对论文的定论：50 表示还没有证据。顶会/顶刊接收、引用、开源代码和 AI 评审会影响评分；回测中它们比点赞数、作者履历或机构更能预测顶会接收，后者仅供参考。引用和作者数据来自 OpenAlex，论文发布约一周后才有。',
+    qNone: '目前证据还不多：随着引用、点赞和评审的增加，评分会更可靠。', qOnly: '只看高质量', qOnlyHint: '评分 70 及以上',
+    rateOn: 'AI 评分', rateHint: '根据摘要给你看到的论文打分（每篇约 ¥0.001），每篇只评一次，不超过每日预算；较早的论文只在闲时（半价）评。', rateCap: '每日预算', rateSpent: '今天 {v}',
     usageMenu: 'AI 用量', usageTitle: 'AI 用量', usageBalance: 'DeepSeek 余额', usageAvailable: '可用', usageUnavailable: '余额不足，无法调用',
     usageToppedUp: '充值 {v}', usageGranted: '赠送 {v}', usageUpdated: '{rel}更新', usageRefresh: '刷新余额', usageChecking: '正在查询…',
     usageNoKey: '在 AI 设置里添加 DeepSeek 密钥后，这里会显示余额。', usageAddKey: '打开 AI 设置', usageBalanceFailed: '没能读取余额（{why}）。',
     usageApp: '本应用 · {range}', usageToday: '今天', usageCache: '缓存命中', usageCacheHint: '请求里重复的部分（论文、之前的提问）按约 2% 的价格计费。',
     usageDaily: '每日花费', usageTable: '表格', usageChart: '图表', usageDate: '日期', usageTotal: '合计',
-    usageKind_take: 'AI 解读', usageKind_chat: '提问', usageKind_translate: '翻译',
+    usageKind_take: 'AI 解读', usageKind_chat: '提问', usageKind_translate: '翻译', usageKind_rate: 'AI 评分',
     usageTokens: 'Tokens', usageIn: '输入', usageInCached: '缓存 {n}', usageOut: '输出', usageCalls: '{n} 次调用',
     usageOutside: '这个密钥在别处的花费', usageOutsideNote: '估算值：两次读数之间余额减少的部分，减去本应用的花费。每次打开这个面板都会读一次余额。',
     usageOutsideWait: '需要两次余额读数：过一段时间再打开这个面板。', usageEmpty: '这段时间本应用没有调用 AI。',
@@ -751,6 +767,9 @@ function papersPage(L, config) {
           <label class="ai-label" for="ai-base">${F.aiBase}</label><input class="ai-input" id="ai-base" spellcheck="false" autocomplete="off">
           <label class="ai-label" for="ai-model">${F.aiModel}</label><input class="ai-input" id="ai-model" spellcheck="false" autocomplete="off">
         </div>
+        <div class="ai-rate"><label class="ab-row ai-rate-row"><span class="ab-label">${F.rateOn}</span><input type="checkbox" class="ab-switch" id="ai-rate-on"></label>
+          <p class="take-hint">${F.rateHint}</p>
+          <div class="ai-rate-cap"><span class="ai-label">${F.rateCap}</span><div class="seg" id="ai-rate-cap">${[0.1, 0.2, 0.5, 1].map((v) => `<button type="button" data-cap="${v}">¥${v}</button>`).join('')}</div><span class="ai-rate-spent" id="ai-rate-spent"></span></div></div>
         <label class="ai-label" for="ai-context">${F.aiContext}</label>
         <p class="take-hint">${F.aiContextHint}</p>
         <textarea id="ai-context" spellcheck="false" placeholder="${F.aiContextPh}"></textarea>
@@ -867,7 +886,7 @@ function copyIfChanged(from, to) {
 // The phone app runs the feed service inside the page: its modules (shared with the desktop app), the
 // phone-side glue (mobile/src), and optionally a snapshot of the desktop app's paper cache so the phone
 // starts with papers, their Chinese titles and your interests instead of an empty feed.
-const MOBILE_FEED = ['store-core.mjs', 'recommend.mjs', 'service.mjs', 'sources.mjs', 'topics.mjs', 'venues.mjs', 'prompts.mjs', 'deepseek.mjs', 'usage.mjs'];
+const MOBILE_FEED = ['store-core.mjs', 'recommend.mjs', 'service.mjs', 'sources.mjs', 'topics.mjs', 'venues.mjs', 'prompts.mjs', 'deepseek.mjs', 'usage.mjs', 'affil.mjs', 'openalex.mjs', 'quality.mjs', 'rating.mjs'];
 function copyMobile(dist, seedDir) {
   const out = path.join(dist, 'assets', 'mobile');
   fs.rmSync(out, { recursive: true, force: true });

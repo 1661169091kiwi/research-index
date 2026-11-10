@@ -6,7 +6,7 @@
   const F = window.RIFeed;
   if (!F || !F.api?.usage) return;
   const { api, t, esc, lang } = F;
-  const KINDS = ['take', 'chat', 'translate']; // stacked bottom to top, legend in this order
+  const KINDS = ['take', 'chat', 'translate', 'rate']; // stacked bottom to top, legend in this order
   const RANGES = [7, 30, 90];
   const state = { range: 30, view: 'chart', data: null, bal: null, balErr: null, checking: false };
   let modal = null;
@@ -32,7 +32,7 @@
     if (lang === 'zh') return long ? `${m}月${d}日` : `${m}/${d}`;
     return new Date(y, m - 1, d).toLocaleDateString('en-US', long ? { month: 'short', day: 'numeric', weekday: 'short' } : { month: 'numeric', day: 'numeric' });
   };
-  const dayTotal = (d) => d.take + d.chat + d.translate;
+  const dayTotal = (d) => d.take + d.chat + d.translate + (d.rate || 0);
 
   // ---------- the panel ----------
   function open() {

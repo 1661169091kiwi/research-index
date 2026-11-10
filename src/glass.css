@@ -667,3 +667,20 @@ html.fl .sw-search-field:focus-within {
 }
 /* a field you type into reads best on a nearly solid surface, whatever the cover behind it */
 html.fl .sw-search-field { background: color-mix(in srgb, var(--card) 88%, transparent); }
+/* the tab row: the tabs and the Directions button on one centre line, with equal room above and below */
+html.fl .modes-row { padding: 6px 0; align-items: center; }
+html.fl .modes-row > .modes { padding: 0; align-items: center; }
+html.fl .modes-row > .dir-btn { align-self: center; }
+
+/* the quality score and its settings, in the Glass look */
+html.fl .q-badge { background: var(--fill); }
+html.fl .q-meter i { background: var(--fill-2); }
+html.fl .q-meter i.on { background: var(--primary); }
+html.fl .q-t0 .q-meter i.on, html.fl .q-t1 .q-meter i.on { background: color-mix(in srgb, var(--on) 45%, transparent); }
+html.fl .q-panel { border: 0; border-radius: var(--r-lg); background: color-mix(in srgb, var(--on) 4%, var(--card)); }
+html.fl .q-list svg, html.fl .q-ai-row b { color: var(--primary); }
+html.fl .q-ai-row b { background: var(--primary); }
+html.fl .q-ai-row i { background: var(--fill-2); }
+html.fl .ai-rate { border-radius: 14px; background: color-mix(in srgb, var(--on) 5%, var(--card)); }
+html.fl .dir-q { border-top-color: color-mix(in srgb, var(--on) 10%, transparent); }
+@supports (corner-shape: superellipse(1.5)) { html.fl .q-panel { corner-shape: superellipse(1.5); } }

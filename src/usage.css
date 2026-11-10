@@ -2,7 +2,7 @@
    Series colours: the three kinds of use, fixed order (validated light #fafafc / dark #232428, all pairs). */
 
 .usage-modal {
-  --u1: #2a78d6; --u2: #eb6834; --u3: #1baf7a;
+  --u1: #2a78d6; --u2: #eb6834; --u3: #1baf7a; --u4: #eda100;
   position: fixed; inset: 0; z-index: 72; display: grid; place-items: center; -webkit-app-region: no-drag;
 }
 .usage-scrim { position: absolute; inset: 0; background: rgba(15, 15, 15, 0.32); animation: fade 0.2s ease both; }
@@ -66,6 +66,7 @@
 .sw1 { background: var(--u1); fill: var(--u1); }
 .sw2 { background: var(--u2); fill: var(--u2); }
 .sw3 { background: var(--u3); fill: var(--u3); }
+.sw4 { background: var(--u4); fill: var(--u4); }
 
 .u-chart { position: relative; margin-top: 6px; }
 .u-svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; cursor: crosshair; }
@@ -154,7 +155,7 @@ html.fl .ai-usage-row:hover { background: color-mix(in srgb, var(--on) 9%, var(-
   html.fl .usage-body { padding: 8px 16px calc(28px + var(--sa-bottom, 0px)); }
 }
 @media (prefers-color-scheme: dark) {
-  html.fl .usage-modal { --u1: #3987e5; --u2: #d95926; --u3: #199e70; }
+  html.fl .usage-modal { --u1: #3987e5; --u2: #d95926; --u3: #199e70; --u4: #c98500; }
   html.fl .ub-status i { background: #2fbf71; }
 }
 /* the app's own scrollbars (shown only while scrolling), kept clear of the panel's rounded corners */

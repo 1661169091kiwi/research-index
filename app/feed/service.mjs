@@ -7,13 +7,27 @@ import { fetchAll, findFigure, fetchFullText } from './sources.mjs';
 import { TOPICS, PALETTE } from './topics.mjs';
 import { venueOf } from './venues.mjs';
 import { costOf, summarize as usageSummary } from './usage.mjs';
+import { canonical } from './affil.mjs';
+import { enrich, due as oaDue } from './openalex.mjs';
+import { scoreAll } from './quality.mjs';
+import { RATING_SYSTEM, RATING_V, ratingPrompt, parseRatings } from './rating.mjs';
+import { deepseekPeak } from './usage.mjs';
 import { systemPrompt, userPrompt, chatSystem, chatPaper, TITLES_SYSTEM, ABSTRACT_SYSTEM, parseTitleMap } from './prompts.mjs';
 
 // store: createStoreCore(); keys: { get(provider), set(provider, key), hint?(provider) };
 // send(channel, data): events to the page; providers: { deepseek: {...}, claude?: {...} } (see index.mjs)
 // maxPool: reading further back stops at this many papers (the phone keeps fewer: its files are slower to write)
 export function createFeedService({ store, keys, send, providers, envKey = () => '', debug = false, maxPool = 7000 }) {
-  const rec = createRecommender(store);
+  // ---------- the quality score (quality.mjs): the collection scored at once, again when its evidence changes ----------
+  let quality = { key: '', at: 0, scores: new Map() };
+  function qualityMap() {
+    const key = `${store.version}|${store.qualityRev}`;
+    if (quality.key === key || (quality.at && Date.now() - quality.at < 15000)) return quality.scores;
+    quality = { key, at: Date.now(), scores: scoreAll(store.papers, store.ratings).scores };
+    return quality.scores;
+  }
+  const qualityOf = (id) => qualityMap().get(id)?.score ?? null;
+  const rec = createRecommender(store, { qualityOf });
   // the translator sometimes repeats the title first ("标题：… 摘要：…"); only the abstract is kept
   const zhAbs = (s) => String(s || '').replace(/^\s*标题\s*[:：][\s\S]*?摘要\s*[:：]\s*/, '').trim();
   const handlers = {};
@@ -28,12 +42,17 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     if (p.cover?.none) return { none: true };
     return null;
   }
+  // the institutions to show: OpenAlex's when it has the paper, else the arXiv page's, else Hugging Face's org
+  function instOf(p) {
+    const list = p.oa?.inst?.length ? p.oa.inst : p.affil?.list?.length ? p.affil.list : p.hf?.org ? [canonical(p.hf.org) || { n: p.hf.org, zh: '', k: 0 }] : [];
+    return list.slice(0, 4);
+  }
   function card(p, reason) {
     const st = store.state;
     return {
       id: p.id, title: p.title,
       authors: (p.authors || []).slice(0, 3), nAuthors: (p.authors || []).length,
-      org: p.hf?.org || '', published: p.published || '',
+      org: p.hf?.org || '', inst: instOf(p), q: qualityOf(p.id), published: p.published || '',
       topics: p.topics || [], survey: !!p.survey, venue: venueOf(p),
       up: p.hf?.upvotes || 0, stars: p.hf?.stars || 0,
       cover: coverOf(p),
@@ -99,6 +118,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       if (!only) store.setMeta({ lastFetch: Date.now(), ...(deep ? { lastDeep: Date.now() } : {}), ...(venuesDeep ? { venuesV: VENUES_V } : {}) });
       store.flush();
       prefetchCovers();
+      if (!only) setTimeout(runEnrich, 5000);
     }).catch((e) => console.error('[feed] refresh failed:', e.message))
       .finally(() => {
         fetching = null;
@@ -117,7 +137,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     // prefetch already queued them; prefetches go to the back in rank order.
     for (const id of ids) {
       const p = store.papers[id];
-      if (!p || p.cover) continue;
+      if (!p || (p.cover && p.affil)) continue;
       if (coverSet.has(id)) {
         if (!front) continue;
         coverWanted.splice(coverWanted.indexOf(id), 1);
@@ -134,16 +154,18 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       const id = coverWanted.pop();
       coverSet.delete(id);
       const p = store.papers[id];
-      if (!p || p.cover) continue;
+      if (!p || (p.cover && p.affil)) continue;
       try {
         const fig = await findFigure(id);
-        store.setCover(id, fig ? { url: fig.url, w: fig.w, h: fig.h, caption: fig.caption, v: COVER_V, t: Date.now() } : { none: true, t: Date.now() });
+        // the author block of the same page: the paper's institutions (OpenAlex's, when they come, take over)
+        if (!p.affil || p.affil.src === 'html') store.setAffil(id, { list: fig?.affil || [], src: 'html', t: Date.now() });
+        if (!p.cover) store.setCover(id, fig?.url ? { url: fig.url, w: fig.w, h: fig.h, caption: fig.caption, v: COVER_V, t: Date.now() } : { none: true, t: Date.now() });
       } catch (e) {
         // network trouble: leave it unknown so it is retried later
         if (debug) console.error('[feed] cover failed', id, e.message);
         continue;
       }
-      send('feed:cover', { id, cover: coverOf(store.papers[id]), caption: store.papers[id].cover?.caption || '' });
+      send('feed:cover', { id, cover: coverOf(store.papers[id]), caption: store.papers[id].cover?.caption || '', inst: instOf(store.papers[id]) });
     }
     coverWorkers--;
   }
@@ -158,7 +180,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     findFigure(id, { urgent: true }).then((fig) => {
       const q = store.papers[id];
       if (debug) console.error(`[feed] recaption ${id} ${Date.now() - t0}ms ${fig ? 'ok' : 'no figure'}`);
-      if (!fig || !q?.cover?.url) return;
+      if (!fig?.url || !q?.cover?.url) return;
       store.setCover(id, { ...q.cover, caption: fig.caption, v: COVER_V });
       send('feed:cover', { id, cover: coverOf(q), caption: fig.caption });
     }).catch((e) => { if (debug) console.error('[feed] recaption failed', id, e.message); });
@@ -193,6 +215,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     // what "For you" and "Recommended" have shown is held back from the next few refreshes
     const mode = params.mode || 'foryou';
     if ((mode === 'foryou' || mode === 'recommended') && !params.query) store.markSeen(items.map((p) => p.id));
+    if (mode !== 'saved' && mode !== 'liked') wantRatings(items.map((p) => p.id));
     if (dropped?.length) store.unmarkSeen(dropped);
     // running out of papers this reader has not seen: read further back (at most every 10 minutes)
     if (unseenLeft != null && unseenLeft < 120 && !params.query && Date.now() - lastMore > 10 * 60e3) { lastMore = Date.now(); refresh({ only: 'backfill' }); }
@@ -219,6 +242,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       cols: st.saves[id]?.cols || [],
       note: st.notes[id]?.text || '',
       similar: rec.similar(id, 8).map((x) => card(x)),
+      quality: qualityFor(id),
     };
   });
   handle('feed:act', (id, action, payload) => {
@@ -270,8 +294,82 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       deepseek: { ...keyInfo('deepseek'), baseUrl: s.baseUrl, model: s.model },
       claude: CL ? { ...keyInfo('claude'), model: CL.model } : { hasKey: false, hint: '', fromEnv: false, model: '' },
       context: store.state.aiContext || '',
+      rate: { ...rateSettings(), spentToday: rateSpentToday() },
     };
   };
+  // the open paper's score, with what it rests on
+  function qualityFor(id) {
+    const q = qualityMap().get(id);
+    if (!q) return null;
+    const e = q.e;
+    return {
+      score: q.score, venue: e.venue ? { label: e.venue.label, note: e.venue.note } : null, inst: e.inst, h: e.h, up: e.up, stars: e.stars,
+      cites: e.cites, code: e.code, ai: e.ai, aiModel: store.ratings[id]?.m || '',
+    };
+  }
+
+  // ---------- OpenAlex: citations, institutions and the authors' record (free; in the background) ----------
+  let enriching = false;
+  async function runEnrich() {
+    if (enriching) return;
+    const list = oaDue(Object.values(store.papers), Date.now(), maxPool > 5000 ? 400 : 200);
+    if (!list.length) return;
+    enriching = true;
+    try { await enrich(list, (id, oa) => store.setOpenAlex(id, oa)); } catch (e) { if (debug) console.error('[feed] OpenAlex', e.message); }
+    finally { enriching = false; store.flush(); }
+  }
+
+  // ---------- the AI judge: papers on their way to the screen, ten per request, once each, within a daily budget ----------
+  const rateSettings = () => { const r = store.state.ai?.rate || {}; return { on: r.on !== false, cap: Number.isFinite(+r.cap) && +r.cap >= 0 ? +r.cap : 0.2 }; };
+  // what the judge spent today, in yuan (a Claude call, billed in dollars, at about 7.1 yuan)
+  function rateSpentToday() {
+    const day = new Date().toDateString();
+    return (store.state.usage?.log || []).reduce((s, e) => (e.k === 'rate' && new Date(e.t).toDateString() === day ? s + (e.CNY ?? (e.USD || 0) * 7.1) : s), 0);
+  }
+  const rateQueue = new Set();
+  let rateTimer = 0, rating = false;
+  function wantRatings(ids) {
+    const r = rateSettings();
+    if (!r.on || !keyFor(aiSettings().provider)) return;
+    for (const id of ids) if (store.papers[id] && !store.ratings[id]) rateQueue.add(id);
+    clearTimeout(rateTimer);
+    if (rateQueue.size) rateTimer = setTimeout(flushRatings, rateQueue.size >= 10 ? 300 : 2500);
+  }
+  async function flushRatings() {
+    if (rating) return;
+    rating = true;
+    try {
+      while (rateQueue.size) {
+        if (!rateSettings().on || rateSpentToday() >= rateSettings().cap) { rateQueue.clear(); break; }
+        const batch = [...rateQueue].slice(0, 10);
+        batch.forEach((id) => rateQueue.delete(id));
+        const papers = batch.map((id) => store.papers[id]).filter((p) => p && !store.ratings[p.id]);
+        if (!papers.length) continue;
+        let got = {};
+        try {
+          const text = await complete({ system: RATING_SYSTEM, user: ratingPrompt(papers), maxTokens: 500 }, 'rate');
+          got = parseRatings(text, papers.map((p) => p.id));
+        } catch (e) { if (debug) console.error('[feed] rating', e.message); break; }
+        const s = aiSettings(), t = Date.now();
+        const model = s.provider === 'claude' ? CL.model : s.model;
+        store.setRatings(Object.fromEntries(Object.entries(got).map(([id, sc]) => [id, { s: sc, m: model, v: RATING_V, t }])));
+        if (Object.keys(got).length) {
+          quality.at = 0; // score them again now
+          send('feed:quality', { scores: Object.fromEntries(Object.keys(got).map((id) => [id, qualityOf(id)])) });
+        }
+      }
+    } finally { rating = false; }
+  }
+  // off-peak (half price) and with budget to spare: the newest papers nobody has rated yet, thirty at a time
+  setInterval(() => {
+    const r = rateSettings();
+    if (!r.on || deepseekPeak() || !keyFor(aiSettings().provider) || rateSpentToday() > r.cap * 0.6) return;
+    const cut = Date.now() - 21 * 864e5;
+    const fresh = Object.values(store.papers).filter((p) => !store.ratings[p.id] && Date.parse(p.published || 0) > cut)
+      .sort((a, b) => (b.published || '').localeCompare(a.published || '')).slice(0, 30);
+    wantRatings(fresh.map((p) => p.id));
+  }, 30 * 60e3);
+
   // ---------- the usage meter: every call's tokens and cost, and the DeepSeek balance ----------
   function recordUsage(provider, model, kind, usage) {
     if (!usage) return;
@@ -316,6 +414,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       store.setAi(next);
     }
     if (patch && 'context' in patch) store.setAiContext(String(patch.context || '').trim());
+    if (patch?.rate) store.setAi({ rate: { ...rateSettings(), ...patch.rate } });
     return aiInfo();
   });
   handle('feed:take:get', (id) => store.takes[id] || {});
@@ -432,10 +531,10 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
 
   // ---------- translation into Chinese: only what is on screen, cached for good ----------
   const trInFlight = new Set(); // `t:${id}` / `a:${id}`
-  const complete = (args) => {
+  const complete = (args, kind = 'translate') => {
     const s = aiSettings();
     const apiKey = keyFor(s.provider);
-    const onUsage = (usage, model) => recordUsage(s.provider, model || s.model, 'translate', usage);
+    const onUsage = (usage, model) => recordUsage(s.provider, model || s.model, kind, usage);
     return s.provider === 'claude'
       ? CL.complete({ ...args, apiKey, onUsage })
       : DS.complete({ ...args, apiKey, baseUrl: s.baseUrl, model: s.model, onUsage });
@@ -502,6 +601,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   return {
     handlers,
     start() {
+      setTimeout(runEnrich, 30000);
       if (Date.now() - (store.state.meta.lastFetch || 0) > 6 * 3600e3) refresh();
       if (Object.keys(store.papers).length) setTimeout(prefetchCovers, 1500);
     },

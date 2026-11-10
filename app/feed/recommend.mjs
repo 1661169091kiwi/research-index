@@ -73,7 +73,9 @@ function normalize(m) {
 }
 function addInto(target, vec, w) { for (const [k, v] of vec) target.set(k, (target.get(k) || 0) + v * w); }
 
-export function createRecommender(store) {
+// qualityOf(id): the paper's quality score, 0–100 (quality.mjs, worked out by the service), or null
+export function createRecommender(store, { qualityOf = null } = {}) {
+  const qOf = (id) => qualityOf?.(id) ?? null;
   // The TF-IDF index. It is built in full once; after that, papers that arrive are added (and removed ones taken
   // out) without redoing the rest. A full build over a few thousand abstracts takes about a second on a PC and
   // several on a phone, and during a refresh new papers arrive every few seconds: rebuilding each time froze the
@@ -225,7 +227,8 @@ export function createRecommender(store) {
       !st.hidden[p.id] &&
       (!f.topic || p.topics?.includes(f.topic)) &&
       (!f.surveysOnly || p.survey) &&
-      (!f.venuesOnly || venueOf(p)));
+      (!f.venuesOnly || venueOf(p)) &&
+      (!f.minQ || (qOf(p.id) ?? 0) >= f.minQ));
   }
 
   // In the swipe feed every card is read full screen: one you have swiped past goes behind the ones you have not
@@ -236,7 +239,7 @@ export function createRecommender(store) {
     for (const p of list) (views[p.id] ? old : fresh).push(p);
     return old.length ? [...fresh, ...old] : list;
   };
-  function rank({ mode = 'foryou', topic = '', query = '', collection = '', deck = '', slot = '' }) {
+  function rank({ mode = 'foryou', topic = '', query = '', collection = '', deck = '', slot = '', minQ = 0 }) {
     const ix = ensureIndex();
     const now = Date.now();
     const st = store.state;
@@ -259,7 +262,7 @@ export function createRecommender(store) {
       return { list, reasons };
     }
 
-    const base = filterBase({ topic, surveysOnly: mode === 'surveys', venuesOnly: mode === 'venues' });
+    const base = filterBase({ topic, surveysOnly: mode === 'surveys', venuesOnly: mode === 'venues', minQ });
     const maxUp = Math.max(10, ...base.map((p) => p.hf?.upvotes || 0));
 
     if (query) {
@@ -580,6 +583,8 @@ export function createRecommender(store) {
       const id = ids[i], p = store.papers[id];
       if (!p || served.has(id) || st.hidden[id] || st.opened[id] || st.likes[id] || st.saves[id] || views[id]) continue;
       if (topic && !p.topics?.includes(topic)) continue;
+      const q = qOf(id);
+      if (params.minQ && (q ?? 0) < params.minQ) continue;
       const v = ix.vecs.get(id);
       let top = 0, best = -1, avg = 0;
       for (let k = 0; k < anc.length; k++) {
@@ -597,7 +602,8 @@ export function createRecommender(store) {
       // shown lately: in the grid as firmly as For you (its cards were on screen); in the swipe feed more softly (dealt
       // there is not necessarily read, and what was read is left out above)
       const held = params.slot === 'swipe' ? 0.5 + 0.5 * seenFactor(seen[id], now) : seenFactor(seen[id], now);
-      const s = (rel + 0.12 * rec + 0.08 * pop + (p.survey ? 0.03 : 0) + 0.6 * (tp - 0.5) - 0.6 * away) * held + 0.05 * gumbel();
+      // a better paper (by the quality score) gets a gentle lift; it never outweighs what you are reading
+      const s = (rel + 0.12 * rec + 0.08 * pop + (p.survey ? 0.03 : 0) + 0.6 * (tp - 0.5) - 0.6 * away + 0.12 * ((q ?? 50) / 100 - 0.5)) * held + 0.05 * gumbel();
       out.push({ i, p, v, s, rel, rec, pop, tp, held, away, anchor: best >= 0 ? anc[best].id : '', anchorSim: best >= 0 ? rows[best][i] : 0 });
     }
     return { out, anc, sig };
@@ -718,7 +724,7 @@ export function createRecommender(store) {
     r.version = store.version;
     if (params.mode === 'saved' || params.mode === 'liked') return;
     const have = new Set(r.list.map((p) => p.id));
-    const fresh = filterBase({ topic: params.topic, surveysOnly: params.mode === 'surveys', venuesOnly: params.mode === 'venues' }).filter((p) => !have.has(p.id));
+    const fresh = filterBase({ topic: params.topic, surveysOnly: params.mode === 'surveys', venuesOnly: params.mode === 'venues', minQ: params.minQ }).filter((p) => !have.has(p.id));
     if (!fresh.length) return;
     const now = Date.now();
     let add;
@@ -759,7 +765,7 @@ export function createRecommender(store) {
   // Neither, at offset 0 → a new deck too (opening the page). params.slot keeps the swipe feed's
   // decks apart from the grid's.
   function page(params) {
-    const key = JSON.stringify([params.mode, params.topic, params.query, params.collection, params.slot || '']);
+    const key = JSON.stringify([params.mode, params.topic, params.query, params.collection, params.slot || '', params.minQ || 0]);
     const offset = params.offset || 0, limit = params.limit || 30;
     if (LIVE_MODES.has(params.mode) && !params.query) return pageLive(key, params, offset, limit);
     let r = decks.get(key);

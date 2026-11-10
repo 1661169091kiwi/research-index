@@ -1,7 +1,7 @@
 // Exposes the few things the pages may ask the desktop app to do.
 const { contextBridge, ipcRenderer } = require('electron');
 
-const EVENTS = new Set(['feed:batch', 'feed:progress', 'feed:cover', 'feed:take', 'feed:tr', 'feed:chat', 'feed:usage']);
+const EVENTS = new Set(['feed:batch', 'feed:progress', 'feed:cover', 'feed:take', 'feed:tr', 'feed:chat', 'feed:usage', 'feed:quality']);
 
 contextBridge.exposeInMainWorld('portal', {
   isApp: true,

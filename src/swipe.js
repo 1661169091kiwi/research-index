@@ -69,13 +69,14 @@
   function cardInner(c) {
     const zh = F.trOn && c.title_zh;
     const absZh = F.trOn && c.abstract_zh;
-    const by = [c.org ? `<b>${esc(c.org)}</b>` : '', esc(authorLine(c))].filter(Boolean).join('<span class="dot"> · </span>');
+    const by = esc(authorLine(c));
     return `<div class="sw-media" data-open>${coverHtml(c, { big: true, ratio: false })}</div>
       <div class="sw-body" data-open>
         ${eyebrow(c)}
-        ${c.venue ? `<p class="sw-venue">${venueHtml(c)}</p>` : ''}
+        ${c.venue || c.q != null ? `<p class="sw-venue">${F.qualityBadge(c)}${venueHtml(c)}</p>` : ''}
         <h2 class="sw-title">${titleMath(zh ? c.title_zh : c.title)}</h2>
         ${by ? `<p class="sw-byline">${by}</p>` : ''}
+        ${F.instHtml(c, 2, 'sw-inst')}
         <div class="sw-abs">${absZh ? abstractZhHtml(c.abstract_zh) : abstractHtml(c.abstract || '')}</div>
       </div>`;
   }
@@ -256,6 +257,7 @@
   // a search looks through every paper (any non-personal tab ranks a search the same way)
   const baseParams = () => ({
     mode: sw.query ? 'latest' : sw.mode, topic: sw.query ? '' : sw.topic, query: sw.query, collection: '', slot: 'swipe', withAbstract: true,
+    minQ: sw.query || SHELF.has(sw.mode) ? 0 : F.minQ,
     ...(live() ? { focusAuto: true, div: 0.6, exploreEvery: 8, anchorCap: 3, capWindow: 3 } : {}),
   });
   async function reset({ fresh = false } = {}) {
@@ -337,7 +339,7 @@
   // ---------- figures and translations for the next few cards ----------
   function prefetch(i) {
     const ids = sw.items.slice(i, i + AHEAD + 1);
-    const noCover = ids.filter((id) => !sw.cards.get(id)?.cover);
+    const noCover = ids.filter((id) => { const c = sw.cards.get(id); return !c?.cover || !c.inst?.length; });
     if (noCover.length) api.covers(noCover);
     if (F.trOn) translateTitles(ids);
   }
@@ -361,10 +363,11 @@
       api.trAbstract(id).then((r) => { c.trPending = false; if (r?.abstract) { c.abstract_zh = r.abstract; redraw(id); } });
     }
   }
-  api.on('feed:cover', ({ id, cover }) => {
+  api.on('feed:cover', ({ id, cover, inst }) => {
     const c = sw.cards.get(id);
     if (!c || !cover) return;
     c.cover = cover;
+    if (inst) c.inst = inst;
     redraw(id);
     const tile = shelfGrid.querySelector(`[data-id="${CSS.escape(id)}"]`);
     if (tile) { tile.outerHTML = tileHtml(c, +tile.dataset.tile); wireFigure(shelfGrid); }
@@ -382,6 +385,10 @@
     if (!sw.items.length && !sw.loading) return reset();
     // papers that arrived meanwhile are mixed into the cards still to come; at the end, they are the next ones
     if (b?.added > 0 && sw.done && !live() && !sw.loading) { sw.done = false; more(); }
+  });
+  // the AI judge has rated papers: their badges show the new score
+  api.on('feed:quality', ({ scores } = {}) => {
+    for (const [id, q] of Object.entries(scores || {})) { const c = sw.cards.get(id); if (c && c.q !== q) { c.q = q; redraw(id); } }
   });
   // an AI take written in the open paper lights up the AI button
   api.on('feed:take', (ev) => {
@@ -535,7 +542,7 @@
   // it, not dealt and drawn again when you return (as in a short-video app). One left for over 15 minutes, or
   // refreshed, starts afresh.
   const parked = new Map(); // mode|direction -> { frag, t, state }
-  const parkKey = () => `${sw.mode}|${sw.topic}`;
+  const parkKey = () => `${sw.mode}|${sw.topic}|${F.minQ}`;
   function park() {
     if (!sw.items.length || sw.player || sw.query || shelfOn()) return;
     viewEnd();
@@ -710,7 +717,7 @@
       renderChips();
       flash(id ? topicLabel(id) : t('dirAll'));
       if (!unpark()) reset();
-    });
+    }, () => { renderChips(); flash(F.minQ ? t('qOnlyHint') : t('dirAll')); reset(); });
   });
 
   // ---------- language: the same page in the other language, on the paper you were reading ----------

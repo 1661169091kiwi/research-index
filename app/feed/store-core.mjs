@@ -4,7 +4,7 @@
 
 import { SURVEY_RE, tagTopics } from './topics.mjs';
 
-export const FILES = ['papers', 'state', 'takes', 'translations', 'chats'];
+export const FILES = ['papers', 'state', 'takes', 'translations', 'chats', 'ratings'];
 
 export const freshState = () => ({
   version: 1,
@@ -28,9 +28,11 @@ export function createStoreCore(data, write, { delay = 400 } = {}) {
   const takes = data.takes || {};               // id -> { "en:quick": { text, model, tokens, cost, t }, ... }
   const translations = data.translations || {}; // id -> { title, abstract } in Chinese
   const chats = data.chats || {};               // id -> [{ role: 'user' | 'assistant', text, t, ... }]
-  const all = { papers, state, takes, translations, chats };
+  const ratings = data.ratings || {};           // id -> { s: [novelty, rigour, significance, clarity], m: model, v, t }  (the AI judge)
+  const all = { papers, state, takes, translations, chats, ratings };
   let version = 0;    // bumps whenever papers change (lets the recommender cache its index)
   let stateRev = 0;   // bumps whenever what you did changes (lets the recommender cache its model)
+  let qualityRev = 0; // bumps when a paper's quality evidence changes (OpenAlex, the AI judge)
 
   const dirty = new Set();
   let timer = 0;
@@ -162,7 +164,7 @@ export function createStoreCore(data, write, { delay = 400 } = {}) {
   }
 
   return {
-    papers, state, takes, translations, chats, flush, upsert, prune, act, addCollection, renameCollection, deleteCollection,
+    papers, state, takes, translations, chats, ratings, flush, upsert, prune, act, addCollection, renameCollection, deleteCollection,
     addChat(id, ...msgs) { chats[id] = [...(chats[id] || []), ...msgs]; persist('chats', 'state'); },
     // papers "For you" has put on screen: id -> last time (entries older than 30 days are dropped)
     markSeen(ids) {
@@ -202,5 +204,9 @@ export function createStoreCore(data, write, { delay = 400 } = {}) {
     setInterests(text) { state.interests = String(text || '').slice(0, 2000); version++; persist('state'); },
     setMeta(patch) { Object.assign(state.meta, patch); persist('state'); },
     setCover(id, cover) { if (papers[id]) { papers[id].cover = cover; persist('papers'); } },
+    setRatings(map) { Object.assign(ratings, map); qualityRev++; persist('ratings'); },
+    get qualityRev() { return qualityRev; },
+    setAffil(id, affil) { if (papers[id]) { papers[id].affil = affil; persist('papers'); } },
+    setOpenAlex(id, oa) { if (papers[id]) { papers[id].oa = oa; qualityRev++; persist('papers'); } },
   };
 }

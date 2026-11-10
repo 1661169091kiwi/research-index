@@ -42,7 +42,7 @@ export const PRICE_NOTE = { deepseekModels: Object.keys(DEEPSEEK), claude: CLAUD
 const DAY = 864e5;
 const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-// log: [{ t, p (provider), m (model), k (kind: take | chat | translate), hit, miss, out, CNY, USD }]
+// log: [{ t, p (provider), m (model), k (kind: take | chat | translate | rate), hit, miss, out, CNY, USD }]
 // balances: [{ t, currency, total, granted, toppedUp, available }]
 export function summarize({ log = [], balances = [] }, { days = 30, currency = '' } = {}) {
   const now = Date.now();
@@ -50,9 +50,9 @@ export function summarize({ log = [], balances = [] }, { days = 30, currency = '
   const money = (e) => (cur === 'USD' ? e.USD : e.CNY ?? (e.USD != null ? e.USD * 7.1 : 0)) || 0; // Claude is billed in USD
   const since = now - days * DAY;
   const daysOut = [];
-  for (let i = days - 1; i >= 0; i--) daysOut.push({ date: dayKey(now - i * DAY), take: 0, chat: 0, translate: 0, calls: 0 });
+  for (let i = days - 1; i >= 0; i--) daysOut.push({ date: dayKey(now - i * DAY), take: 0, chat: 0, translate: 0, rate: 0, calls: 0 });
   const byDate = new Map(daysOut.map((d) => [d.date, d]));
-  const totals = { cost: 0, calls: 0, hit: 0, miss: 0, out: 0, byKind: { take: 0, chat: 0, translate: 0 }, byProvider: {} };
+  const totals = { cost: 0, calls: 0, hit: 0, miss: 0, out: 0, byKind: { take: 0, chat: 0, translate: 0, rate: 0 }, byProvider: {} };
   let today = 0, week = 0;
   for (const e of log) {
     const c = money(e);

@@ -202,21 +202,65 @@
     if (r.type === 'new') return t('justIn');
     return '';
   }
+  // Institutions (from the paper's arXiv page or OpenAlex): the Chinese name in the Chinese interface when there is
+  // one; well-known ones are set a little stronger.
+  const instName = (x) => (lang === 'zh' && x.zh ? x.zh : x.n);
+  const BUILDING = '<svg class="inst-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20.5h17M5.5 20.5v-11L12 5l6.5 4.5v11M9.5 20.5v-4.5h5v4.5M9 12.5h.01M15 12.5h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function instHtml(c, max = 2, cls = 'inst') {
+    const list = c?.inst || [];
+    if (!list.length) return '';
+    const shown = list.slice(0, max).map((x) => `<span class="inst-name${x.k ? ' is-known' : ''}">${esc(instName(x))}</span>`).join('<span class="dot"> · </span>');
+    const more = list.length > max ? `<span class="inst-more">+${list.length - max}</span>` : '';
+    return `<p class="${cls}" title="${esc(list.map(instName).join(' · '))}">${BUILDING}<span class="inst-list">${shown}${more}</span></p>`;
+  }
   function whoText(c) {
     const first = c.authors[0] ? c.authors[0].split(' ').slice(-1)[0] : '';
     const people = first ? (c.nAuthors > 1 ? t('etal', { name: first }) : first) : '';
-    return [c.org, people].filter(Boolean).join(' · ');
+    return [c.inst?.[0] ? instName(c.inst[0]) : c.org, people].filter(Boolean).join(' · ');
   }
 
   // ---------- cards ----------
   const venueHtml = (c, cls = 'venue') => (c?.venue ? `<span class="${cls}" title="${esc(t('modeTip_venues'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z" fill="currentColor"/></svg>${esc(c.venue.label)}${c.venue.note ? ` · ${esc(c.venue.note)}` : ''}</span>` : '');
+  // The quality score as a small badge: five bars (one hue, filled by the score) and the number
+  const qTier = (s) => (s >= 85 ? 3 : s >= 70 ? 2 : s >= 50 ? 1 : 0);
+  function qualityBadge(c, cls = 'q-badge') {
+    if (c?.q == null) return '';
+    const s = c.q, on = Math.max(1, Math.round(s / 20));
+    const tier = t(`qTier${qTier(s)}`);
+    return `<span class="${cls} q-t${qTier(s)}" title="${esc(t('qTip', { s, tier }))}"><span class="q-meter" aria-hidden="true">${[1, 2, 3, 4, 5].map((k) => `<i${k <= on ? ' class="on"' : ''}></i>`).join('')}</span><b>${s}</b><span class="sr-only">${esc(t('q'))} ${s}</span></span>`;
+  }
+  // The open paper: the score, and what it rests on
+  const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2 8.8-9.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function qualityPanel(q) {
+    if (!q) return '';
+    const tier = t(`qTier${qTier(q.score)}`);
+    // what the score counts, and what is shown alongside for reference
+    const items = [], ref = [];
+    const ok = (list, text, strong) => list.push(`<li${strong ? ' class="is-strong"' : ''}>${CHECK}<span>${esc(text)}</span></li>`);
+    if (q.venue) ok(items, t('qVenue', { v: `${q.venue.label}${q.venue.note ? ` · ${q.venue.note}` : ''}` }), true);
+    if (q.cites) ok(items, t('qCites', { n: q.cites }));
+    if (q.code) ok(items, t('qCode'));
+    if (q.inst?.length) ok(ref, t('qInst', { names: q.inst.map(instName).join(lang === 'zh' ? '、' : ', ') }));
+    if (q.h != null && q.h > 0) ok(ref, t('qH', { h: q.h }));
+    if (q.up) ok(ref, t('qUp', { n: q.up }));
+    if (q.stars) ok(ref, t('qStars', { n: q.stars }));
+    const ai = q.ai ? `<div class="q-ai"><p class="q-sub">${esc(t('qAi'))}</p><div class="q-ai-grid">${['qN', 'qR', 'qS', 'qC'].map((k, i) => `<div class="q-ai-row"><span>${esc(t(k))}</span><i><b style="width:${q.ai[i] * 10}%"></b></i><em>${q.ai[i]}</em></div>`).join('')}</div></div>` : '';
+    const on = Math.max(1, Math.round(q.score / 20));
+    return `<section class="q-panel q-t${qTier(q.score)}" aria-label="${esc(t('qTitle'))}">
+      <div class="q-head"><p class="q-num"><b>${q.score}</b><span>/100</span></p><div class="q-what"><p class="q-label">${esc(t('qTitle'))} · <strong>${esc(tier)}</strong></p><span class="q-meter q-meter-lg" aria-hidden="true">${[1, 2, 3, 4, 5].map((k) => `<i${k <= on ? ' class="on"' : ''}></i>`).join('')}</span></div></div>
+      ${items.length ? `<p class="q-sub q-sub-first">${esc(t('qCounted'))}</p><ul class="q-list">${items.join('')}</ul>` : q.ai ? '' : `<p class="q-none">${esc(t('qNone'))}</p>`}
+      ${ai}
+      ${ref.length ? `<div class="q-ref"><p class="q-sub">${esc(t('qRef'))}</p><ul class="q-list is-ref">${ref.join('')}</ul></div>` : ''}
+      <p class="q-note">${esc(t('qNote'))}</p>
+    </section>`;
+  }
   function cardHtml(c) {
     return `<article class="card${c.opened ? ' is-opened' : ''}" data-id="${esc(c.id)}">
       ${coverHtml(c)}
       <button class="cv-save${c.saved ? ' on' : ''}" type="button" data-act="save" aria-label="${esc(t('save'))}" title="${esc(t('save'))}">${ICON.mark}</button>
       <div class="card-body">
         ${(view.mode === 'foryou' || view.mode === 'recommended') && c.reason ? `<p class="card-reason">${esc(reasonText(c.reason))}</p>` : ''}
-        ${c.venue ? `<p class="card-venue">${venueHtml(c)}</p>` : ''}
+        ${c.venue || c.q != null ? `<p class="card-venue">${qualityBadge(c)}${venueHtml(c)}</p>` : ''}
         ${titleBlock(c)}
         <div class="card-meta">
           <span class="card-who">${c.hasTake ? `<span class="card-take" title="${esc(t('takeTitle'))}">✦</span>` : ''}${esc(whoText(c))}</span>
@@ -229,7 +273,7 @@
     document.querySelectorAll(`.card[data-id="${CSS.escape(c.id)}"]`).forEach((el) => {
       el.classList.toggle('is-opened', !!c.opened);
       const who = el.querySelector('.card-who');
-      if (who && c.hasTake && !who.querySelector('.card-take')) who.insertAdjacentHTML('afterbegin', `<span class="card-take" title="${esc(t('takeTitle'))}">✦</span>`);
+      if (who) who.innerHTML = `${c.hasTake ? `<span class="card-take" title="${esc(t('takeTitle'))}">✦</span>` : ''}${esc(whoText(c))}`;
       el.querySelector('.cv-save')?.classList.toggle('on', !!c.saved);
       const like = el.querySelector('.card-like');
       if (like) { like.classList.toggle('on', !!c.liked); like.querySelector('span').textContent = (c.up + (c.liked ? 1 : 0)) || ''; }
@@ -275,7 +319,7 @@
       const id = e.target.dataset.id;
       const c = feed.cards.get(id);
       coverObserver.unobserve(e.target);
-      if (c && !c.cover) wanted.add(id);
+      if (c && (!c.cover || !c.inst?.length)) wanted.add(id); // its figure, and the institutions from the same page
     }
     clearTimeout(wantTimer);
     wantTimer = setTimeout(() => { if (wanted.size) { api.covers([...wanted]); wanted.clear(); } }, 250);
@@ -335,7 +379,7 @@
       if (scroller.scrollTop > headH) scroller.scrollTop = headH;
     }
     const res = await api.list({
-      mode: view.mode === 'liked' ? 'saved' : view.mode, topic: personal() ? '' : view.topic, query: view.query,
+      mode: view.mode === 'liked' ? 'saved' : view.mode, topic: personal() ? '' : view.topic, query: view.query, minQ: personal() ? 0 : minQ,
       collection: view.mode === 'liked' ? '__liked' : view.collection,
       offset: feed.offset, limit: liveView() ? 12 : 30, deck: feed.deck || '', fresh: reset && fresh,
       ...(keep ? { keep } : {}),
@@ -460,12 +504,25 @@
     if (p.finished) META.status.lastFetch = Date.now();
     renderStatus();
   });
-  api.on('feed:cover', ({ id, cover, caption }) => {
+  api.on('feed:cover', ({ id, cover, caption, inst }) => {
     const c = feed.cards.get(id);
-    if (c) { c.cover = cover; updateCardEl(c); }
+    if (c) { c.cover = cover; if (inst) c.inst = inst; updateCardEl(c); }
+    if (sheetState.id === id && inst?.length) {
+      const slot = document.querySelector('#sheet .sheet-inst-slot');
+      if (slot) slot.innerHTML = instHtml({ inst }, 6, 'sheet-inst');
+    }
     if (sheetState.id === id && cover?.url) refreshSheetMedia(cover, caption);
   });
   setInterval(() => { if (META) renderStatus(); }, 60000);
+  // the AI judge has rated papers: their badges show the new score
+  api.on('feed:quality', ({ scores } = {}) => {
+    for (const [id, q] of Object.entries(scores || {})) {
+      const c = feed.cards.get(id);
+      if (!c || c.q === q) continue;
+      c.q = q;
+      document.querySelectorAll(`.card[data-id="${CSS.escape(id)}"] .card-venue`).forEach((el) => { el.innerHTML = qualityBadge(c) + venueHtml(c); });
+    }
+  });
 
   // ---------- modes, directions, boards ----------
   const MODES = ['recommended', 'latest', 'trending', 'venues', 'surveys', 'saved', 'liked'];
@@ -521,19 +578,21 @@
   dirPop.setAttribute('role', 'dialog');
   dirPop.hidden = true;
   document.body.appendChild(dirPop);
-  let dirState = { btn: null, pick: null };
+  let dirState = { btn: null, pick: null, onMinQ: null };
+  let minQ = store.get('ri-minq', false) ? 70 : 0;
   function closeDirs() {
     if (dirPop.hidden) return;
     dirPop.hidden = true;
     dirState.btn?.setAttribute('aria-expanded', 'false');
   }
-  function openDirs(btn, topic, pick) {
+  function openDirs(btn, topic, pick, onMinQ = null) {
     if (!META) return;
     if (!dirPop.hidden && dirState.btn === btn) return closeDirs();
-    dirState = { btn, pick };
+    dirState = { btn, pick, onMinQ };
     const item = (id, label, color) => `<button type="button" data-dir="${id}" class="${topic === id ? 'is-on' : ''}" aria-pressed="${topic === id}">${color ? `<i style="background:${color}"></i>` : ''}${esc(label)}</button>`;
     dirPop.setAttribute('aria-label', t('directions'));
-    dirPop.innerHTML = `<p class="dir-head">${esc(t('directions'))}</p><div class="dir-list">${item('', t('dirAll'))}${META.topics.map((x) => item(x.id, x[lang] || x.en, META.palette[x.color][0])).join('')}</div>`;
+    dirPop.innerHTML = `<p class="dir-head">${esc(t('directions'))}</p><div class="dir-list">${item('', t('dirAll'))}${META.topics.map((x) => item(x.id, x[lang] || x.en, META.palette[x.color][0])).join('')}</div>
+      <label class="dir-q"><span class="dir-q-text"><b>${esc(t('qOnly'))}</b><small>${esc(t('qOnlyHint'))}</small></span><input type="checkbox" class="ab-switch" data-minq${minQ ? ' checked' : ''}></label>`;
     dirPop.hidden = false;
     const r = btn.getBoundingClientRect();
     const w = Math.min(380, innerWidth - 24);
@@ -542,6 +601,13 @@
     dirPop.style.left = `${Math.round(Math.max(12, Math.min(innerWidth - w - 12, r.right - w)))}px`;
     btn.setAttribute('aria-expanded', 'true');
   }
+  dirPop.addEventListener('change', (e) => {
+    if (!e.target.matches('[data-minq]')) return;
+    minQ = e.target.checked ? 70 : 0;
+    store.set('ri-minq', !!minQ);
+    paintDirBtn(dirState.btn, dirState.btn === dirBtn ? view.topic : null);
+    dirState.onMinQ?.();
+  });
   dirPop.addEventListener('click', (e) => {
     const b = e.target.closest('[data-dir]');
     if (!b) return;
@@ -554,16 +620,18 @@
   // the button shows the open direction: its colour on the icon, and its name where there is room
   function paintDirBtn(btn, topic) {
     if (!btn || !META) return;
+    if (topic == null) topic = btn.dataset.topic || '';
+    btn.dataset.topic = topic;
     const tp = topicsById[topic];
-    btn.classList.toggle('is-on', !!tp);
+    btn.classList.toggle('is-on', !!tp || !!minQ);
     const color = tp ? META.palette[tp.color][0] : '';
     const name = btn.querySelector('.dir-name'), dot = btn.querySelector('.dir-dot');
-    if (name) name.innerHTML = tp ? `<i style="background:${color}"></i>${esc(tp[lang] || tp.en)}` : esc(t('directions'));
+    if (name) name.innerHTML = tp ? `<i style="background:${color}"></i>${esc(tp[lang] || tp.en)}${minQ ? ' · 70+' : ''}` : esc(minQ ? t('qOnly') : t('directions'));
     if (dot) { dot.hidden = !tp; dot.style.background = color; }
     btn.title = tp ? `${t('directions')} · ${tp[lang] || tp.en}` : t('directions');
   }
   const dirBtn = $('#dir-btn');
-  dirBtn?.addEventListener('click', (e) => { e.stopPropagation(); openDirs(dirBtn, view.topic, (id) => { if (id !== view.topic) setView({ topic: id }); }); });
+  dirBtn?.addEventListener('click', (e) => { e.stopPropagation(); openDirs(dirBtn, view.topic, (id) => { if (id !== view.topic) setView({ topic: id }); }, () => load(true)); });
 
   function renderChips() {
     const chips = $('#chips');
@@ -752,7 +820,7 @@
     if (c && !c.opened) { c.opened = true; updateCardEl(c); }
     api.act(id, 'open');
     readStart(id);
-    if (!p.cover) api.covers([id]);
+    if (!p.cover || !p.inst?.length) api.covers([id]);
 
     const authors = p.authors.length > 12 ? `${p.authors.slice(0, 12).join(', ')} ${t('moreAuthors', { n: p.authors.length - 12 })}` : p.authors.join(', ');
     const links = [
@@ -772,8 +840,10 @@
             ${p.topics.map((x) => `<button type="button" class="chip-btn" data-topic-go="${x}"><span class="sw" style="background:${META.palette[topicsById[x]?.color || 'sand'][0]}"></span>${esc(topicLabel(x))}</button>`).join('')}
           </div>
           <div id="sheet-title-box">${sheetTitleHtml(p)}</div>
-          <p class="sheet-authors">${esc(authors)}${p.org ? ` · <b>${esc(p.org)}</b>` : ''}</p>
+          <p class="sheet-authors">${esc(authors)}</p>
+          <div class="sheet-inst-slot">${instHtml(p, 6, 'sheet-inst')}</div>
           <div class="sheet-meta">${venueHtml(p)}<span>${esc(longDate(p.published))}</span>${p.primary ? `<span>${esc(p.primary)}</span>` : ''}${p.up ? `<span>${esc(t('upvotes', { n: p.up }))}</span>` : ''}${p.comment ? `<span>${esc(p.comment.slice(0, 80))}</span>` : ''}</div>
+          <div class="sheet-q-slot">${qualityPanel(data.quality)}</div>
           <div class="sheet-links">${links}</div>
           <div class="sheet-actions">
             <button type="button" class="act like${p.liked ? ' on' : ''}" data-sheet="like">${ICON.heart}<span>${esc(p.liked ? t('liked') : t('like'))}</span></button>
@@ -1354,6 +1424,7 @@
   const aiPop = $('#ai-pop');
   const providerName = (p) => (p === 'claude' ? 'Anthropic' : 'DeepSeek');
   function renderAiPop() {
+    paintRate();
     if (!AI) return;
     const cur = AI[AI.provider];
     document.querySelectorAll('#ai-provider [data-provider]').forEach((b) => b.classList.toggle('is-on', b.dataset.provider === AI.provider));
@@ -1381,6 +1452,15 @@
   $('#ai-key-save').addEventListener('click', () => saveKeyFrom($('#ai-key')));
   $('#ai-key').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveKeyFrom($('#ai-key')); });
   $('#ai-key-remove').addEventListener('click', async () => { AI = await api.ai({ key: '', keyProvider: AI.provider }); renderAiPop(); if (sheetState.id) renderTakePanel(sheetState.id); });
+  function paintRate() {
+    const r = AI?.rate;
+    if (!r) return;
+    $('#ai-rate-on').checked = !!r.on;
+    $('#ai-rate-cap').querySelectorAll('[data-cap]').forEach((b) => b.classList.toggle('is-on', +b.dataset.cap === r.cap));
+    $('#ai-rate-spent').textContent = t('rateSpent', { v: `¥${(r.spentToday || 0).toFixed(3)}` });
+  }
+  $('#ai-rate-on').addEventListener('change', async (e) => { AI = await api.ai({ rate: { on: e.target.checked } }); paintRate(); });
+  $('#ai-rate-cap').addEventListener('click', async (e) => { const b = e.target.closest('[data-cap]'); if (!b) return; AI = await api.ai({ rate: { cap: +b.dataset.cap } }); paintRate(); });
   $('#ai-save').addEventListener('click', async () => {
     AI = await api.ai({ context: $('#ai-context').value, baseUrl: $('#ai-base').value, model: $('#ai-model').value });
     aiPop.hidden = true;
@@ -1674,7 +1754,8 @@
   let readyResolve;
   window.RIFeed = {
     api, t, S, lang, esc, tex, titleMath, mathHtml, abstractHtml, abstractZhHtml, coverHtml, wireFigure, reasonText, whoText,
-    topicLabel, shortDate, ICON, hooks, store, inkTo, pop, venueHtml, confirmHide,
+    topicLabel, shortDate, ICON, hooks, store, inkTo, pop, venueHtml, confirmHide, instHtml, instName, qualityBadge,
+    get minQ() { return minQ; },
     openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView, openDirs, closeDirs, paintDirBtn, fitTabs,
     // the swipe view's Saved / Liked tabs open here, in the grid
     showMode(mode) { hooks.exit?.(); if (view.mode !== mode || view.query) setView({ mode, collection: '' }); else relayout(); },
