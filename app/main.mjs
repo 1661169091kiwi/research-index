@@ -850,7 +850,7 @@ async function selfTest(dir) {
       await wait(700);
       await snap(`s-about-${lang}`);
       const about = await js(`({ shown: !!document.querySelector('.about-pop'), text: document.querySelector('.about-pop')?.innerText || '' })`);
-      await js(`document.querySelector('.about-pop [data-ab="close"]').click()`);
+      await js(`document.body.click()`);
       // swipe: Interests shows, the Saved tab, share from the menu
       await js(`document.getElementById('view-btn').click()`);
       await wait(2500);
@@ -898,7 +898,8 @@ async function selfTest(dir) {
       await wait(3000);
       const trace = (click) => js(`new Promise((done) => { const out = []; ${click}; const t0 = performance.now();
         const tick = () => { const p = document.querySelector('#sheet .sheet-panel'); out.push(p ? +getComputedStyle(p).opacity : -1);
-          if (performance.now() - t0 < 1200) requestAnimationFrame(tick); else done(out); }; requestAnimationFrame(tick); })`);
+          const cv = p?.querySelector('.sheet-media .cover'); if (cv?.classList.contains('has-fig') && !cv.classList.contains('fig-on')) out.art = (out.art || 0) + 1;
+          if (performance.now() - t0 < 1200) requestAnimationFrame(tick); else done({ o: out, art: out.art || 0, clip: getComputedStyle(p).clipPath, anims: p.getAnimations().length }); }; requestAnimationFrame(tick); })`);
       const dips = (o) => { let top = 0, worst = 0; for (const v of o) { top = Math.max(top, v); if (top >= 0.99) worst = Math.max(worst, top - v); } return +worst.toFixed(3); };
       const grid = await trace(`document.querySelectorAll('#grid .card')[1].querySelector('.card-title').click()`);
       await wait(300);
@@ -912,7 +913,8 @@ async function selfTest(dir) {
       await wait(2500);
       const swipe = await trace(`document.querySelector('.sw-card.is-active .sw-abs').click()`);
       await js(`document.querySelector('.sheet-close').click(); document.getElementById('sw-grid').click()`);
-      report.push({ name: 'zoom', gridFrames: grid.length, gridDipAfterFull: dips(grid), gridEnd: grid.slice(-3), swipeFrames: swipe.length, swipeDipAfterFull: dips(swipe), swipeEnd: swipe.slice(-3) });
+      report.push({ name: 'zoom', gridFrames: grid.o.length, gridDipAfterFull: dips(grid.o), gridArtFrames: grid.art, gridClipAfter: grid.clip, gridAnimsAfter: grid.anims,
+        swipeFrames: swipe.o.length, swipeDipAfterFull: dips(swipe.o), swipeArtFrames: swipe.art, swipeClipAfter: swipe.clip, swipeAnimsAfter: swipe.anims });
     } else if (process.env.RI_SELFTEST_PAGE) {
       // one page, e.g. RI_SELFTEST_PAGE=zh/papers.html
       while (Object.keys(feed.store.papers).length < 50) await wait(2000);

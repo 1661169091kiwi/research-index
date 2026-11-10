@@ -14,10 +14,10 @@ Get the latest version from [Releases](https://github.com/1661169091kiwi/researc
 - **Android**: `Research-Index-<version>.apk`, which installs over an earlier version and keeps your data
 
 The app checks for a new version when it opens (you can turn that off, skip a version, or check yourself
-under About).
+from the ⋯ menu).
 
 从 [Releases](https://github.com/1661169091kiwi/research-index/releases/latest) 下载最新版本：Windows 用安装包，
-Android 用 APK（可直接覆盖安装，保留数据）。应用打开时会检查更新，可以在“关于”里关闭、跳过某个版本或手动检查。
+Android 用 APK（可直接覆盖安装，保留数据）。应用打开时会检查更新，可以在 ⋯ 菜单里关闭、跳过某个版本或手动检查。
 
 ## What it does · 功能
 

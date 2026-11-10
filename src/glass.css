@@ -136,7 +136,7 @@ html.fl :hover::-webkit-scrollbar-thumb, html.fl .is-scrolling::-webkit-scrollba
 html.fl ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--on) 42%, transparent); border-width: 2px; }
 html.fl ::-webkit-scrollbar-thumb:active { background-color: var(--primary); border-width: 2px; }
 html.fl .sheet-panel ::-webkit-scrollbar-track, html.fl .update-panel ::-webkit-scrollbar-track { margin-block: calc(var(--r-xxl) - 4px); }
-html.fl .tune-pop::-webkit-scrollbar-track, html.fl .up-notes::-webkit-scrollbar-track, html.fl .sw-menu::-webkit-scrollbar-track { margin-block: calc(var(--r-xl) - 4px); }
+html.fl .tune-pop::-webkit-scrollbar-track, html.fl .up-notes::-webkit-scrollbar-track, html.fl .sw-menu::-webkit-scrollbar-track, html.fl .about-pop::-webkit-scrollbar-track { margin-block: calc(var(--r-xl) - 4px); }
 html.fl .toc::-webkit-scrollbar-thumb { background-color: transparent; }
 html.fl .toc:hover::-webkit-scrollbar-thumb, html.fl .toc.is-scrolling::-webkit-scrollbar-thumb { background-color: var(--thumb); }
 
@@ -183,7 +183,6 @@ html.fl .lang button:not(.is-current):hover { color: var(--on); }
 html.fl .sw-sets { border-bottom-color: var(--hair); padding: 8px 10px 12px 14px; }
 html.fl .sw-menu .sw-seg button { padding: 5px 12px; border-radius: 999px; }
 html.fl .sw-menu .sw-seg button:hover { background: none; }
-html.fl .theme-btn { color: var(--primary); }
 
 /* ---------- buttons, chips, fields ---------- */
 html.fl .tool {
@@ -325,7 +324,6 @@ html.fl .sheet-panel {
   background: var(--card); border-radius: var(--r-xxl); overflow: hidden;
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.3); animation: flSheetIn var(--sp-zoom-t) var(--sp-zoom) both;
 }
-html.fl .sheet.is-zoom .sheet-panel { animation: none; }
 @keyframes flSheetIn { from { opacity: 0; transform: scale(0.94); } 40% { opacity: 1; } }
 html.fl .sheet-media { background: var(--block); border-right: 0; }
 html.fl .sheet-caption { background: var(--block); border-top: 0; color: var(--on-2); }
@@ -383,10 +381,6 @@ html.fl .sw-modes > button:last-of-type { margin-right: 0; }
 html.fl .sw-modes button { z-index: 1; height: 36px; padding: 0 15px; border-radius: 999px; font-size: 14.5px; color: var(--on-2); transition: color 0.3s; }
 html.fl .sw-modes button.is-on { color: var(--on-primary); }
 html.fl .sw-sub { gap: 8px; padding: 8px 12px 6px; justify-content: center; }
-html.fl .sw-lang { position: relative; border: 0; border-radius: 999px; padding: 3px; gap: 0; }
-html.fl .sw-lang button { position: relative; height: 30px; min-width: 36px; padding: 0 10px; border-radius: 999px; color: var(--on-2); font-size: 12.5px; transition: background 0.25s, color 0.25s; }
-html.fl .sw-lang button + button { border-left: 0; }
-html.fl .sw-lang button.is-on { background: var(--primary); color: var(--on-primary); }
 html.fl .sw-chips-wrap { position: relative; flex: 0 1 auto; border-radius: 999px; padding: 3px; overflow: hidden; }
 html.fl .sw-chips { gap: 2px; border-radius: 999px; }
 html.fl .sw-chips button { border: 0; height: 30px; padding: 0 12px; border-radius: 999px; color: var(--on-2); background: none; transition: background 0.25s, color 0.25s; }
@@ -550,8 +544,6 @@ html.fl .bar .bar-search input:focus { background: var(--card); box-shadow: 0 0 
 html.fl .bar .bar-search kbd { border: 0; border-radius: 6px; background: var(--fill); right: 10px; }
 html.fl.is-mobile .bar .bar-search input { height: 38px; font-size: 15.5px; }
 html.fl .about-dot { background: var(--like-c); box-shadow: 0 0 0 2px var(--page); }
-html.fl .about-pop { border: 0; border-radius: var(--r-xl); padding: 14px 16px 16px; transform-origin: top right; animation: flUnfold var(--sp-unfold-t) var(--sp-unfold) both; }
-html.fl .ab-head b { font-weight: 700; }
 html.fl .share-x { border-radius: 999px; background: var(--fill); color: var(--on); font-size: 18px; }
 html.fl .share-x:hover { background: var(--fill-2); color: var(--on); }
 html.fl .share-backdrop { background: var(--scrim); }
@@ -572,13 +564,6 @@ html.fl .share-note { border-radius: 999px; color: var(--on); animation: flPrese
 @media (max-width: 640px) {
   html.fl .share-img img, html.fl .share-wait { border-radius: 0; }
 }
-html.fl .update-panel { padding: 24px 24px 16px; }
-html.fl .up-eyebrow { color: var(--primary); }
-html.fl .update-panel h3 { font-weight: 700; }
-html.fl .up-notes { background: var(--block); border-radius: var(--r-md); padding: 12px 14px; }
-html.fl .tool.ghost { background: none; color: var(--muted); }
-html.fl .up-actions .tool:not(.ghost) { background: var(--fill); }
-html.fl .up-actions .tool:not(.ghost):hover { background: var(--fill-2); }
 html.fl .act.share { color: var(--on); }
 @media (max-width: 640px) {
   html.fl .update-panel { animation: flSheetUp var(--sp-sheet-t) var(--sp-sheet) both; }
@@ -589,6 +574,29 @@ html.fl .venue { border-radius: 999px; padding: 3px 9px 3px 7px; }
   html.fl .venue { background: rgba(255, 190, 40, 0.16); color: #ffd36b; }
   html.fl .venue svg { color: #ffc23d; }
 }
+
+/* the bar's ⋯ panel and the update dialog */
+html.fl .bar-menu-btn { border-radius: 999px; color: var(--on); }
+html.fl .bar-menu-btn:hover, html.fl .bar-menu-btn[aria-expanded="true"] { background: var(--fill); color: var(--on); }
+html.fl .about-pop { border: 0; border-radius: var(--r-xl); padding: 6px; transform-origin: top right; animation: flUnfold var(--sp-unfold-t) var(--sp-unfold) both; }
+html.fl .ab-icon { border-radius: 10px; }
+html.fl .ab-name b { font-weight: 700; }
+html.fl .ab-group { border-top-color: var(--hair); }
+html.fl .ab-row { border-radius: 14px; font-weight: 600; color: var(--on); }
+html.fl .ab-btn:hover { background: var(--fill); }
+html.fl .ab-status[data-tone="new"] { color: var(--primary); }
+html.fl .ab-status[data-tone="error"] { color: var(--like-c); }
+html.fl .ab-switch { width: 44px; height: 26px; border-radius: 13px; background: var(--fill-2); }
+html.fl .ab-switch::after { width: 22px; height: 22px; transition: transform var(--sp-press-t) var(--sp-press); }
+html.fl .ab-switch:checked { background: #34c759; }
+html.fl .ab-switch:checked::after { transform: translateX(18px); }
+html.fl .update-panel { width: min(400px, 100%); padding: 24px 22px 14px; }
+html.fl .up-head h3 { font-weight: 700; }
+html.fl .ab-icon, html.fl .up-head .ab-icon { border-radius: 11px; }
+html.fl .up-notes { border-radius: var(--r-md); background: var(--block); color: var(--on-2); }
+html.fl .up-main { border-radius: 999px; }
+html.fl .up-more .link-btn { color: var(--muted); }
+html.fl .up-more .link-btn:hover { color: var(--on); }
 
 /* ---------- comfort ---------- */
 @media (prefers-reduced-transparency: reduce) {

@@ -1,7 +1,8 @@
-// Research index — About, and updates from the GitHub releases. The app asks once each time it opens (unless
-// that is turned off in About); "Check for updates" asks any time. A version you skip is not offered again when
-// the app opens, only when you check yourself. Desktop: the installer downloads and starts (it installs over
-// this copy); phone: the APK downloads in the browser and installs over this one.
+// Research index — the bar's ⋯ panel (language, style, updates, About) and updates from the GitHub releases.
+// The app asks once each time it opens (unless turned off in the panel); "Check for updates" asks any time.
+// A version you skip is not offered again when the app opens, only when you check yourself.
+// Desktop: the installer downloads and starts (it installs over this copy); phone: the APK downloads in the
+// browser and installs over this one.
 (function () {
   'use strict';
   const html = document.documentElement;
@@ -10,7 +11,6 @@
   const t = (k, v = {}) => String(S[k] || k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? '');
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const VERSION = html.dataset.version || '';
-  const REPO = html.dataset.repo || '';
   const android = html.dataset.platform === 'android';
   const get = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
   const set = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
@@ -22,62 +22,110 @@
   }
   let latest = null;
   const pick = (info) => (info?.assets || []).find((a) => (android ? /\.apk$/i : /\.exe$/i).test(a.name));
-  const dot = () => document.querySelectorAll('.about-dot').forEach((d) => { d.hidden = !(latest && newer(latest.version, VERSION) && get('ri-update-skip', '') !== latest.version); });
+  const hasNew = () => !!latest && newer(latest.version, VERSION);
+  const skipped = () => hasNew() && get('ri-update-skip', '') === latest.version;
+
+  // ---------- the panel ----------
+  const pop = document.getElementById('about-pop');
+  // it is built into the bar, which the phone hides under the swipe feed: it lives on <body>
+  if (pop && pop.parentElement !== document.body) document.body.appendChild(pop);
+  const status = (text, tone = '') => {
+    const n = pop?.querySelector('.ab-status');
+    if (!n) return;
+    n.textContent = text;
+    n.dataset.tone = tone;
+  };
+  function paintState() {
+    document.querySelectorAll('.about-dot').forEach((d) => { d.hidden = !(hasNew() && !skipped()); });
+    if (!pop) return;
+    if (hasNew()) status(skipped() ? t('skipped', { v: latest.version }) : t('available', { v: latest.version }), skipped() ? '' : 'new');
+    const auto = pop.querySelector('[data-ab="auto"]');
+    if (auto) auto.checked = !!get('ri-update-auto', true);
+    if (!U) pop.querySelectorAll('[data-ab="check"], [data-ab="auto"]').forEach((n) => { n.closest('.ab-row').hidden = true; });
+  }
+  function openPanel() {
+    if (!pop) return;
+    paintState();
+    pop.hidden = false;
+    document.querySelectorAll('[data-about]').forEach((b) => b.setAttribute('aria-expanded', 'true'));
+  }
+  function closePanel() {
+    if (!pop || pop.hidden) return;
+    pop.hidden = true;
+    document.querySelectorAll('[data-about]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  }
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-about]')) { e.stopPropagation(); if (pop?.hidden) openPanel(); else closePanel(); return; }
+    if (pop && !pop.hidden && !e.target.closest('#about-pop')) closePanel();
+  });
+  pop?.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-ab="check"]')) return;
+    if (hasNew() && !skipped() && latest) { closePanel(); offer(latest); return; }
+    check(true);
+  });
+  pop?.addEventListener('change', (e) => { if (e.target.dataset.ab === 'auto') set('ri-update-auto', e.target.checked); });
 
   // ---------- the check ----------
-  async function check(manual, status) {
-    if (!U) return;
-    status?.(t('checking'));
+  let checking = false;
+  async function check(manual) {
+    if (!U || checking) return;
+    checking = true;
+    if (manual) status(t('checking'), 'busy');
     const res = await U.check().catch((e) => ({ error: String(e) }));
-    if (!res || res.error || !res.version) { status?.(t('checkFailed')); return; }
+    checking = false;
+    if (!res || res.error || !res.version) { if (manual) status(t('checkFailed'), 'error'); return; }
     latest = res;
-    dot();
-    if (!newer(res.version, VERSION)) { status?.(t('upToDate')); return; }
-    status?.('');
-    if (manual || get('ri-update-skip', '') !== res.version) offer(res);
+    keep();
+    paintState();
+    if (!hasNew()) { if (manual) status(t('upToDate'), 'ok'); return; }
+    if (manual || !skipped()) { closePanel(); offer(res); }
   }
 
   // ---------- a new version: download it, skip it, or later ----------
   let dialog = null;
   function closeDialog() { if (!dialog) return; const d = dialog; dialog = null; d.classList.add('is-leaving'); setTimeout(() => d.remove(), 220); }
+  // the release notes, in the page's language (they hold English, then "---", then Chinese), as a short list
+  function notesHtml(body) {
+    let text = String(body || '');
+    const halves = text.split(/\n-{3,}\n/);
+    if (halves.length > 1) text = html.dataset.lang === 'zh' ? halves[halves.length - 1] : halves[0];
+    const items = text.split('\n').map((l) => l.trim()).filter((l) => /^[-*] /.test(l))
+      .map((l) => l.replace(/^[-*] /, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1'));
+    return items.length ? `<ul class="up-notes">${items.slice(0, 8).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
+  }
   function offer(res) {
     closeDialog();
     const asset = pick(res);
-    const notes = String(res.notes || '').replace(/^#+\s*/gm, '').replace(/\*\*/g, '').trim();
     dialog = document.createElement('div');
     dialog.className = 'update-modal';
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
     dialog.innerHTML = `<div class="share-backdrop" data-up="later"></div>
       <div class="update-panel">
-        <p class="up-eyebrow">${esc(t('version', { v: VERSION }))} → ${esc(res.version)}</p>
-        <h3>${esc(t('updateTitle', { v: res.version }))}</h3>
-        ${notes ? `<div class="up-notes"><b>${esc(t('updateNotes'))}</b><p>${esc(notes)}</p></div>` : ''}
-        <div class="up-actions">
-          <button type="button" class="btn-primary" data-up="get">${esc(t(asset && !android ? 'updateInstall' : 'updateDownload'))}</button>
-          <button type="button" class="tool" data-up="skip">${esc(t('updateSkip'))}</button>
-          <button type="button" class="tool ghost" data-up="later" data-back-close>${esc(t('updateLater'))}</button>
-        </div>
+        <div class="up-head"><img class="ab-icon" src="../assets/icon.svg" alt=""><div><h3>${esc(t('updateTitle', { v: res.version }))}</h3><p class="up-from">${esc(VERSION)} → ${esc(res.version)}</p></div></div>
+        ${notesHtml(res.notes)}
+        <button type="button" class="btn-primary up-main" data-up="get">${esc(t(asset && !android ? 'updateInstall' : 'updateDownload'))}</button>
         <p class="up-status" role="status"></p>
+        <div class="up-more"><button type="button" class="link-btn" data-up="skip">${esc(t('updateSkip'))}</button><button type="button" class="link-btn" data-up="later" data-back-close>${esc(t('updateLater'))}</button></div>
       </div>`;
     document.body.appendChild(dialog);
     const d = dialog;
-    const status = (s) => { d.querySelector('.up-status').textContent = s; };
+    const say = (s) => { d.querySelector('.up-status').textContent = s; };
     d.addEventListener('click', async (e) => {
       const kind = e.target.closest('[data-up]')?.dataset.up;
       if (kind === 'later') return closeDialog();
-      if (kind === 'skip') { set('ri-update-skip', res.version); dot(); return closeDialog(); }
+      if (kind === 'skip') { set('ri-update-skip', res.version); paintState(); return closeDialog(); }
       if (kind !== 'get') return;
       if (!asset) { openPage(res.url); return closeDialog(); }
       const btn = d.querySelector('[data-up="get"]');
       btn.disabled = true;
-      const off = U.onProgress?.((p) => status(t('downloading', { p })));
-      status(android ? '' : t('downloading', { p: 0 }));
+      const off = U.onProgress?.((p) => say(t('downloading', { p })));
+      say(android ? '' : t('downloading', { p: 0 }));
       const r = await U.install(asset.url).catch((err) => ({ ok: false, error: String(err) }));
       off?.();
-      if (r?.ok) { status(android ? '' : t('updateOpening')); if (android) closeDialog(); return; }
+      if (r?.ok) { say(android ? '' : t('updateOpening')); if (android) closeDialog(); return; }
       btn.disabled = false;
-      status(t('checkFailed'));
+      say(t('checkFailed'));
       openPage(res.url);
     });
   }
@@ -86,51 +134,19 @@
     if (window.portal?.openUrl) window.portal.openUrl(url); else window.open(url, '_blank', 'noopener');
   }
 
-  // ---------- About ----------
-  // the language and style toggles, cloned from the top bar (which on the phone hides them)
-  const langRow = () => { const n = document.querySelector('.bar .lang:not(.style-switch)'); return n ? `<div class="sw-set"><span>${esc(S.langName || 'Language')}</span>${n.outerHTML}</div>` : ''; };
-  const styleRow = () => { const n = document.querySelector('.bar .style-switch'); return n ? `<div class="sw-set"><span>${esc(S.styleLabel || 'Style')}</span>${n.outerHTML}</div>` : ''; };
-  let pop = null;
-  function closeAbout() { pop?.remove(); pop = null; }
-  function about() {
-    if (pop) return closeAbout();
-    pop = document.createElement('div');
-    pop.className = 'about-pop';
-    pop.dataset.glass = 'menu';
-    pop.innerHTML = `<div class="ab-head"><b>${esc(document.title.split(/[—·]/).pop().trim() || 'Research Index')}</b><button type="button" class="share-x" data-ab="close" data-back-close aria-label="×">×</button></div>
-      <p class="ab-ver">${esc(t('version', { v: VERSION }))}</p>
-      <div class="ab-sets">${langRow()}${styleRow()}</div>
-      ${U ? `<label class="ab-auto"><input type="checkbox" data-ab="auto"${get('ri-update-auto', true) ? ' checked' : ''}> ${esc(t('autoCheck'))}</label>
-      <div class="ab-row"><button type="button" class="btn-primary" data-ab="check">${esc(t('checkUpdates'))}</button></div>
-      <p class="ab-status" role="status"></p>` : ''}
-      <a class="link-btn ab-link" href="https://github.com/${esc(REPO)}" target="_blank" rel="noopener">${esc(t('projectPage'))} ↗</a>`;
-    document.body.appendChild(pop);
-    const status = (s) => { const n = pop?.querySelector('.ab-status'); if (n) n.textContent = s; };
-    if (latest && newer(latest.version, VERSION) && get('ri-update-skip', '') === latest.version) status(t('skipped', { v: latest.version }));
-    pop.addEventListener('click', (e) => {
-      const kind = e.target.closest('[data-ab]')?.dataset.ab;
-      if (kind === 'close') closeAbout();
-      if (kind === 'check') check(true, status);
-    });
-    pop.addEventListener('change', (e) => { if (e.target.dataset.ab === 'auto') set('ri-update-auto', e.target.checked); });
-  }
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-about]')) { e.stopPropagation(); about(); return; }
-    if (pop && !e.target.closest('.about-pop')) closeAbout();
-  });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (dialog) { e.stopPropagation(); closeDialog(); } else if (pop) { e.stopPropagation(); closeAbout(); }
+    if (dialog) { e.stopPropagation(); closeDialog(); } else if (pop && !pop.hidden) { e.stopPropagation(); closePanel(); }
   }, true);
-  window.RIUpdate = { about, check: () => check(true) };
+  window.RIUpdate = { about: openPanel, check: () => check(true) };
 
   // ---------- when the app opens: once per session (the pages share it), a few seconds in ----------
-  if (U && get('ri-update-auto', true)) {
-    let asked = false;
-    try { asked = sessionStorage.getItem('ri-update-asked') === '1'; sessionStorage.setItem('ri-update-asked', '1'); } catch { /* ignore */ }
-    if (!asked) setTimeout(() => check(false), 4000);
-    else { try { latest = JSON.parse(sessionStorage.getItem('ri-update-latest') || 'null'); } catch { /* ignore */ } dot(); }
+  function keep() { try { if (latest) sessionStorage.setItem('ri-update-latest', JSON.stringify(latest)); } catch { /* ignore */ } }
+  let asked = false;
+  try { asked = sessionStorage.getItem('ri-update-asked') === '1'; latest = JSON.parse(sessionStorage.getItem('ri-update-latest') || 'null'); } catch { /* ignore */ }
+  paintState();
+  if (U && get('ri-update-auto', true) && !asked) {
+    try { sessionStorage.setItem('ri-update-asked', '1'); } catch { /* ignore */ }
+    setTimeout(() => check(false), 4000);
   }
-  const keep = () => { try { if (latest) sessionStorage.setItem('ri-update-latest', JSON.stringify(latest)); } catch { /* ignore */ } };
-  window.addEventListener('pagehide', keep);
 })();

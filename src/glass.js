@@ -29,14 +29,11 @@
   window.RITheme = {
     get: () => (isGlass() ? 'glass' : 'classic'),
     set: (name) => apply(name !== 'classic'),
-    toggle: () => apply(!isGlass()),
   };
-  // the Glass | Classic toggles (top bar, the swipe menu, About); which half is on follows the class on <html>
+  // the Glass | Classic toggles (the ⋯ panel, the swipe menu); which half is on follows the class on <html>
   document.addEventListener('click', (e) => {
-    const b = e.target.closest?.('[data-style-set], [data-theme-toggle]');
-    if (!b) return;
-    if (b.dataset.styleSet) { if ((b.dataset.styleSet === 'glass') !== isGlass()) apply(b.dataset.styleSet === 'glass'); }
-    else window.RITheme.toggle();
+    const b = e.target.closest?.('[data-style-set]');
+    if (b && (b.dataset.styleSet === 'glass') !== isGlass()) apply(b.dataset.styleSet === 'glass');
   });
 
   // The window around the page follows it: the desktop title bar (its buttons are drawn by Windows) and the

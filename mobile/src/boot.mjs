@@ -129,7 +129,7 @@ window.__riBack = () => {
   if (top) { top.click(); return true; }
   const sheet = document.getElementById('sheet');
   if (sheet && !sheet.hidden) { sheet.querySelector('[data-close]')?.click(); return true; }
-  for (const id of ['sw-menu', 'tune-pop', 'ai-pop']) {
+  for (const id of ['about-pop', 'sw-menu', 'tune-pop', 'ai-pop']) {
     const el = document.getElementById(id);
     if (el && !el.hidden) { el.hidden = true; return true; }
   }

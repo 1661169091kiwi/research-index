@@ -60,19 +60,11 @@ body.swipe-on .scroller { visibility: hidden; }
 .sw-modes-wrap { min-width: 0; display: flex; }
 .sw-modes-wrap > .sw-modes { flex: 1 1 auto; min-width: 0; }
 
-/* second row: language · directions (the categories of the grid view), right under the tabs */
+/* second row: the directions (the categories of the grid view), right under the tabs */
 .sw-sub {
   display: flex; align-items: center; gap: 10px; margin: 0 auto; padding: 0 12px 9px;
   max-width: calc(var(--sw-card-w) + 2 * var(--sw-rail));
 }
-.sw-lang { display: flex; flex: none; border: var(--line); }
-.sw-lang button {
-  appearance: none; border: 0; background: none; cursor: pointer; padding: 5px 10px; min-width: 34px;
-  font: 600 12px/1.15 var(--display); color: var(--ink-2); transition: color 0.2s, background 0.2s;
-}
-.sw-lang button + button { border-left: var(--line); }
-.sw-lang button.is-on { background: var(--ink); color: var(--paper); cursor: default; }
-.sw-lang button:not(.is-on):hover { color: var(--blue); }
 .sw-chips-wrap { flex: 1 1 auto; min-width: 0; display: flex; }
 .sw-chips { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .sw-chips::-webkit-scrollbar { display: none; }

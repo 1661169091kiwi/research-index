@@ -149,19 +149,23 @@
   }
 
   // ---------- cover ----------
+  // Figures that have loaded once are in the browser's cache: a cover that shows one again (the open paper, the
+  // swipe card) starts with it in place, instead of the generated art for a frame or two and then a swap.
+  const figReady = new Set();
   function coverHtml(c, { big = false, ratio = true } = {}) {
     const h = hash(c.id);
     const col = colorsFor(c);
     const word = coverWord(tex(c.title));
     const shape = `s${(h >>> 4) % 6}`;
     const fig = c.cover && c.cover.url;
+    const ready = fig && figReady.has(c.cover.url);
     const style = `--cv-bg:${col.bg};--cv-ink:${col.ink};--cv-accent:${col.accent};${ratio ? `aspect-ratio:${RATIOS[h % RATIOS.length]};` : ''}`;
-    return `<div class="cover${c.survey ? ' is-survey' : ''}${fig ? ' has-fig' : ''}" style="${style}">
+    return `<div class="cover${c.survey ? ' is-survey' : ''}${fig ? ' has-fig' : ''}${ready ? ' fig-on' : ''}" style="${style}">
       <div class="cv-top"><span class="tp">${esc(c.topics.length ? topicLabel(c.topics[0]) : (c.survey ? t('survey') : 'arXiv'))}</span><span>${esc(shortDate(c.published))}</span></div>
       <div class="cv-shape ${shape}"></div>
       <div class="cv-word" style="font-size:${wordSize(word, big)}px">${esc(word)}</div>
       ${c.survey ? `<span class="cv-badge">${esc(t('survey'))}</span>` : ''}
-      ${fig ? `<img class="cv-fig" alt="" loading="lazy" src="${esc(c.cover.url)}">` : ''}
+      ${fig ? `<img class="cv-fig${ready ? ' is-loaded' : ''}" alt="" ${ready || big ? 'decoding="sync"' : 'loading="lazy"'} src="${esc(c.cover.url)}">` : ''}
     </div>`;
   }
   // On cards, the cover takes the figure's own shape (clamped), so wide diagrams are not lost in white space.
@@ -170,6 +174,7 @@
     scope.querySelectorAll('.cv-fig:not([data-wired])').forEach((img) => {
       img.dataset.wired = '1';
       const done = () => {
+        figReady.add(img.getAttribute('src'));
         img.classList.add('is-loaded');
         const cover = img.closest('.cover');
         cover?.classList.add('fig-on');
@@ -781,6 +786,7 @@
     unzoom: 'linear(0, 0.0031 1.3%, 0.0118 2.5%, 0.0254 3.8%, 0.0429 5%, 0.0876 7.5%, 0.1706 11.3%, 0.3874 20%, 0.4759 23.8%, 0.5573 27.5%, 0.6304 31.3%, 0.6945 35%, 0.7501 38.8%, 0.7974 42.5%, 0.8372 46.3%, 0.8802 51.2%, 0.9132 56.3%, 0.9382 61.3%, 0.9606 67.5%, 0.9758 73.8%, 0.9873 81.3%, 1)',
   };
   const glassOn = () => document.documentElement.classList.contains('fl');
+  const SHADOW_ROOM = 140; // how far the panel's shadow reaches past it
   const isPhone = () => document.documentElement.classList.contains('is-mobile') || innerWidth <= 640;
   function zoomSource(id) {
     if (swipeOn()) { const el = document.querySelector('#sw-track .sw-card.is-active'); return el?.dataset.id === id ? el : null; }
@@ -810,12 +816,15 @@
     const cut = Math.max(0, P.height - rect.height / s);
     const R = parseFloat(getComputedStyle(panel).borderTopLeftRadius) || 0;
     const small = { transform: `translate(${rect.left - P.left}px, ${rect.top - P.top}px) scale(${s})`, clipPath: `inset(0 0 ${cut}px 0 round ${radius / s}px)` };
-    const full = { transform: 'none', clipPath: `inset(0 0 0 0 round ${R}px)` };
+    const full = { transform: 'none', clipPath: `inset(-${SHADOW_ROOM}px round ${R}px)` };
     const frames = opening
       ? [{ ...small, opacity: 0 }, { opacity: 1, offset: 0.65 }, { ...full, opacity: 1 }]
       : [{ ...full, opacity: 1 }, { opacity: 1, offset: 0.35 }, { ...small, opacity: 0 }];
     panel.style.transformOrigin = '0 0';
-    return panel.animate(frames, { duration: opening ? 460 : 350, easing: opening ? SPRING.zoom : SPRING.unzoom, fill: 'both' });
+    panel.style.willChange = 'transform, opacity, clip-path';
+    const a = panel.animate(frames, { duration: opening ? 460 : 350, easing: opening ? SPRING.zoom : SPRING.unzoom, fill: 'both' });
+    a.finished.then(() => { panel.style.willChange = ''; }, () => {});
+    return a;
   }
   // Back in the grid, the paper you were last on is brought into view and briefly marked (you may have
   // stepped through several papers with ← →).

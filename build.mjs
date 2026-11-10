@@ -30,7 +30,6 @@ const I18N = {
     siteTitle: 'Research index',
     tabSurveys: 'Surveys',
     tabPapers: 'Papers',
-    themeTip: 'Style: Glass or Classic',
     styleLabel: 'Style', styleGlass: 'Glass', styleClassic: 'Classic', langName: 'Language',
     surveys: 'Surveys',
     surveysOnFile: 'Surveys on file', readLatest: 'Read it',
@@ -64,11 +63,11 @@ const I18N = {
       matches: '<b>{n}</b> matches for “{q}”', match: '<b>1</b> match for “{q}”', topN: ' · showing the top {n}',
       noMatches: 'No matches. Try fewer or shorter words.', findNone: 'No results', updated: 'Updated just now',
       readPct: '{p}% read',
-      about: 'About and updates', langName: 'Language', styleLabel: 'Style', version: 'Version {v}', checkUpdates: 'Check for updates', checking: 'Checking…',
-      upToDate: 'You have the latest version.', checkFailed: 'Could not reach GitHub. Check the network and try again.',
+      about: 'Settings and updates', more: 'More', langName: 'Language', styleLabel: 'Style', version: 'Version {v}', available: '{v} available', checkUpdates: 'Check for updates', checking: 'Checking…',
+      upToDate: 'Up to date', checkFailed: 'Could not reach GitHub',
       updateTitle: 'Version {v} is available', updateDownload: 'Download', updateInstall: 'Download and install', updateSkip: 'Skip this version',
       updateLater: 'Later', updateNotes: 'What is new', downloading: 'Downloading… {p}%', updateOpening: 'Starting the installer…',
-      autoCheck: 'Check when the app opens', projectPage: 'Project page on GitHub', skipped: 'Skipped {v}. Check again to see it.',
+      autoCheck: 'Check when the app opens', projectPage: 'Project page on GitHub', skipped: 'Skipped {v}',
     },
   },
   zh: {
@@ -76,7 +75,6 @@ const I18N = {
     siteTitle: '研究索引',
     tabSurveys: '调研',
     tabPapers: '论文',
-    themeTip: '风格：玻璃 / 经典',
     styleLabel: '风格', styleGlass: '玻璃', styleClassic: '经典', langName: '语言',
     surveys: '调研',
     surveysOnFile: '已收录调研', readLatest: '打开阅读',
@@ -110,11 +108,11 @@ const I18N = {
       matches: '“{q}”共 <b>{n}</b> 条结果', match: '“{q}”共 <b>1</b> 条结果', topN: '，显示前 {n} 条',
       noMatches: '没有匹配的结果，试试更少或更短的关键词。', findNone: '无结果', updated: '内容已更新',
       readPct: '已读 {p}%',
-      about: '关于与更新', langName: '语言', styleLabel: '风格', version: '版本 {v}', checkUpdates: '检查更新', checking: '正在检查…',
-      upToDate: '已是最新版本。', checkFailed: '无法连接 GitHub，请检查网络后重试。',
+      about: '设置与更新', more: '更多', langName: '语言', styleLabel: '风格', version: '版本 {v}', available: '有新版本 {v}', checkUpdates: '检查更新', checking: '正在检查…',
+      upToDate: '已是最新', checkFailed: '无法连接 GitHub',
       updateTitle: '发现新版本 {v}', updateDownload: '下载', updateInstall: '下载并安装', updateSkip: '跳过此版本',
       updateLater: '以后再说', updateNotes: '更新内容', downloading: '正在下载… {p}%', updateOpening: '正在启动安装程序…',
-      autoCheck: '打开应用时检查更新', projectPage: 'GitHub 项目主页', skipped: '已跳过 {v}，手动检查时仍会显示。',
+      autoCheck: '打开应用时检查更新', projectPage: 'GitHub 项目主页', skipped: '已跳过 {v}',
     },
   },
 };
@@ -145,7 +143,7 @@ const FEED = {
     swHidden: 'Got it: fewer papers like this.', swUndo: 'Undo', swLoading: 'Picking papers…', swAi: 'AI take',
     swKeys: '↑ ↓ previous / next · Enter open · L like · S save · A AI take · X not interested · V grid',
     swSurveys: 'Surveys', swLiked: 'Liked', swSaved: 'Saved',
-    directions: 'Directions', styleGlass: 'Glass style', langLabel: 'Language',
+    directions: 'Directions',
     share: 'Share as image', shareTitle: 'Share this paper', shareSave: 'Save image', shareCopy: 'Copy image', shareSend: 'Share…',
     shareSaved: 'Saved to {where}', shareCopied: 'Image copied', shareFailed: 'Could not make the image',
     shareScan: 'Scan to read the paper', shareGet: 'Get Research Index', shareApp: 'Research Index · papers, one at a time',
@@ -223,7 +221,7 @@ const FEED = {
     swHidden: '好的，将减少此类推荐。', swUndo: '撤销', swLoading: '正在挑选论文…', swAi: 'AI 解读',
     swKeys: '↑ ↓ 上一篇 / 下一篇 · Enter 展开 · L 喜欢 · S 收藏 · A AI 解读 · X 不感兴趣 · V 多篇浏览',
     swSurveys: '综述', swLiked: '已喜欢', swSaved: '已收藏',
-    directions: '方向', styleGlass: '玻璃风格', langLabel: '语言',
+    directions: '方向',
     share: '分享为图片', shareTitle: '分享这篇论文', shareSave: '保存图片', shareCopy: '复制图片', shareSend: '分享…',
     shareSaved: '已保存到{where}', shareCopied: '图片已复制', shareFailed: '图片生成失败',
     shareScan: '扫码阅读论文', shareGet: '下载 研究索引', shareApp: '研究索引 · 一次读一篇论文',
@@ -532,15 +530,24 @@ ${after}
 `;
 }
 
-// Glass (the default, after FlClash) or Classic; glass.js switches it in place
-function themeBtn(L) {
+// The bar's ⋯: one button for language, style, updates and About (nothing of it is on screen all the time)
+function styleSwitch(L) {
   const T = I18N[L];
-  return `<nav class="lang style-switch" aria-label="${T.themeTip}"><button type="button" data-style-set="glass">${T.styleGlass}</button><button type="button" data-style-set="classic">${T.styleClassic}</button></nav>`;
+  return `<nav class="lang style-switch" aria-label="${T.styleLabel}"><button type="button" data-style-set="glass">${T.styleGlass}</button><button type="button" data-style-set="classic">${T.styleClassic}</button></nav>`;
 }
-
-function aboutBtn(L) {
-  const tip = I18N[L].client.about;
-  return `<button class="theme-btn about-btn" type="button" data-about title="${tip}" aria-label="${tip}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5.5M12 7.6v.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="about-dot" hidden></span></button>`;
+function barMenu(L, page) {
+  const T = I18N[L], C = T.client;
+  const row = (label, control) => `<div class="ab-row"><span class="ab-label">${label}</span>${control}</div>`;
+  return `<button class="bar-menu-btn" type="button" data-about aria-label="${C.more}" title="${C.more}" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="about-dot" hidden></span></button>
+<div class="about-pop" id="about-pop" data-glass="menu" role="dialog" aria-label="${C.about}" hidden>
+  <div class="ab-head"><img class="ab-icon" src="../assets/icon.svg" alt=""><div class="ab-name"><b>${T.siteTitle}</b><span>${C.version.replace('{v}', CTX.version)}</span></div></div>
+  <div class="ab-group">${row(C.langName, langSwitch(L, page))}${row(C.styleLabel, styleSwitch(L))}</div>
+  <div class="ab-group">
+    <button type="button" class="ab-row ab-btn" data-ab="check"><span class="ab-label">${C.checkUpdates}</span><span class="ab-status" role="status"></span></button>
+    <label class="ab-row ab-btn"><span class="ab-label">${C.autoCheck}</span><input type="checkbox" class="ab-switch" data-ab="auto" checked></label>
+    <a class="ab-row ab-btn" href="https://github.com/${REPO}" target="_blank" rel="noopener"><span class="ab-label">${C.projectPage}</span><span class="ab-go" aria-hidden="true">↗</span></a>
+  </div>
+</div>`;
 }
 
 function langSwitch(L, page) {
@@ -595,7 +602,7 @@ function homePage(L, docs, config) {
   const builtAt = L === 'zh'
     ? new Date().toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
     : new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-  const bar = `${tabs(L, 'surveys')}<div class="bar-right"><nav class="bar-meta"><span>${T.surveys} <b>${pad2(docs.length)}</b></span></nav>${aboutBtn(L)}${themeBtn(L)}${langSwitch(L, 'index.html')}</div>`;
+  const bar = `${tabs(L, 'surveys')}<div class="bar-right"><nav class="bar-meta"><span>${T.surveys} <b>${pad2(docs.length)}</b></span></nav>${barMenu(L, 'index.html')}</div>`;
   const main = `
 <main class="wrap home">
   <section class="hero">
@@ -640,7 +647,7 @@ function docPage(L, docs, i, config) {
     const { num, rest } = splitNumber(esc(t.text), t.depth);
     return `<li class="toc-${t.depth}"><a href="#${t.id}" data-toc="${t.id}"><span class="toc-num">${t.depth === 2 ? num : ''}</span><span>${rest}</span></a></li>`;
   }).join('');
-  const bar = `${tabs(L, 'surveys')}<span class="crumb"><span class="crumb-num">${d.num}</span>${esc(v.short)}</span><div class="bar-right"><a class="back" href="index.html"><span aria-hidden="true">←</span> ${T.allSurveys}</a>${aboutBtn(L)}${themeBtn(L)}${langSwitch(L, d.href)}</div>`;
+  const bar = `${tabs(L, 'surveys')}<span class="crumb"><span class="crumb-num">${d.num}</span>${esc(v.short)}</span><div class="bar-right"><a class="back" href="index.html"><span aria-hidden="true">←</span> ${T.allSurveys}</a>${barMenu(L, d.href)}</div>`;
   const meta = [
     chip(d.meta.status, L),
     `<span>${T.date(v.date)}</span>`,
@@ -688,7 +695,7 @@ function papersPage(L, config) {
   const F = FEED[L];
   const siteTitle = pick(config.siteTitle, L) || T.siteTitle;
   const search = `<label class="feed-search bar-search"><span class="sr-only">${F.searchPapers}</span><svg class="bs-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 15l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input type="search" id="fq" placeholder="${F.searchPapers}" autocomplete="off" spellcheck="false"><kbd aria-hidden="true">/</kbd></label>`;
-  const bar = `${tabs(L, 'papers')}${search}<div class="bar-right"><span class="bar-meta"><span id="bar-feed"></span></span>${aboutBtn(L)}${themeBtn(L)}${langSwitch(L, 'papers.html')}</div>`;
+  const bar = `${tabs(L, 'papers')}${search}<div class="bar-right"><span class="bar-meta"><span id="bar-feed"></span></span>${barMenu(L, 'papers.html')}</div>`;
   const main = `
 <main id="feed">
   <section class="wrap feed-head">
@@ -768,7 +775,7 @@ function papersPage(L, config) {
       <div class="sw-menu" id="sw-menu" data-glass="menu" hidden>
         <div class="sw-sets">
           <div class="sw-set"><span>${I18N[L].langName}</span><div class="lang sw-seg">${LANGS.map((l) => `<button type="button" data-sw-lang="${l}"${l === L ? ' class="is-current" aria-current="true"' : ''} lang="${I18N[l].htmlLang}">${l === 'en' ? 'EN' : '中文'}</button>`).join('')}</div></div>
-          <div class="sw-set"><span>${I18N[L].styleLabel}</span><div class="lang style-switch sw-seg"><button type="button" data-style-set="glass">${I18N[L].styleGlass}</button><button type="button" data-style-set="classic">${I18N[L].styleClassic}</button></div></div>
+          <div class="sw-set"><span>${I18N[L].styleLabel}</span>${styleSwitch(L).replace('class="lang style-switch"', 'class="lang style-switch sw-seg"')}</div>
         </div>
         <button type="button" data-sw-menu="refresh">${F.swNewBatch}<kbd>R</kbd></button>
         <button type="button" data-sw-menu="tr">${F.translate}<span class="sw-check" aria-hidden="true"></span></button>
