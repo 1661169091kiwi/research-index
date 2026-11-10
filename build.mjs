@@ -165,7 +165,8 @@ const FEED = {
     webOnly: 'The paper feed runs inside the Research Index desktop app. Open it there to browse, like and save papers.',
     translate: 'Translate to 中文', trNeedsKey: 'translation needs an API key (AI settings)', trAbstracting: 'Translating…',
     showOriginal: 'Show original', showTranslation: 'Show Chinese', trFailed: 'Translation failed: {message}',
-    ai: 'AI', aiTitle: 'AI summaries', aiProvider: 'Model provider',
+    ai: 'AI', aiTitle: 'AI settings', aiProvider: 'Model provider',
+    hideAsk: 'Not interested in this paper?', hideAskText: 'You will see fewer papers like it. You can undo it on the card.', cancel: 'Cancel',
     aiKeyFor: '{provider} API key', aiKeyPh: 'sk-…', aiKeySave: 'Save key', aiKeyRemove: 'Remove key',
     aiKeyHint_deepseek: 'Stored encrypted on this computer and sent only to the DeepSeek API. Create a key at platform.deepseek.com.',
     aiKeyHint_claude: 'Stored encrypted on this computer and sent only to api.anthropic.com. Create a key at console.anthropic.com.',
@@ -243,7 +244,8 @@ const FEED = {
     webOnly: '论文流需要在 Research Index 桌面应用中使用。请在应用里浏览、点赞和收藏论文。',
     translate: '中文翻译', trNeedsKey: '翻译需要在 AI 设置中添加 API 密钥', trAbstracting: '正在翻译…',
     showOriginal: '显示原文', showTranslation: '显示译文', trFailed: '翻译失败：{message}',
-    ai: 'AI', aiTitle: 'AI 解读', aiProvider: '模型服务',
+    ai: 'AI', aiTitle: 'AI 设置', aiProvider: '模型服务',
+    hideAsk: '对这篇论文不感兴趣？', hideAskText: '之后会少推荐类似的论文，可在卡片上撤销。', cancel: '取消',
     aiKeyFor: '{provider} API 密钥', aiKeyPh: 'sk-…', aiKeySave: '保存密钥', aiKeyRemove: '移除密钥',
     aiKeyHint_deepseek: '密钥加密保存在本机，只会发送给 DeepSeek API。可在 platform.deepseek.com 创建密钥。',
     aiKeyHint_claude: '密钥加密保存在本机，只会发送给 api.anthropic.com。可在 console.anthropic.com 创建密钥。',
@@ -710,6 +712,7 @@ function papersPage(L, config) {
       <button class="tool" type="button" id="refresh" title="${F.refreshTip}">${F.refresh}</button>
       <button class="tool tool-view" type="button" id="view-btn" title="${F.viewTip}"><span class="vb-icon" aria-hidden="true"></span>${F.view_swipe}</button>
       <div class="tune-pop ai-pop" id="ai-pop" data-glass="menu" hidden>
+        <button type="button" class="share-x pop-x" data-pop-close aria-label="${F.close}">×</button>
         <h3>${F.aiTitle}</h3>
         <span class="ai-label">${F.aiProvider}</span>
         <div class="seg" id="ai-provider"><button type="button" data-provider="deepseek">DeepSeek</button><button type="button" data-provider="claude">Claude</button></div>
@@ -728,6 +731,7 @@ function papersPage(L, config) {
         <div class="row"><button class="btn-primary" type="button" id="ai-save">${F.aiSave}</button></div>
       </div>
       <div class="tune-pop" id="tune-pop" data-glass="menu" hidden>
+        <button type="button" class="share-x pop-x" data-pop-close aria-label="${F.close}">×</button>
         <h3>${F.tuneTitle}</h3>
         <p>${F.tuneHint}</p>
         <textarea id="tune-text" spellcheck="false"></textarea>

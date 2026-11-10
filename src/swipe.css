@@ -107,11 +107,13 @@ body.swipe-on .scroller { visibility: hidden; }
 .sw-menu .is-on .sw-check::after { content: ""; width: 9px; height: 5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: translateY(-1px) rotate(-45deg); }
 
 /* the stage: one card per screen; a swipe always stops at the next card */
-.sw-stage { flex: 1 1 auto; min-height: 0; position: relative; }
+.sw-stage { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
 /* 1px taller than the stage, tucked under the action bar: at fractional screen scales the next card's
    first pixel row would otherwise peek out above the bar */
+/* (it also reaches 24px past the right edge, padded back: the scrollbar, which this view does not want,
+   lies outside what shows, even where the rules that hide scrollbars are ignored) */
 .sw-track {
-  position: absolute; inset: 0 0 -1px; overflow-y: auto; overflow-x: hidden;
+  position: absolute; inset: 0 -24px -1px 0; padding-right: 24px; overflow-y: auto; overflow-x: hidden;
   scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; outline: none;
 }
 .sw-track::-webkit-scrollbar { display: none; }
@@ -152,7 +154,6 @@ body.swipe-on .scroller { visibility: hidden; }
   display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
 }
 :lang(zh-CN) .sw-title { letter-spacing: -0.005em; line-height: 1.3; }
-.sw-orig { margin: 7px 0 0; font: 500 13.5px/1.38 var(--display); color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .sw-byline { margin: 10px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sw-byline b { color: var(--ink); font-weight: 600; }
 .sw-abs {
@@ -161,7 +162,7 @@ body.swipe-on .scroller { visibility: hidden; }
 }
 :lang(zh-CN) .sw-abs { line-height: 1.78; }
 .sw-abs .key { color: var(--ink); font-weight: 520; background: linear-gradient(transparent 62%, var(--blue-tint) 62%); }
-.sw-abs .katex, .sw-title .katex, .sw-orig .katex { font-size: 1.04em; }
+.sw-abs .katex, .sw-title .katex { font-size: 1.04em; }
 .sw-title .katex { font-weight: normal; }
 
 /* ---------- the action bar: stays put while the cards move ---------- */
@@ -190,6 +191,7 @@ body.swipe-on .scroller { visibility: hidden; }
 .sw-act.save.on { color: var(--blue); }
 .sw-act.hide { color: var(--muted); }
 .sw-act.hide .sw-lbl { display: none; }
+.is-mobile .sw-act.hide .sw-lbl { display: block; white-space: normal; line-height: 1.1; text-align: center; }
 .sw-act.hide.on { color: var(--ink); }
 .sw-act.hide.on .sw-lbl { display: block; }
 .sw-act.hide.on .sw-ico { display: none; }
@@ -322,7 +324,13 @@ body.swipe-on .tune-pop { position: fixed; z-index: 45; top: calc(var(--sw-top-h
 .is-mobile body.swipe-on .bar { display: none; }
 .is-mobile .sw-top-in { max-width: none; }
 .is-mobile .sw-card { width: 100%; border: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.is-mobile .sw-actions { width: 100%; border-left: 0; border-right: 0; }
+.is-mobile .sw-actions { width: 100%; border-left: 0; border-right: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+/* the figure gets the room its shape needs, no more; a card with no figure keeps a small cover */
+.is-mobile .sw-card { grid-template-rows: minmax(0, 30%) minmax(0, 1fr); }
+.is-mobile .sw-card.has-fig { grid-template-rows: minmax(0, min(42%, calc((100vw - 36px) * var(--fr, 0.62) + 64px))) minmax(0, 1fr); }
+/* the open paper scrolls without a bar at its side (pushed past the edge, as in the swipe view) */
+.is-mobile .sheet-panel { overflow: hidden; }
+.is-mobile .sheet-scroll { width: calc(100% + 24px); padding-right: 24px; }
 .is-mobile .sw-body { padding: 16px 20px 0; }
 .is-mobile .sw-media .cover .cv-word { left: 20px; right: 20px; }
 .is-mobile .sw-media .cover .cv-top { left: 20px; right: 20px; }
@@ -368,7 +376,6 @@ body.swipe-on .tune-pop { position: fixed; z-index: 45; top: calc(var(--sw-top-h
   .card-body { padding-top: 9px; }
   .card-title { font-size: 14.5px; line-height: 1.34; }
   .card-reason { font-size: 11px; }
-  .card-orig { font-size: 11.5px; }
   .card-meta { font-size: 11.5px; margin-top: 7px; }
   .feed-basis { margin-bottom: 4px; font-size: 12px; }
 

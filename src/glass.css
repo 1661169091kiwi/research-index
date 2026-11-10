@@ -464,20 +464,25 @@ html.fl.is-mobile .sw-modes-wrap { justify-self: start; }
 html.fl.is-mobile .sw-sub { padding: 8px 12px 0; justify-content: flex-start; }
 html.fl.is-mobile .sw-chips-wrap { flex: 1 1 auto; }
 html.fl.is-mobile .sw-stage { position: absolute; inset: 0; }
-html.fl.is-mobile .sw-track { inset: 0; }
-html.fl.is-mobile .sw-card { padding: 0; background: var(--card); grid-template-rows: minmax(0, 52%) minmax(0, 1fr); }
+html.fl.is-mobile .sw-track { inset: 0 -24px 0 0; }
+html.fl.is-mobile .sw-card { padding: 0; background: var(--card); grid-template-rows: minmax(0, 34%) minmax(0, 1fr); }
+/* a figure: as tall as its shape needs at the phone's width (known before it loads), at most 44% of the
+   screen, so more of the abstract shows */
+html.fl.is-mobile .sw-card.has-fig { grid-template-rows: minmax(0, min(44%, calc((100vw - 32px) * var(--fr, 0.62) + var(--sa-top) + 140px))) minmax(0, 1fr); }
+html.fl.is-mobile .sw-media .cover.fig-on .cv-top { display: none; }
 html.fl.is-mobile .sw-media { border-radius: 0; background: var(--block); }
 html.fl.is-mobile .sw-media .cover .cv-top { top: calc(var(--sa-top) + 112px); }
-html.fl.is-mobile .sw-media .cover .cv-fig { padding: calc(var(--sa-top) + 136px) 16px 36px; }
+html.fl.is-mobile .sw-media .cover .cv-fig { padding: calc(var(--sa-top) + 106px) 16px 34px; }
 html.fl.is-mobile .sw-media .cover .cv-word { bottom: 40px; }
 html.fl.is-mobile .sw-body { position: relative; z-index: 2; margin-top: -26px; border-radius: 26px 26px 0 0; padding: 22px 20px 0; }
 html.fl.is-mobile .sw-body::after { height: calc(var(--sa-bottom) + 150px); background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--card) 82%, transparent) 55%, var(--card) 92%); border-radius: 0; }
 html.fl.is-mobile .sw-actions {
   position: absolute; z-index: 8; left: 16px; right: 16px; bottom: calc(var(--sa-bottom) + 12px);
   width: auto; height: 62px; padding: 4px; margin: 0; border: 0; border-radius: 999px;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) 52px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 html.fl.is-mobile .sw-act { height: 54px; gap: 3px; font-size: 10.5px; }
+html.fl.is-mobile .sw-act.hide .sw-lbl { font-size: 10px; }
 html.fl.is-mobile .sw-ico svg { width: 25px; height: 25px; }
 html.fl.is-mobile .sw-toast { top: calc(var(--sa-top) + 104px); }
 html.fl.is-mobile .sw-hint { bottom: calc(var(--sa-bottom) + 90px); }
@@ -572,6 +577,16 @@ html.fl .venue { border-radius: 999px; padding: 3px 9px 3px 7px; }
   html.fl .venue { background: rgba(255, 190, 40, 0.16); color: #ffd36b; }
   html.fl .venue svg { color: #ffc23d; }
 }
+
+/* the Interests and AI panels' close button; the confirm sheet */
+html.fl .tune-pop > .pop-x { position: absolute; z-index: 2; top: 12px; right: 12px; }
+html.fl .cf-panel { border: 0; border-radius: var(--r-xl); padding: 22px 18px 14px; animation: flUnfold var(--sp-unfold-t) var(--sp-unfold) both; transform-origin: 50% 100%; }
+html.fl .cf-title { font-weight: 700; color: var(--on); }
+html.fl .cf-btn { border: 0; border-radius: 999px; background: var(--fill); color: var(--on); }
+html.fl .cf-btn.primary { background: var(--primary); color: #fff; }
+html.fl .cf-btn.danger { background: var(--like-c); color: #fff; }
+html.fl.is-mobile .cf-panel { border-radius: 28px; animation: flSheetUp var(--sp-sheet-t) var(--sp-sheet) both; }
+html.fl .ri-confirm > .share-backdrop { background: var(--scrim); }
 
 /* the bar's ⋯ panel and the update dialog */
 html.fl .bar-menu-btn { border-radius: 999px; color: var(--on); }

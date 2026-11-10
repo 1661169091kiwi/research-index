@@ -180,7 +180,8 @@
   position: absolute; right: 0; top: calc(100% + 10px); z-index: 30; width: min(420px, 90vw);
   background: var(--paper); border: var(--rule); padding: 18px; box-shadow: 0 18px 48px rgba(15, 15, 15, 0.16);
 }
-.tune-pop h3 { margin: 0 0 6px; font: 650 18px var(--display); letter-spacing: -0.02em; }
+.tune-pop h3 { margin: 0 0 6px; padding-right: 36px; font: 650 18px var(--display); letter-spacing: -0.02em; }
+.tune-pop > .pop-x { position: absolute; top: 10px; right: 10px; }
 .tune-pop p { margin: 0 0 12px; font-size: 13px; color: var(--muted); line-height: 1.5; }
 .tune-pop textarea, .note-box {
   width: 100%; min-height: 120px; resize: vertical;
@@ -265,7 +266,6 @@
 
 /* ---------- Chinese translation ---------- */
 .tool.is-on { background: var(--ink); color: var(--paper); }
-.card-orig { margin: 4px 0 0; font-size: 12px; line-height: 1.35; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .sheet-orig { margin: 8px 0 0; font-family: var(--display); font-size: 15px; line-height: 1.35; color: var(--muted); }
 .abs-tools { font-weight: 500; }
 .link-btn { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font: 600 12.5px var(--display); color: var(--blue); }

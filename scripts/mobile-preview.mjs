@@ -139,6 +139,25 @@ app.whenReady().then(async () => {
       await wait(700);
       const barLiked = await js(`document.querySelector('#sw-actions [data-sw="like"]').classList.contains('on')`);
       await snap(`m-swipe-liked-${lang}`);
+      // "Not interested" asks first: Cancel keeps the paper, the sheet's button hides it
+      const hideId = await js(`document.querySelector('.sw-card.is-active')?.dataset.id`);
+      await js(`document.querySelector('#sw-actions [data-sw="hide"]').click()`);
+      await wait(600);
+      const asked = await js(`!!document.querySelector('.ri-confirm')`);
+      await snap(`m-hide-ask-${lang}`);
+      await js(`document.querySelector('.ri-confirm [data-cf="no"].cf-btn').click()`);
+      await wait(400);
+      const keptAfterCancel = await js(`!document.querySelector('.sw-card[data-id="${hideId}"]').classList.contains('is-hidden')`);
+      await js(`document.querySelector('#sw-actions [data-sw="hide"]').click()`);
+      await wait(500);
+      await js(`document.querySelector('.ri-confirm [data-cf="yes"]').click()`);
+      await wait(900);
+      const hiddenAfterYes = await js(`document.querySelector('.sw-card[data-id="${hideId}"]').classList.contains('is-hidden')`);
+      await js(`document.querySelector('.sw-card[data-id="${hideId}"] [data-sw="unhide"]')?.click()`);
+      await wait(400);
+      await js(`document.getElementById('sw-track').scrollTo({ top: [...document.querySelectorAll('#sw-track .sw-card')].findIndex((e) => e.dataset.id === '${hideId}') * document.getElementById('sw-track').clientHeight })`);
+      await wait(900);
+      const hideFlow = { asked, keptAfterCancel, hiddenAfterYes };
       // tap the abstract → the paper opens full screen; Android's back closes it
       await js(`document.querySelector('.sw-card.is-active .sw-abs').click()`);
       const sheetMs = await until(`!document.getElementById('sheet').hidden && !!document.querySelector('#sheet .sheet-body')`);
@@ -171,7 +190,7 @@ app.whenReady().then(async () => {
       const navUp = await navState();
       await snap(`m-grid-scrolled-up-${lang}`);
       const backToSwipe = await js(`window.__riBack()`) && await js(`!document.getElementById('swipe').hidden`);
-      report.push({ lang, url, boot, native, look, first: s0, after: { idx: s1?.idx, n: s1?.n, reasons: s1?.reasons, bar: s1?.bar }, midSwipeBar: mid?.bar, viewsStored: views, barLiked, sheetMs, sheetScroll, backClosed, barAfterSheet: barAfterSheet?.bar, grid, navDown, navUp, backToSwipe });
+      report.push({ lang, url, boot, native, look, hideFlow, sheetOrder: await js(`(() => { const a = document.getElementById('abstract'), k = document.getElementById('take'); return a && k ? (a.compareDocumentPosition(k) & 4 ? 'abstract-first' : 'take-first') : 'closed'; })()`), first: s0, after: { idx: s1?.idx, n: s1?.n, reasons: s1?.reasons, bar: s1?.bar }, midSwipeBar: mid?.bar, viewsStored: views, barLiked, sheetMs, sheetScroll, backClosed, barAfterSheet: barAfterSheet?.bar, grid, navDown, navUp, backToSwipe });
     }
     // a direction filters the cards; the language switch keeps the paper on screen
     await js(`document.querySelectorAll('#sw-chips button')[1].click()`);

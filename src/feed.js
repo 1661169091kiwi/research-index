@@ -165,7 +165,7 @@
       <div class="cv-shape ${shape}"></div>
       <div class="cv-word" style="font-size:${wordSize(word, big)}px">${esc(word)}</div>
       ${c.survey ? `<span class="cv-badge">${esc(t('survey'))}</span>` : ''}
-      ${fig ? `<img class="cv-fig${ready ? ' is-loaded' : ''}" alt="" ${ready || big ? 'decoding="sync"' : 'loading="lazy"'} src="${esc(c.cover.url)}">` : ''}
+      ${fig ? `<img class="cv-fig${ready ? ' is-loaded' : ''}" alt="" ${ready ? 'decoding="sync"' : 'loading="lazy"'} src="${esc(c.cover.url)}">` : ''}
     </div>`;
   }
   // On cards, the cover takes the figure's own shape (clamped), so wide diagrams are not lost in white space.
@@ -708,6 +708,8 @@
             <button type="button" class="act share" data-sheet="share"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 13v5.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${esc(t('share'))}</span></button>
             <button type="button" class="act ghost" data-sheet="hide">${esc(t('hide'))}</button>
           </div>
+          <h4>${esc(t('abstract'))}<span class="abs-tools" id="abs-tools"></span></h4>
+          <p class="abstract" id="abstract"></p>
           <div class="take" id="take"></div>
           <section class="ask" id="ask" hidden aria-label="${esc(t('askTitle'))}">
             <div class="ask-thread" id="ask-thread"></div>
@@ -718,8 +720,6 @@
             </form>
             <div class="ask-foot"><span>${esc(t('askNote'))}</span><button type="button" class="tool" id="ask-clear" hidden>${esc(t('askClear'))}</button></div>
           </section>
-          <h4>${esc(t('abstract'))}<span class="abs-tools" id="abs-tools"></span></h4>
-          <p class="abstract" id="abstract"></p>
           <h4>${esc(t('notes'))}<span class="saved-note" id="note-state"></span></h4>
           <textarea class="note-box" id="note" placeholder="${esc(t('notesPh'))}">${esc(data.note)}</textarea>
           ${data.similar.length ? `<h4>${esc(t('similar'))}</h4><div>${data.similar.map((s) => `
@@ -786,6 +786,29 @@
     unzoom: 'linear(0, 0.0031 1.3%, 0.0118 2.5%, 0.0254 3.8%, 0.0429 5%, 0.0876 7.5%, 0.1706 11.3%, 0.3874 20%, 0.4759 23.8%, 0.5573 27.5%, 0.6304 31.3%, 0.6945 35%, 0.7501 38.8%, 0.7974 42.5%, 0.8372 46.3%, 0.8802 51.2%, 0.9132 56.3%, 0.9382 61.3%, 0.9606 67.5%, 0.9758 73.8%, 0.9873 81.3%, 1)',
   };
   const glassOn = () => document.documentElement.classList.contains('fl');
+  // A question before something that is easy to tap by accident: a sheet at the foot of a phone, a small
+  // dialog elsewhere. Resolves true for yes.
+  function confirmAsk({ title, text = '', ok, danger = false }) {
+    return new Promise((done) => {
+      const box = document.createElement('div');
+      box.className = 'ri-confirm';
+      box.setAttribute('role', 'alertdialog');
+      box.setAttribute('aria-modal', 'true');
+      box.innerHTML = `<div class="share-backdrop" data-cf="no"></div>
+        <div class="cf-panel" data-glass="menu">
+          <p class="cf-title">${esc(title)}</p>${text ? `<p class="cf-text">${esc(text)}</p>` : ''}
+          <div class="cf-actions"><button type="button" class="cf-btn${danger ? ' danger' : ' primary'}" data-cf="yes">${esc(ok)}</button>
+          <button type="button" class="cf-btn" data-cf="no" data-back-close>${esc(t('cancel'))}</button></div>
+        </div>`;
+      const finish = (yes) => { document.removeEventListener('keydown', key, true); box.classList.add('is-leaving'); setTimeout(() => box.remove(), 200); done(yes); };
+      const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); finish(false); } if (e.key === 'Enter') { e.stopPropagation(); e.preventDefault(); finish(true); } };
+      box.addEventListener('click', (e) => { const v = e.target.closest('[data-cf]')?.dataset.cf; if (v) finish(v === 'yes'); });
+      document.addEventListener('keydown', key, true);
+      document.body.appendChild(box);
+      box.querySelector('[data-cf="yes"]').focus({ preventScroll: true });
+    });
+  }
+  const confirmHide = () => confirmAsk({ title: t('hideAsk'), text: t('hideAskText'), ok: t('hide'), danger: true });
   const SHADOW_ROOM = 140; // how far the panel's shadow reaches past it
   const isPhone = () => document.documentElement.classList.contains('is-mobile') || innerWidth <= 640;
   function zoomSource(id) {
@@ -877,6 +900,7 @@
       markSaveButton(p);
     }
     if (kind === 'hide') {
+      if (isPhone() && !(await confirmHide())) return;
       if (swipeOn()) { closeSheet(); return hooks.hide?.(p.id); }
       await api.act(p.id, 'hide');
       document.querySelectorAll(`.card[data-id="${CSS.escape(p.id)}"]`).forEach((el) => el.remove());
@@ -1130,6 +1154,7 @@
     const list = (follow && sheetState.hasTake ? S.askSuggestFollow : S.askSuggest) || [];
     $('#ask-sugg', box).innerHTML = empty ? list.map((s) => `<button type="button" data-ask-suggest>${esc(s)}</button>`).join('') : '';
     $('#ask-input', box).placeholder = follow ? t('askPhFollow') : t('askPh');
+    requestAnimationFrame(() => { const el = $('#ask-input', box); if (el) autosize(el); });
     const send = $('#ask-send', box);
     send.textContent = busy ? t('askStop') : t('askSend');
     send.classList.toggle('is-stop', busy);
@@ -1153,7 +1178,13 @@
     chatHist.set(id, msgs);
     paintThread(id);
   }
-  const autosize = (el) => { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight + 2, 180)}px`; };
+  const autosize = (el) => {
+    if (!el.offsetParent) return; // hidden (no API key yet): nothing to measure
+    el.style.height = 'auto';
+    let h = el.scrollHeight;
+    if (!el.value && el.placeholder) { el.value = el.placeholder; h = el.scrollHeight; el.value = ''; }
+    el.style.height = `${Math.min(h + 2, 180)}px`;
+  };
   async function ask(text) {
     engaged();
     const id = sheetState.id;
@@ -1316,10 +1347,9 @@
   let absShowOriginal = false;
   const trBtn = $('#tr-btn');
   const showZh = (c) => trOn && !!c.title_zh;
+  // On a card the Chinese title stands alone (the original takes room); the open paper shows both.
   function titleBlock(c) {
-    return showZh(c)
-      ? `<h3 class="card-title">${titleMath(c.title_zh)}</h3><p class="card-orig">${titleMath(c.title)}</p>`
-      : `<h3 class="card-title">${titleMath(c.title)}</h3>`;
+    return `<h3 class="card-title"${showZh(c) ? ` title="${esc(tex(c.title))}"` : ''}>${titleMath(showZh(c) ? c.title_zh : c.title)}</h3>`;
   }
   function sheetTitleHtml(p) {
     return showZh(p)
@@ -1328,7 +1358,6 @@
   }
   function applyTitle(c) {
     document.querySelectorAll(`.card[data-id="${CSS.escape(c.id)}"] .card-body`).forEach((body) => {
-      body.querySelector('.card-orig')?.remove();
       body.querySelector('.card-title').outerHTML = titleBlock(c);
     });
   }
@@ -1489,7 +1518,7 @@
   let readyResolve;
   window.RIFeed = {
     api, t, S, lang, esc, tex, titleMath, mathHtml, abstractHtml, abstractZhHtml, coverHtml, wireFigure, reasonText, whoText,
-    topicLabel, shortDate, ICON, hooks, store, inkTo, pop, venueHtml,
+    topicLabel, shortDate, ICON, hooks, store, inkTo, pop, venueHtml, confirmHide,
     openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView,
     act: async (c, kind) => (kind === 'like' ? toggleLike(c) : toggleSave(c)),
     get META() { return META; }, get AI() { return AI; }, get trOn() { return trOn; }, get sheetId() { return sheetState.id; }, get sheetPaper() { return sheetState.data?.paper || null; },
@@ -1497,6 +1526,7 @@
     ready: new Promise((r) => { readyResolve = r; }),
   };
   $('#view-btn')?.addEventListener('click', () => hooks.enter?.());
+  document.addEventListener('click', (e) => { const x = e.target.closest('[data-pop-close]'); if (x) { e.stopPropagation(); x.closest('.tune-pop').hidden = true; } });
 
   // ---------- start ----------
   // this script runs before the page's later scripts (all deferred); they have all run by DOMContentLoaded

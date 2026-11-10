@@ -7,7 +7,7 @@
   'use strict';
   const F = window.RIFeed;
   if (!F) return;
-  const { api, t, lang, esc, tex, titleMath, abstractHtml, abstractZhHtml, coverHtml, wireFigure, reasonText, topicLabel, shortDate, ICON, hooks, store, inkTo, venueHtml } = F;
+  const { api, t, lang, esc, tex, titleMath, abstractHtml, abstractZhHtml, coverHtml, wireFigure, reasonText, topicLabel, shortDate, ICON, hooks, store, inkTo, venueHtml, confirmHide } = F;
   const $ = (s, r = document) => r.querySelector(s);
   const root = $('#swipe'), track = $('#sw-track'), hint = $('#sw-hint'), toast = $('#sw-toast'), menu = $('#sw-menu');
   const bar = $('#sw-actions'), nav = $('#sw-nav');
@@ -70,7 +70,6 @@
         ${eyebrow(c)}
         ${c.venue ? `<p class="sw-venue">${venueHtml(c)}</p>` : ''}
         <h2 class="sw-title">${titleMath(zh ? c.title_zh : c.title)}</h2>
-        ${zh ? `<p class="sw-orig">${titleMath(c.title)}</p>` : ''}
         ${by ? `<p class="sw-byline">${by}</p>` : ''}
         <div class="sw-abs">${absZh ? abstractZhHtml(c.abstract_zh) : abstractHtml(c.abstract || '')}</div>
       </div>`;
@@ -82,6 +81,8 @@
     if (!el || !c || el.dataset.drawn === '1') return;
     el.dataset.drawn = '1';
     el.classList.toggle('is-hidden', !!c.hiddenNow);
+    el.classList.toggle('has-fig', !!c.cover?.url);
+    if (c.cover?.w && c.cover?.h) el.style.setProperty('--fr', (c.cover.h / c.cover.w).toFixed(3)); else el.style.removeProperty('--fr');
     el.innerHTML = cardInner(c) + (c.hiddenNow ? hiddenNote() : '');
     wireFigure(el);
   }
@@ -196,7 +197,7 @@
   }
   // after a mouse click the keys go back to the feed (↑ ↓, L, S…), not to the clicked button
   const refocus = (e) => { if (e.detail > 0) track.focus({ preventScroll: true }); };
-  bar.addEventListener('click', (e) => {
+  bar.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-sw]');
     const c = sw.atEnd ? null : current();
     if (!b || !c) return;
@@ -206,7 +207,12 @@
     else if (kind === 'save') save(c);
     else if (kind === 'ai') ai(c);
     else if (kind === 'open') open(c);
-    else if (kind === 'hide') (c.hiddenNow ? unhide(c.id) : hide(c.id));
+    else if (kind === 'hide') {
+      if (c.hiddenNow) return unhide(c.id);
+      // on a phone it is asked first: easy to tap by accident, and an × reads as "close this bar"
+      if (isMobile && !(await confirmHide())) return;
+      hide(c.id);
+    }
   });
   nav.addEventListener('click', (e) => {
     const b = e.target.closest('[data-sw-go]');
