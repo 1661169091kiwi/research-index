@@ -88,6 +88,8 @@ window.portal = {
   // a paper as an image: the Android share sheet, or Pictures/Research Index
   shareImage: device?.shareImage,
   saveImage: device ? (name, bytes) => device.saveImage(name, bytes).catch((e) => ({ ok: false, error: String(e?.message || e) })) : undefined,
+  shareText: device?.shareText,
+  saveText: device ? (name, text) => device.saveText(name, text).catch((e) => ({ ok: false, error: String(e?.message || e) })) : undefined,
   openUrl: device?.openUrl,
   fetchImage: device?.fetchImage,
   // updates: the latest release on GitHub (the page's version is stamped in by the build); a new APK downloads
@@ -128,6 +130,9 @@ window.portal = {
     },
   },
 };
+
+// in a desktop browser only (the developer preview, scripts/mobile-preview.mjs): replay service events to test the page
+if (!isNative) window.portal.__emit = send;
 
 // Android back button (sent by MainActivity): close what is open before leaving the page
 window.__riBack = () => {

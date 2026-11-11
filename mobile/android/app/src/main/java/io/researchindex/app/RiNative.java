@@ -305,6 +305,75 @@ public class RiNative extends Plugin {
         }
     }
 
+    // ---------- an exported list (Markdown text) to the share sheet, or into Download/Research Index ----------
+    private static String textName(String name) {
+        String n = name == null ? "" : name.replaceAll("[^A-Za-z0-9._-]+", "-");
+        if (n.isEmpty() || n.length() > 80) n = "papers";
+        return n.endsWith(".md") ? n : n + ".md";
+    }
+    private static byte[] text(PluginCall call) {
+        String s = call.getString("text");
+        return s == null || s.isEmpty() || s.length() > 10_000_000 ? null : s.getBytes(StandardCharsets.UTF_8);
+    }
+
+    @PluginMethod
+    public void shareText(PluginCall call) {
+        byte[] bytes = text(call);
+        if (bytes == null) { call.reject("no text"); return; }
+        try {
+            File dir = new File(getContext().getCacheDir(), "share");
+            if (!dir.isDirectory() && !dir.mkdirs()) throw new Exception("no cache folder");
+            File[] old = dir.listFiles();
+            if (old != null) for (File f : old) f.delete();
+            File file = new File(dir, textName(call.getString("name")));
+            try (FileOutputStream out = new FileOutputStream(file)) { out.write(bytes); }
+            Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("text/plain");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.putExtra(Intent.EXTRA_SUBJECT, file.getName());
+            send.setClipData(ClipData.newRawUri("", uri));
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent chooser = Intent.createChooser(send, call.getString("title", "Share"));
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getActivity().runOnUiThread(() -> getActivity().startActivity(chooser));
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()));
+        }
+    }
+
+    @PluginMethod
+    public void saveText(PluginCall call) {
+        byte[] bytes = text(call);
+        if (bytes == null) { call.reject("no text"); return; }
+        if (Build.VERSION.SDK_INT < 29) { call.reject("old-android"); return; } // before Android 10 this needs a storage permission: share instead
+        ContentResolver resolver = getContext().getContentResolver();
+        ContentValues v = new ContentValues();
+        v.put(MediaStore.MediaColumns.DISPLAY_NAME, textName(call.getString("name")));
+        v.put(MediaStore.MediaColumns.MIME_TYPE, "text/markdown");
+        v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Research Index");
+        v.put(MediaStore.MediaColumns.IS_PENDING, 1);
+        Uri uri = null;
+        try {
+            uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+            if (uri == null) throw new Exception("no media store");
+            try (OutputStream out = resolver.openOutputStream(uri)) {
+                if (out == null) throw new Exception("cannot write");
+                out.write(bytes);
+            }
+            ContentValues done = new ContentValues();
+            done.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            resolver.update(uri, done, null, null);
+            JSObject res = new JSObject();
+            res.put("where", Environment.DIRECTORY_DOWNLOADS + "/Research Index");
+            call.resolve(res);
+        } catch (Exception e) {
+            if (uri != null) resolver.delete(uri, null, null);
+            call.reject(String.valueOf(e.getMessage()));
+        }
+    }
+
     @PluginMethod
     public void saveImage(PluginCall call) {
         byte[] bytes = png(call);

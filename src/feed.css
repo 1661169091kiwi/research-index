@@ -541,3 +541,91 @@ html.fl .inst-more { background: var(--fill); }
 
 .q-num.is-none b { color: var(--faint); }
 .q-panel.is-none .q-none { margin: 2px 0 0; }
+
+/* the AI judge at work: the bars rise and fall in turn, the word glints */
+.q-wave i { background: var(--blue); transform-origin: 50% 100%; animation: qWave 1.05s ease-in-out infinite; }
+.q-wave i:nth-child(2) { animation-delay: 0.09s; } .q-wave i:nth-child(3) { animation-delay: 0.18s; }
+.q-wave i:nth-child(4) { animation-delay: 0.27s; } .q-wave i:nth-child(5) { animation-delay: 0.36s; }
+@keyframes qWave { 0%, 100% { transform: scaleY(0.4); opacity: 0.35; } 45% { transform: scaleY(1); opacity: 1; } }
+.q-badge.is-pending b, .q-sheen {
+  font-weight: 650; color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(100deg, var(--muted) 0 38%, var(--ink) 50%, var(--muted) 62% 100%);
+  background-size: 260% 100%; animation: qSheen 1.8s linear infinite;
+}
+@keyframes qSheen { from { background-position: 100% 0; } to { background-position: -60% 0; } }
+.q-num.is-pending { display: grid; place-items: center; width: 62px; height: 36px; }
+/* a score that has just arrived: the badge pops in, the bars fill one after another */
+.q-arrive { animation: qArrive 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+@keyframes qArrive { from { opacity: 0; transform: scale(0.72); } }
+.q-panel.q-arrive { animation: qPanelIn 0.4s var(--ease) both; }
+@keyframes qPanelIn { from { opacity: 0.4; transform: translateY(6px); } }
+.q-arrive .q-meter i.on { transform-origin: 50% 100%; animation: qFill 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.q-arrive .q-meter i:nth-child(2) { animation-delay: 0.06s; } .q-arrive .q-meter i:nth-child(3) { animation-delay: 0.12s; }
+.q-arrive .q-meter i:nth-child(4) { animation-delay: 0.18s; } .q-arrive .q-meter i:nth-child(5) { animation-delay: 0.24s; }
+@keyframes qFill { from { transform: scaleY(0); } }
+
+/* translation streaming in: the Chinese so far, a few flickering bytes, the English still to go (faded) */
+.tr-edge {
+  display: inline-block; margin: 0 0.2em; padding: 0 0.25em; border-radius: 4px;
+  font: 600 0.74em/1.35 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.06em; vertical-align: 0.08em;
+  color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); white-space: nowrap;
+}
+.tr-en { color: var(--muted); opacity: 0.5; transition: opacity 0.2s; }
+.is-streaming .key { all: unset; }
+
+@media (prefers-reduced-motion: reduce) {
+  .q-wave i, .q-badge.is-pending b, .q-sheen, .q-arrive, .q-arrive .q-meter i.on { animation: none; }
+  .q-badge.is-pending b, .q-sheen { color: var(--muted); background: none; }
+}
+
+/* a menu or panel folding away (app.js plays this before hiding it) */
+[data-pop].is-closing { animation: popOut 0.16s ease both !important; pointer-events: none; }
+@keyframes popOut { to { opacity: 0; transform: translateY(-5px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) { [data-pop].is-closing { animation: none !important; } }
+
+/* ---------- export: a small panel, then the result (in the share view) ---------- */
+.ex-modal { position: fixed; inset: 0; z-index: 74; display: grid; place-items: center; -webkit-app-region: no-drag; }
+.ex-scrim { position: absolute; inset: 0; background: rgba(15, 15, 15, 0.3); animation: fade 0.2s ease both; }
+.ex-panel {
+  position: relative; width: min(420px, calc(100vw - 32px)); display: grid; gap: 14px; padding: 18px 18px 18px;
+  background: var(--paper-2); border: var(--rule); box-shadow: 0 30px 80px rgba(15, 15, 15, 0.26);
+  transform-origin: 50% 60%; animation: exIn 0.32s cubic-bezier(0.2, 1.1, 0.3, 1) both;
+}
+@keyframes exIn { from { opacity: 0; transform: translateY(12px) scale(0.94); } }
+.ex-modal.is-leaving { pointer-events: none; }
+.ex-modal.is-leaving .ex-panel { animation: exOut 0.2s cubic-bezier(0.4, 0, 0.8, 0.2) both; }
+.ex-modal.is-leaving .ex-scrim { animation: fadeAway 0.22s ease both; }
+@keyframes exOut { to { opacity: 0; transform: translateY(8px) scale(0.96); } }
+.ex-head { display: flex; align-items: center; justify-content: space-between; }
+.ex-head h2 { margin: 0; font: 700 20px/1.2 var(--display); letter-spacing: -0.015em; }
+.ex-x { appearance: none; width: 32px; height: 32px; display: grid; place-items: center; border: var(--line); background: var(--paper); color: var(--ink); font-size: 19px; line-height: 1; cursor: pointer; border-radius: 999px; }
+.ex-seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 12px; background: var(--paper); border: var(--line); }
+.ex-seg button { position: relative; z-index: 1; appearance: none; border: 0; background: none; padding: 9px 8px; font: 600 14px var(--display); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: color 0.2s; }
+.ex-seg button.is-on { color: var(--ink); }
+.ex-n { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ex-seg-thumb { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 9px; background: var(--paper-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); transition: transform 0.36s cubic-bezier(0.2, 1.25, 0.35, 1); }
+.ex-seg.is-second .ex-seg-thumb { transform: translateX(100%); }
+.ex-fmts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ex-fmt { appearance: none; display: grid; justify-items: start; gap: 3px; padding: 14px 14px 13px; text-align: left; border: 1.5px solid var(--hair); border-radius: 14px; background: var(--paper); color: var(--ink); cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.15s; }
+.ex-fmt:active { transform: scale(0.97); }
+.ex-fmt svg { width: 26px; height: 26px; margin-bottom: 6px; color: var(--muted); transition: color 0.2s, transform 0.3s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.ex-fmt b { font: 650 15px var(--display); }
+.ex-fmt span { font: 500 12px/1.35 var(--display); color: var(--muted); }
+.ex-fmt.is-on { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 6%, var(--paper)); }
+.ex-fmt.is-on svg { color: var(--blue); transform: scale(1.08); }
+.ex-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 2px; font: 600 14px var(--display); cursor: pointer; }
+.ex-go { appearance: none; height: 46px; border: 0; border-radius: 14px; background: var(--blue); color: #fff; font: 650 15.5px var(--display); cursor: pointer; transition: opacity 0.2s, transform 0.15s; position: relative; overflow: hidden; }
+.ex-go:active:not(:disabled) { transform: scale(0.98); }
+.ex-go:disabled { opacity: 0.45; cursor: default; }
+.ex-go.is-busy { opacity: 0.9; }
+.ex-go.is-busy::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%) 0 0 / 250% 100%; animation: qSheen 1.2s linear infinite; }
+.ex-md-wrap { background: var(--paper); }
+.ex-md { margin: 0; padding: 22px 22px 120px; white-space: pre-wrap; word-break: break-word; font: 500 13px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--ink); text-align: left; }
+@media (max-width: 640px) {
+  .ex-modal { place-items: end center; }
+  .ex-panel { width: 100%; padding: 18px 16px calc(18px + var(--sa-bottom, 0px)); border-radius: 22px 22px 0 0; animation: exUp 0.38s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+  @keyframes exUp { from { transform: translateY(100%); } }
+  .ex-modal.is-leaving .ex-panel { animation: exDown 0.24s cubic-bezier(0.3, 0, 0.8, 0.15) both; }
+  @keyframes exDown { to { transform: translateY(100%); } }
+}
+@media (prefers-reduced-motion: reduce) { .ex-panel, .ex-modal.is-leaving .ex-panel { animation: none; } }

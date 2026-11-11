@@ -75,7 +75,7 @@
     return `<div class="sw-media" data-open>${coverHtml(c, { big: true, ratio: false })}</div>
       <div class="sw-body" data-open>
         ${eyebrow(c)}
-        ${c.venue || c.q != null ? `<p class="sw-venue">${F.qualityBadge(c)}${venueHtml(c)}</p>` : ''}
+        ${c.venue || c.q != null || c.qp ? `<p class="sw-venue">${F.qualityBadge(c)}${venueHtml(c)}</p>` : ''}
         <h2 class="sw-title">${titleMath(zh ? c.title_zh : c.title)}</h2>
         ${by ? `<p class="sw-byline">${by}</p>` : ''}
         ${F.instHtml(c, 2, 'sw-inst')}
@@ -377,6 +377,17 @@
   api.on('feed:tr', (ev) => {
     const c = ev.id && sw.cards.get(ev.id);
     if (!c) return;
+    // part way: the translation writes itself over the English on the card (only drawn cards; the rest get the whole of it)
+    if (ev.titlePart || ev.abstractPart) {
+      if (!F.trOn) return;
+      const sel = `.sw-card[data-id="${CSS.escape(ev.id)}"]`;
+      if (ev.titlePart && !c.title_zh) {
+        track.querySelectorAll(`${sel} .sw-title`).forEach((el) => F.trStream(el, c.title, ev.titlePart, 0.5));
+        shelfGrid.querySelectorAll(`[data-id="${CSS.escape(ev.id)}"] .sw-tile-title`).forEach((el) => F.trStream(el, c.title, ev.titlePart, 0.5));
+      }
+      if (ev.abstractPart && !c.abstract_zh) track.querySelectorAll(`${sel} .sw-abs`).forEach((el) => F.trStream(el, c.abstract || '', ev.abstractPart));
+      return;
+    }
     if (ev.title) c.title_zh = ev.title;
     if (ev.abstract) { c.abstract_zh = ev.abstract; c.trPending = false; }
     if (ev.abstractError) c.trPending = false;
@@ -389,8 +400,15 @@
     if (b?.added > 0 && sw.done && !live() && !sw.loading) { sw.done = false; more(); }
   });
   // the AI judge has rated papers: their badges show the new score
-  api.on('feed:quality', ({ scores } = {}) => {
-    for (const [id, q] of Object.entries(scores || {})) { const c = sw.cards.get(id); if (c && c.q !== q) { c.q = q; redraw(id); } }
+  api.on('feed:quality', ({ scores, unrated } = {}) => {
+    for (const [id, q] of Object.entries(scores || {})) {
+      const c = sw.cards.get(id);
+      if (!c || (c.q === q && !c.qp)) continue;
+      c.q = q; c.qp = false;
+      redraw(id);
+      if (q != null) track.querySelector(`.sw-card[data-id="${CSS.escape(id)}"] .q-badge`)?.classList.add('q-arrive');
+    }
+    for (const id of unrated || []) { const c = sw.cards.get(id); if (c?.qp) { c.qp = false; redraw(id); } }
   });
   // an AI take written in the open paper lights up the AI button
   api.on('feed:take', (ev) => {
@@ -580,6 +598,7 @@
     root.classList.toggle('is-player', sw.player);
     root.classList.toggle('is-search', searchOpen);
     shelfEl.hidden = !shelfShown;
+    $('#sw-shelf-head').hidden = !shelfShown || !!sw.query;
     searchForm.hidden = !searchOpen;
     const back = $('#sw-back');
     back.hidden = !sw.player;
@@ -590,6 +609,7 @@
 
   // ---------- Saved / Liked: a grid of your papers; tap one to read them one at a time from there ----------
   const shelfEl = $('#sw-shelf'), shelfGrid = $('#sw-shelf-grid'), shelfEmpty = $('#sw-shelf-empty');
+  $('#sw-export').addEventListener('click', () => window.RIExport?.open(sw.mode === 'liked' ? 'liked' : 'saved'));
   const shelf = { mode: '', items: [], off: 0, done: false, loading: false, token: 0 };
   function tileHtml(c, i) {
     const zh = F.trOn && c.title_zh;
@@ -618,6 +638,8 @@
     shelfGrid.insertAdjacentHTML('beforeend', res.items.map((c, k) => tileHtml(sw.cards.get(c.id), from + k)).join(''));
     wireFigure(shelfGrid);
     shelfEmpty.textContent = t(sw.query ? 'swNoResults' : sw.mode === 'liked' ? 'shelfEmptyLiked' : 'shelfEmptySaved');
+    $('#sw-shelf-n').textContent = res?.total ? t('shelfN', { n: res.total }) : '';
+    $('#sw-export').hidden = !res?.total;
     shelfEmpty.hidden = shelf.items.length > 0;
     const noCover = res.items.filter((c) => !c.cover).map((c) => c.id);
     if (noCover.length) api.covers(noCover);
@@ -769,6 +791,7 @@
     if (kind === 'tune') { $('#tune').click(); return; }
     if (kind === 'ai') { $('#ai-btn').click(); return; }
     if (kind === 'usage') { window.RIUsage?.open(); return; }
+    if (kind === 'export') { window.RIExport?.open(sw.mode === 'liked' ? 'liked' : 'saved'); return; }
     if (kind === 'share') { const c = sw.atEnd ? null : current(); if (c) window.RIShare?.open(c); return; }
     if (kind === 'about') { window.RIUpdate?.about(); return; }
     if (kind === 'grid') exit();

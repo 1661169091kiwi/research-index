@@ -93,6 +93,9 @@ const base64 = (bytes) => {
 export const device = isNative ? {
   shareImage: (name, bytes, title, text) => call('RiNative', 'shareImage', { name, data: base64(bytes), title, text }).then(() => ({ ok: true })),
   saveImage: (name, bytes) => call('RiNative', 'saveImage', { name, data: base64(bytes) }).then((r) => ({ ok: true, path: r?.where || '' })),
+  // an exported list (Markdown): the share sheet, or Download/Research Index (iOS: the share sheet both ways)
+  shareText: (name, text, title) => call('RiNative', 'shareText', { name, text, title }).then(() => ({ ok: true })),
+  saveText: (name, text) => call('RiNative', 'saveText', { name, text }).then((r) => ({ ok: true, path: r?.where || '', shared: !!r?.shared })),
   openUrl: (url) => call('RiNative', 'openUrl', { url }),
   fetchImage: (url) => call('RiNative', 'fetchImage', { url }).then((r) => {
     const bin = atob(r.data || '');

@@ -26,15 +26,17 @@ export function classifyDeepSeekError(err) {
 
 // One-shot completion with thinking off (used for translation, where speed matters more than depth).
 // onUsage(usage, model): the API's token counts for this call (for the usage meter)
-export async function completeDeepSeek({ apiKey, baseUrl, model, system, user, maxTokens = 4000, onUsage }) {
+// onText(delta): stream the reply, handing over each piece as it arrives (translation shows its progress)
+export async function completeDeepSeek({ apiKey, baseUrl, model, system, user, maxTokens = 4000, onUsage, onText }) {
   const res = await doFetch(`${String(baseUrl || DEEPSEEK_DEFAULTS.baseUrl).replace(/\/+$/, '')}/chat/completions`, {
     method: 'POST',
     signal: timeoutSignal(120000),
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...(onText ? { Accept: 'text/event-stream' } : {}) },
     body: JSON.stringify({
       model: model || DEEPSEEK_DEFAULTS.model,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-      stream: false,
+      stream: !!onText,
+      ...(onText ? { stream_options: { include_usage: true } } : {}),
       max_tokens: maxTokens,
       thinking: { type: 'disabled' },
     }),
@@ -43,6 +45,35 @@ export async function completeDeepSeek({ apiKey, baseUrl, model, system, user, m
     let message = '';
     try { const j = await res.json(); message = j?.error?.message || JSON.stringify(j); } catch { /* not JSON */ }
     throw Object.assign(new Error(message || `HTTP ${res.status}`), { status: res.status });
+  }
+  if (onText) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '', text = '', usage = null, finish = null, modelName = model;
+    for (;;) {
+      const { done: end, value } = await reader.read();
+      if (end) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') continue;
+        let chunk;
+        try { chunk = JSON.parse(data); } catch { continue; }
+        if (chunk.model) modelName = chunk.model;
+        if (chunk.usage) usage = chunk.usage;
+        const choice = chunk.choices?.[0];
+        const delta = choice?.delta?.content;
+        if (delta) { text += delta; try { onText(delta); } catch { /* the page's problem, not the translation's */ } }
+        if (choice?.finish_reason) finish = choice.finish_reason;
+      }
+    }
+    if (usage) onUsage?.(usage, modelName);
+    if (finish === 'content_filter' && !text) throw Object.assign(new Error('refusal'), { code: 'refusal' });
+    return text;
   }
   const j = await res.json();
   if (j.usage) onUsage?.(j.usage, j.model || model);

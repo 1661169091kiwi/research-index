@@ -252,5 +252,6 @@
       } catch (err) { note(t('shareFailed')); console.error(err); }
     });
   }
-  window.RIShare = { open, close };
+  // the drawing kit, for the exported list's long image (export.js)
+  window.RIShare = { open, close, kit: { lines, roundRect, qrDraw, font, loadImage, C, W, REPO, APP_URL } };
 })();

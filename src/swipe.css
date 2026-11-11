@@ -480,3 +480,13 @@ body.swipe-on .scroller > main { animation: none; }
 /* reading a search result from the results grid: the back arrow beside the search field */
 .swipe.is-search.is-player .sw-top-in > #sw-back { display: grid !important; }
 .swipe.is-search.is-player .sw-search { grid-column: 2 / -1; }
+
+/* Saved / Liked grid: how many, and export */
+.sw-shelf-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; max-width: calc(var(--sw-card-w) + 2 * var(--sw-rail)); margin: 0 auto 10px; padding: 0 4px; }
+.sw-shelf-head[hidden] { display: none; }
+.sw-shelf-n { font: 600 13px var(--display); color: var(--muted); }
+.sw-shelf-export { appearance: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px 0 11px; border: var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font: 600 13.5px var(--display); cursor: pointer; }
+.sw-shelf-export svg { width: 16px; height: 16px; }
+.sw-shelf-export:active { transform: scale(0.96); }
+.sw-shelf-export[hidden] { display: none; }
+.is-mobile .sw-shelf-head { padding: 0 12px; margin-bottom: 8px; }

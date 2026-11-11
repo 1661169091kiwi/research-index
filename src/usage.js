@@ -52,6 +52,7 @@
     document.addEventListener('keydown', onKey, true);
     modal.addEventListener('click', onClick);
     modal.querySelector('.usage-body').addEventListener('scroll', () => modal?.querySelector('#u-chart')?._hideTip?.(), { passive: true });
+    swipeAway(modal);
     renderBalance();
     load().then(() => refreshBalance());
   }
@@ -60,8 +61,63 @@
     const m = modal;
     modal = null;
     m.classList.add('is-leaving');
-    setTimeout(() => m.remove(), 240);
+    setTimeout(() => m.remove(), 280);
     document.removeEventListener('keydown', onKey, true);
+  }
+  // On the phone the panel follows a finger dragged to the right and goes if let go far or fast enough
+  // (else it springs back). Vertical drags stay the page's own scrolling.
+  function swipeAway(m) {
+    const panel = m.querySelector('.usage-panel'), scrim = m.querySelector('.usage-scrim');
+    let x0 = 0, y0 = 0, t0 = 0, dx = 0, state = '', id = -1, lastX = 0, lastT = 0, vx = 0;
+    const narrow = () => matchMedia('(max-width: 640px)').matches;
+    panel.addEventListener('pointerdown', (e) => {
+      if (!narrow() || e.pointerType === 'mouse' || modal !== m) return;
+      x0 = lastX = e.clientX; y0 = e.clientY; t0 = lastT = e.timeStamp; dx = 0; vx = 0; state = 'maybe'; id = e.pointerId;
+    });
+    panel.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== id || !state) return;
+      const ddx = e.clientX - x0, ddy = e.clientY - y0;
+      if (state === 'maybe') {
+        if (Math.abs(ddx) < 10 && Math.abs(ddy) < 10) return;
+        // a mostly sideways drag to the right takes the panel; anything else is left alone
+        if (ddx > 0 && ddx > Math.abs(ddy) * 1.3) {
+          state = 'drag'; m.classList.add('is-dragging'); try { panel.setPointerCapture(id); } catch { /* gone */ } m.querySelector('#u-chart')?._hideTip?.();
+          lastX = e.clientX; lastT = e.timeStamp; vx = 0; // the speed counts from here, not across the slop
+        } else { state = ''; return; }
+      }
+      dx = Math.max(0, ddx);
+      const dt = e.timeStamp - lastT;
+      if (dt >= 8) { vx = 0.6 * vx + 0.4 * ((e.clientX - lastX) / dt); lastX = e.clientX; lastT = e.timeStamp; }
+      panel.style.transform = `translateX(${dx}px)`;
+      scrim.style.opacity = String(1 - Math.min(1, dx / panel.clientWidth));
+    });
+    const end = (e) => {
+      if (e.pointerId !== id) return;
+      const was = state;
+      state = ''; id = -1;
+      if (was !== 'drag') return;
+      m.classList.remove('is-dragging');
+      m.classList.add('is-flung');
+      if (e.timeStamp - lastT > 90) vx = 0; // held still before letting go: no throw
+      const w = panel.clientWidth, go = e.type !== 'pointercancel' && (dx > w * 0.32 || vx > 0.45);
+      // the rest of the way at about the speed it was thrown, or back with a little spring
+      const ms = go ? Math.max(140, Math.min(300, (w - dx) / Math.max(vx, 1.2))) : 340;
+      panel.style.transition = `transform ${ms}ms ${go ? 'cubic-bezier(0.25, 0.6, 0.4, 1)' : 'cubic-bezier(0.2, 1.3, 0.4, 1)'}`;
+      scrim.style.transition = `opacity ${ms}ms ease`;
+      requestAnimationFrame(() => {
+        panel.style.transform = go ? 'translateX(100%)' : '';
+        scrim.style.opacity = go ? '0' : '';
+      });
+      if (go) {
+        if (modal === m) { modal = null; document.removeEventListener('keydown', onKey, true); }
+        m.style.pointerEvents = 'none';
+        setTimeout(() => m.remove(), ms + 40);
+      } else setTimeout(() => { m.classList.remove('is-flung'); panel.style.transition = scrim.style.transition = ''; }, ms + 20);
+    };
+    panel.addEventListener('pointerup', end);
+    panel.addEventListener('pointercancel', end);
+    // a drag that became a swipe must not also count as a tap on what it started on
+    panel.addEventListener('click', (e) => { if (dx > 8) { e.stopPropagation(); e.preventDefault(); dx = 0; } }, true);
   }
   function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }
   function onClick(e) {

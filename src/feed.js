@@ -224,7 +224,7 @@
   // The quality score as a small badge: five bars (one hue, filled by the score) and the number
   const qTier = (s) => (s >= 85 ? 3 : s >= 70 ? 2 : s >= 50 ? 1 : 0);
   function qualityBadge(c, cls = 'q-badge') {
-    if (c?.q == null) return '';
+    if (c?.q == null) return c?.qp ? `<span class="${cls} is-pending" title="${esc(t('qScoringHint'))}"><span class="q-meter q-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><b>${esc(t('qScoring'))}</b></span>` : '';
     const s = c.q, on = Math.max(1, Math.round(s / 20));
     const tier = t(`qTier${qTier(s)}`);
     return `<span class="${cls} q-t${qTier(s)}" title="${esc(t('qTip', { s, tier }))}"><span class="q-meter" aria-hidden="true">${[1, 2, 3, 4, 5].map((k) => `<i${k <= on ? ' class="on"' : ''}></i>`).join('')}</span><b>${s}</b><span class="sr-only">${esc(t('q'))} ${s}</span></span>`;
@@ -247,10 +247,12 @@
     if (q.stars) ok(ref, t('qStars', { n: q.stars }));
     const ai = q.ai ? `<div class="q-ai"><p class="q-sub">${esc(t('qAi'))}</p><div class="q-ai-grid">${['qN', 'qR', 'qS', 'qC'].map((k, i) => `<div class="q-ai-row"><span>${esc(t(k))}</span><i><b style="width:${q.ai[i] * 10}%"></b></i><em>${q.ai[i]}</em></div>`).join('')}</div></div>` : '';
     const on = noScore ? 0 : Math.max(1, Math.round(q.score / 20));
-    const head = noScore
+    const head = noScore && q.pending
+      ? `<div class="q-head is-pending"><p class="q-num is-pending"><span class="q-meter q-meter-lg q-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></p><div class="q-what"><p class="q-label">${esc(t('qTitle'))} · <strong class="q-sheen">${esc(t('qScoring'))}</strong></p><p class="q-none">${esc(t('qScoringHint'))}</p></div></div>`
+      : noScore
       ? `<div class="q-head"><p class="q-num is-none"><b>—</b></p><div class="q-what"><p class="q-label">${esc(t('qTitle'))} · <strong>${esc(t('qNoScore'))}</strong></p><p class="q-none">${esc(t('qNone'))}</p></div></div>`
       : `<div class="q-head"><p class="q-num"><b>${q.score}</b><span>/100</span></p><div class="q-what"><p class="q-label">${esc(t('qTitle'))} · <strong>${esc(tier)}</strong></p><span class="q-meter q-meter-lg" aria-hidden="true">${[1, 2, 3, 4, 5].map((k) => `<i${k <= on ? ' class="on"' : ''}></i>`).join('')}</span></div></div>`;
-    return `<section class="q-panel${noScore ? ' is-none' : ` q-t${qTier(q.score)}`}" aria-label="${esc(t('qTitle'))}">
+    return `<section class="q-panel${noScore ? ` is-none${q.pending ? ' is-pending' : ''}` : ` q-t${qTier(q.score)}`}" aria-label="${esc(t('qTitle'))}" aria-live="polite">
       ${head}
       ${items.length ? `<p class="q-sub q-sub-first">${esc(t('qCounted'))}</p><ul class="q-list">${items.join('')}</ul>` : ''}
       ${ai}
@@ -264,7 +266,7 @@
       <button class="cv-save${c.saved ? ' on' : ''}" type="button" data-act="save" aria-label="${esc(t('save'))}" title="${esc(t('save'))}">${ICON.mark}</button>
       <div class="card-body">
         ${(view.mode === 'foryou' || view.mode === 'recommended') && c.reason ? `<p class="card-reason">${esc(reasonText(c.reason))}</p>` : ''}
-        ${c.venue || c.q != null ? `<p class="card-venue">${qualityBadge(c)}${venueHtml(c)}</p>` : ''}
+        ${c.venue || c.q != null || c.qp ? `<p class="card-venue">${qualityBadge(c)}${venueHtml(c)}</p>` : ''}
         ${titleBlock(c)}
         <div class="card-meta">
           <span class="card-who">${c.hasTake ? `<span class="card-take" title="${esc(t('takeTitle'))}">✦</span>` : ''}${esc(whoText(c))}</span>
@@ -519,18 +521,51 @@
   });
   setInterval(() => { if (META) renderStatus(); }, 60000);
   // the AI judge has rated papers: their badges show the new score
-  api.on('feed:quality', ({ scores } = {}) => {
+  api.on('feed:quality', ({ scores, unrated } = {}) => {
+    const paint = (c, arrived) => document.querySelectorAll(`.card[data-id="${CSS.escape(c.id)}"]`).forEach((card) => {
+      let line = card.querySelector('.card-venue');
+      const html = qualityBadge(c) + venueHtml(c);
+      if (!html) return line?.remove();
+      if (!line) { line = document.createElement('p'); line.className = 'card-venue'; card.querySelector('.card-title')?.before(line); }
+      line.innerHTML = html;
+      if (arrived) line.querySelector('.q-badge')?.classList.add('q-arrive');
+    });
     for (const [id, q] of Object.entries(scores || {})) {
       const c = feed.cards.get(id);
-      if (!c || c.q === q) continue;
-      c.q = q;
-      document.querySelectorAll(`.card[data-id="${CSS.escape(id)}"]`).forEach((card) => {
-        let line = card.querySelector('.card-venue');
-        if (!line) { line = document.createElement('p'); line.className = 'card-venue'; card.querySelector('.card-title')?.before(line); }
-        line.innerHTML = qualityBadge(c) + venueHtml(c);
-      });
+      if (!c || (c.q === q && !c.qp)) continue;
+      c.q = q; c.qp = false;
+      paint(c, q != null);
     }
+    for (const id of unrated || []) { const c = feed.cards.get(id); if (c?.qp) { c.qp = false; paint(c, false); } }
+    // the open paper
+    const id = sheetState.id, d = sheetState.data;
+    if (!id || !d?.quality) return;
+    if (scores && id in scores && scores[id] != null) {
+      api.get(id).then((fresh) => {
+        if (sheetState.id !== id || !fresh?.quality) return;
+        d.quality = fresh.quality;
+        paintQuality(true);
+      });
+    } else if ((unrated || []).includes(id) && d.quality.pending) { d.quality.pending = false; paintQuality(false); }
   });
+  // the open paper's quality panel, again; a score that has just come in counts up and its bars fill
+  function paintQuality(arrived) {
+    const slot = $('.sheet-q-slot', sheet), q = sheetState.data?.quality;
+    if (!slot || !q) return;
+    slot.innerHTML = qualityPanel(q);
+    if (!arrived || q.score == null) return;
+    const panel = slot.firstElementChild, num = slot.querySelector('.q-num b');
+    panel?.classList.add('q-arrive');
+    if (!num || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const to = q.score, t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / 750);
+      num.textContent = Math.round(to * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    num.textContent = '0';
+    requestAnimationFrame(step);
+  }
 
   // ---------- modes, directions, boards ----------
   const MODES = ['recommended', 'latest', 'trending', 'venues', 'surveys', 'saved', 'liked'];
@@ -1069,7 +1104,7 @@
   }
   function boardMenu() {
     const old = $('.board-menu', sheet);
-    if (old) { old.remove(); return; }
+    if (old) { window.riPopRemove ? window.riPopRemove(old) : old.remove(); return; }
     const p = sheetState.data.paper;
     const cols = new Set(sheetState.data.cols);
     const menu = document.createElement('div');
@@ -1500,7 +1535,7 @@
     if (e.target.closest('[data-abs-toggle]')) { absShowOriginal = !absShowOriginal; return renderAbstract(); }
     const topic = e.target.closest('[data-topic-go]');
     if (topic) { closeSheet(); return setView({ mode: personal() ? 'recommended' : view.mode, topic: topic.dataset.topicGo }); }
-    if (!e.target.closest('.board-menu') && !e.target.closest('[data-sheet="save"]')) $('.board-menu', sheet)?.remove();
+    if (!e.target.closest('.board-menu') && !e.target.closest('[data-sheet="save"]')) { const m = $('.board-menu', sheet); if (m) (window.riPopRemove || ((x) => x.remove()))(m); }
   });
 
   // ---------- Chinese translation: visible card titles, and the opened paper's title + abstract ----------
@@ -1523,6 +1558,37 @@
       body.querySelector('.card-title').outerHTML = titleBlock(c);
     });
   }
+  // ---------- translation as it streams in: the Chinese so far writes over the English, with a few flickering
+  // bytes where it is writing. It moves exactly as fast as the API sends text (nothing is held back for the effect);
+  // the English still to go is faded, so the eye stays on what has been translated.
+  const TR_HEX = '0123456789ABCDEF';
+  const trBytes = (n) => Array.from({ length: n }, () => TR_HEX[(Math.random() * 16) | 0]).join('');
+  function trStreamHtml(en, zh, ratio = 0.42) {
+    const src = String(en || '').replace(/\s+/g, ' ').trim();
+    // how far into the English the translation has got (Chinese runs about 0.4 characters per English one)
+    let cut = Math.min(src.length, Math.round(zh.length / ratio));
+    const sp = src.indexOf(' ', cut);
+    cut = sp < 0 ? src.length : sp;
+    const rest = src.slice(cut);
+    return `<span class="tr-zh">${esc(zh)}</span><span class="tr-edge" aria-hidden="true">${trBytes(4)}</span>${rest ? `<span class="tr-en" aria-hidden="true">${esc(rest)}</span>` : ''}`;
+  }
+  let trTick = 0;
+  function trFlicker() {
+    if (trTick || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const step = () => {
+      const edges = document.querySelectorAll('.tr-edge');
+      if (!edges.length) { trTick = 0; return; }
+      edges.forEach((e) => { e.textContent = trBytes(4); });
+      trTick = setTimeout(step, 65);
+    };
+    trTick = setTimeout(step, 65);
+  }
+  function trStream(el, en, zh, ratio) {
+    if (!el || !zh) return;
+    el.innerHTML = trStreamHtml(en, zh, ratio);
+    el.classList.add('is-streaming');
+    trFlicker();
+  }
   const KEY_CUE_ZH = /我们(提出|引入|展示|发现|设计|开发|证明)|本文(提出|引入)|优于|超过|超越|显著|提升了|达到了|实现了/;
   const abstractZhHtml = (text) => text.split(/(?<=[。！？])/).map((s) => (KEY_CUE_ZH.test(s) ? `<span class="key">${mathHtml(s)}</span>` : mathHtml(s))).join('');
   function renderAbstract() {
@@ -1530,6 +1596,7 @@
     const el = $('#abstract', sheet), tools = $('#abs-tools', sheet);
     if (!p || !el) return;
     const zh = trOn && p.abstract_zh && !absShowOriginal;
+    el.classList.remove('is-streaming');
     el.innerHTML = zh ? abstractZhHtml(p.abstract_zh) : abstractHtml(p.abstract);
     if (!trOn) { tools.innerHTML = ''; return; }
     if (p.abstract_zh) tools.innerHTML = `<button type="button" class="link-btn" data-abs-toggle>${esc(absShowOriginal ? t('showTranslation') : t('showOriginal'))}</button>`;
@@ -1596,7 +1663,19 @@
   api.on('feed:tr', (ev) => {
     if (ev.error) return trProblem(ev.error);
     if (ev.title) setTitleZh(ev.id, ev.title);
+    // a title or the abstract, part way: it writes itself over the English
+    if (ev.titlePart && trOn) {
+      const c = feed.cards.get(ev.id);
+      if (c && !c.title_zh) document.querySelectorAll(`.card[data-id="${CSS.escape(ev.id)}"] .card-title`).forEach((el) => trStream(el, c.title, ev.titlePart, 0.5));
+      const p = sheetState.data?.paper;
+      if (p && p.id === ev.id && !p.title_zh) trStream($('#sheet-title-box .sheet-title', sheet), p.title, ev.titlePart, 0.5);
+    }
     if (sheetState.id !== ev.id) return;
+    if (ev.abstractPart) {
+      const p = sheetState.data.paper;
+      if (trOn && !absShowOriginal && !p.abstract_zh) trStream($('#abstract', sheet), p.abstract, ev.abstractPart);
+      return;
+    }
     if (ev.abstract) { sheetState.data.paper.abstract_zh = ev.abstract; renderAbstract(); }
     if (ev.abstractError) { sheetState.absError = ev.abstractError; renderAbstract(); }
   });
@@ -1762,12 +1841,12 @@
   let readyResolve;
   window.RIFeed = {
     api, t, S, lang, esc, tex, titleMath, mathHtml, abstractHtml, abstractZhHtml, coverHtml, wireFigure, reasonText, whoText,
-    topicLabel, shortDate, ICON, hooks, store, inkTo, pop, venueHtml, confirmHide, instHtml, instName, qualityBadge,
+    topicLabel, shortDate, ICON, hooks, store, inkTo, pop, venueHtml, confirmHide, instHtml, instName, qualityBadge, qualityPanel,
     get minQ() { return minQ; },
     openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView, openDirs, closeDirs, paintDirBtn, fitTabs,
     // the swipe view's Saved / Liked tabs open here, in the grid
     showMode(mode) { hooks.exit?.(); if (view.mode !== mode || view.query) setView({ mode, collection: '' }); else relayout(); },
-    sideSwipe,
+    sideSwipe, trStream,
     act: async (c, kind) => (kind === 'like' ? toggleLike(c) : toggleSave(c)),
     get META() { return META; }, get AI() { return AI; }, get trOn() { return trOn; }, get sheetId() { return sheetState.id; }, get sheetPaper() { return sheetState.data?.paper || null; },
     gridShown() { if (!feed.order.length && !feed.loading) load(true); else relayout(); },
@@ -1776,13 +1855,17 @@
   $('#view-btn')?.addEventListener('click', () => hooks.enter?.());
   // the settings panel (top bar): AI settings, AI usage, interests
   document.addEventListener('click', (e) => {
-    const b = e.target.closest('#about-pop [data-ab="ai"], #about-pop [data-ab="usage"], #about-pop [data-ab="tune"]');
+    const b = e.target.closest('#about-pop [data-ab="ai"], #about-pop [data-ab="usage"], #about-pop [data-ab="tune"], #about-pop [data-ab="export"]');
     if (!b) return;
     e.stopPropagation();
     $('#about-pop').hidden = true;
     document.querySelectorAll('[data-about]').forEach((x) => x.setAttribute('aria-expanded', 'false'));
     const kind = b.dataset.ab;
-    setTimeout(() => { if (kind === 'usage') window.RIUsage?.open(); else $(kind === 'ai' ? '#ai-btn' : '#tune')?.click(); }, 0);
+    setTimeout(() => {
+      if (kind === 'usage') window.RIUsage?.open();
+      else if (kind === 'export') window.RIExport?.open(view.mode === 'liked' ? 'liked' : 'saved');
+      else $(kind === 'ai' ? '#ai-btn' : '#tune')?.click();
+    }, 0);
   });
   document.addEventListener('click', (e) => { const x = e.target.closest('[data-pop-close]'); if (x) { e.stopPropagation(); x.closest('.tune-pop').hidden = true; } });
 

@@ -684,3 +684,26 @@ html.fl .q-ai-row i { background: var(--fill-2); }
 html.fl .ai-rate { border-radius: 14px; background: color-mix(in srgb, var(--on) 5%, var(--card)); }
 html.fl .dir-q { border-top-color: color-mix(in srgb, var(--on) 10%, transparent); }
 @supports (corner-shape: superellipse(1.5)) { html.fl .q-panel { corner-shape: superellipse(1.5); } }
+
+html.fl .q-wave i { background: var(--primary); }
+html.fl .tr-edge { color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+html.fl .tr-en { color: var(--on-2); }
+
+/* menus fold back into where they came from, quicker than they unfolded */
+html.fl [data-pop].is-closing { animation: flFold 0.17s cubic-bezier(0.4, 0, 0.7, 0.2) both !important; }
+@keyframes flFold { to { opacity: 0; transform: scale(0.7); } }
+
+html.fl .ex-panel { border: 0; border-radius: var(--r-xl); padding: 20px; background: color-mix(in srgb, var(--card) 94%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.24), 0 0 0 0.5px rgba(0, 0, 0, 0.06); }
+html.fl .ex-x { border: 0; background: var(--glass-tint); color: var(--on); }
+html.fl .ex-seg { border: 0; background: var(--fill); border-radius: 14px; }
+html.fl .ex-seg-thumb { background: var(--card); border-radius: 11px; }
+html.fl .ex-seg button.is-on { color: var(--on); }
+html.fl .ex-fmt { border: 1.5px solid transparent; background: var(--fill); border-radius: 18px; color: var(--on); }
+html.fl .ex-fmt.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--card)); }
+html.fl .ex-fmt.is-on svg { color: var(--primary); }
+html.fl .ex-go { background: var(--primary); border-radius: 999px; box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 32%, transparent); }
+html.fl .ex-md-wrap { background: var(--card); border-radius: 26px; }
+html.fl .ex-md { color: var(--on); }
+html.fl .sw-shelf-export { border: 0; background: var(--glass-tint, var(--fill)); color: var(--on); }
+@media (max-width: 640px) { html.fl .ex-panel { border-radius: 26px 26px 0 0; } }
+@supports (corner-shape: superellipse(1.5)) { html.fl .ex-panel, html.fl .ex-fmt { corner-shape: superellipse(1.5); } }

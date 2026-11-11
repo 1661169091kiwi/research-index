@@ -20,12 +20,43 @@
 
   if (portal) root.classList.add('is-app');
 
+  // ---------- pop-ups close the way they opened ----------
+  // Menus and panels (data-pop) unfold when shown. Setting hidden = true on one plays its folding-away animation
+  // first (about 170 ms) and only then hides it; reading .hidden already says true. Showing it again meanwhile
+  // cancels the fold. data-pop="remove" ones (built on demand) go through window.riPopRemove(el).
+  {
+    const desc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'hidden');
+    const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const FOLD_MS = 170;
+    Object.defineProperty(HTMLElement.prototype, 'hidden', {
+      configurable: true, enumerable: desc.enumerable,
+      get() { return this._riFold ? true : desc.get.call(this); },
+      set(v) {
+        if (!this.hasAttribute?.('data-pop')) return desc.set.call(this, v);
+        if (!v) {
+          if (this._riFold) { clearTimeout(this._riFold); this._riFold = 0; this.classList.remove('is-closing'); }
+          return desc.set.call(this, false);
+        }
+        if (this._riFold) return;
+        if (desc.get.call(this) || still() || !this.getClientRects().length) return desc.set.call(this, true);
+        this.classList.add('is-closing');
+        this._riFold = setTimeout(() => { this._riFold = 0; this.classList.remove('is-closing'); desc.set.call(this, true); }, FOLD_MS);
+      },
+    });
+    window.riPopRemove = (el) => {
+      if (!el || el._riFold) return;
+      if (still() || !el.getClientRects().length) return el.remove();
+      el.classList.add('is-closing');
+      el._riFold = setTimeout(() => el.remove(), FOLD_MS);
+    };
+  }
+
   // ---------- pop-ups: a tap outside one only closes it ----------
   // Menus and panels carry data-pop, the buttons that open them data-pop-opener. A press anywhere else while one
   // is open closes them all, and the click that press makes is swallowed: tapping a paper next to an open menu
   // closes the menu without also opening the paper.
   {
-    const shown = () => [...document.querySelectorAll('[data-pop]')].filter((el) => !el.hidden && el.getClientRects().length);
+    const shown = () => [...document.querySelectorAll('[data-pop]')].filter((el) => !el.hidden && !el._riFold && el.getClientRects().length);
     let swallowUntil = 0;
     window.addEventListener('pointerdown', (e) => {
       swallowUntil = 0;
@@ -33,7 +64,7 @@
       const open = shown();
       if (!open.length || e.target.closest?.('[data-pop], [data-pop-opener], .ri-confirm, .share-modal, .update-modal')) return;
       for (const el of open) {
-        if (el.dataset.pop === 'remove') el.remove(); else el.hidden = true;
+        if (el.dataset.pop === 'remove') window.riPopRemove(el); else el.hidden = true;
         el.dispatchEvent(new CustomEvent('ri:pop-closed', { bubbles: true }));
       }
       document.querySelectorAll('[data-pop-opener][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));

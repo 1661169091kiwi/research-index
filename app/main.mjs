@@ -240,6 +240,15 @@ ipcMain.handle('ri:save-image', async (e, name, bytes) => {
   fs.writeFileSync(res.filePath, png);
   return { ok: true, path: res.filePath };
 });
+// an exported list of papers (Markdown), wherever the reader picks
+ipcMain.handle('ri:save-text', async (e, name, text) => {
+  if (e.sender !== win?.webContents || typeof text !== 'string' || !text || text.length > 2e7) return { ok: false };
+  const base = String(name || 'papers.md').replace(/[^\w.\-]+/g, '-').replace(/^-+/, '').slice(0, 80) || 'papers.md';
+  const res = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('downloads'), base.endsWith('.md') ? base : `${base}.md`), filters: [{ name: 'Markdown', extensions: ['md'] }] });
+  if (res.canceled || !res.filePath) return { ok: false, canceled: true };
+  fs.writeFileSync(res.filePath, text, 'utf8');
+  return { ok: true, path: res.filePath };
+});
 ipcMain.handle('ri:fetch-image', async (e, url) => {
   if (e.sender !== win?.webContents || typeof url !== 'string' || !/^https:\/\//i.test(url)) return null;
   try {

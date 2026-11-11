@@ -25,6 +25,8 @@ public class RiNative: CAPPlugin, CAPBridgedPlugin, URLSessionDataDelegate {
         CAPPluginMethod(name: "keyInfo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "shareImage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveImage", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "shareText", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveText", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "fetchImage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openUrl", returnType: CAPPluginReturnPromise),
     ]
@@ -273,6 +275,37 @@ public class RiNative: CAPPlugin, CAPBridgedPlugin, URLSessionDataDelegate {
             call.reject(error.localizedDescription)
         }
     }
+
+    // an exported list (Markdown) to the share sheet; on iOS saving goes the same way ("Save to Files" is in it)
+    private static func textName(_ name: String?) -> String {
+        var n = (name ?? "").replacingOccurrences(of: "[^A-Za-z0-9._-]+", with: "-", options: .regularExpression)
+        if n.isEmpty || n.count > 80 { n = "papers" }
+        return n.hasSuffix(".md") ? n : n + ".md"
+    }
+    @objc func shareText(_ call: CAPPluginCall) {
+        guard let s = call.getString("text"), !s.isEmpty, s.count < 10_000_000, let data = s.data(using: .utf8) else { call.reject("no text"); return }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("share", isDirectory: true)
+        try? FileManager.default.removeItem(at: dir)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let file = dir.appendingPathComponent(RiNative.textName(call.getString("name")))
+            try data.write(to: file)
+            DispatchQueue.main.async {
+                guard let vc = self.bridge?.viewController else { call.reject("no view"); return }
+                let sheet = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+                if let pop = sheet.popoverPresentationController {
+                    pop.sourceView = vc.view
+                    pop.sourceRect = CGRect(x: vc.view.bounds.midX, y: vc.view.bounds.midY, width: 1, height: 1)
+                    pop.permittedArrowDirections = []
+                }
+                vc.present(sheet, animated: true)
+                call.resolve(["shared": true])
+            }
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+    @objc func saveText(_ call: CAPPluginCall) { shareText(call) }
 
     @objc func saveImage(_ call: CAPPluginCall) {
         guard let data = RiNative.png(call) else { call.reject("not a PNG"); return }

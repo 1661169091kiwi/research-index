@@ -34,8 +34,9 @@ function getClient(apiKey) {
 }
 
 // One-shot completion at low effort (used for translation).
-export async function completeClaude({ apiKey, system, user, maxTokens = 8000, onUsage }) {
-  const msg = await getClient(apiKey).beta.messages.create({
+// onText(delta): stream the reply, handing over each piece as it arrives (translation shows its progress)
+export async function completeClaude({ apiKey, system, user, maxTokens = 8000, onUsage, onText }) {
+  const params = {
     model: CLAUDE_MODEL,
     max_tokens: maxTokens,
     betas: ['server-side-fallback-2026-07-01'],
@@ -43,7 +44,13 @@ export async function completeClaude({ apiKey, system, user, maxTokens = 8000, o
     output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: user }],
-  });
+  };
+  let msg;
+  if (onText) {
+    const stream = getClient(apiKey).beta.messages.stream(params);
+    stream.on('text', (delta) => { try { onText(delta); } catch { /* the page's problem */ } });
+    msg = await stream.finalMessage();
+  } else msg = await getClient(apiKey).beta.messages.create(params);
   if (msg.usage) onUsage?.(msg.usage, msg.model);
   if (msg.stop_reason === 'refusal') throw Object.assign(new Error('refusal'), { code: 'refusal', detail: msg.stop_details?.explanation || '' });
   return msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('');

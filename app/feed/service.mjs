@@ -29,7 +29,12 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   const qualityOf = (id) => qualityMap().get(id)?.score ?? null;
   const rec = createRecommender(store, { qualityOf });
   // the translator sometimes repeats the title first ("标题：… 摘要：…"); only the abstract is kept
-  const zhAbs = (s) => String(s || '').replace(/^\s*标题\s*[:：][\s\S]*?摘要\s*[:：]\s*/, '').trim();
+  // (partial: a reply still streaming in, where a title it repeats may not have reached the abstract yet)
+  const zhAbs = (s, partial = false) => {
+    const t = String(s || '');
+    if (partial && /^\s*标/.test(t) && !/摘要\s*[:：]/.test(t)) return '';
+    return t.replace(/^\s*标题\s*[:：][\s\S]*?摘要\s*[:：]\s*/, '').trim();
+  };
   const handlers = {};
   const handle = (channel, fn) => { handlers[channel] = fn; };
   let fetching = null;
@@ -52,7 +57,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     return {
       id: p.id, title: p.title,
       authors: (p.authors || []).slice(0, 3), nAuthors: (p.authors || []).length,
-      org: p.hf?.org || '', inst: instOf(p), q: qualityOf(p.id), published: p.published || '',
+      org: p.hf?.org || '', inst: instOf(p), q: qualityOf(p.id), qp: ratePending(p.id), published: p.published || '',
       topics: p.topics || [], survey: !!p.survey, venue: venueOf(p),
       up: p.hf?.upvotes || 0, stars: p.hf?.stars || 0,
       cover: coverOf(p),
@@ -229,6 +234,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     const p = store.papers[id];
     if (!p) return null;
     recaption(id);
+    wantRatings([id]);
     const st = store.state;
     return {
       paper: {
@@ -304,7 +310,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     const e = q.e;
     return {
       score: q.score, venue: e.venue ? { label: e.venue.label, note: e.venue.note } : null, inst: e.inst, h: e.h, up: e.up, stars: e.stars,
-      cites: e.cites, code: e.code, ai: e.ai, aiModel: store.ratings[id]?.m || '',
+      cites: e.cites, code: e.code, ai: e.ai, aiModel: store.ratings[id]?.m || '', pending: ratePending(id),
     };
   }
 
@@ -326,11 +332,15 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     const day = new Date().toDateString();
     return (store.state.usage?.log || []).reduce((s, e) => (e.k === 'rate' && new Date(e.t).toDateString() === day ? s + (e.CNY ?? (e.USD || 0) * 7.1) : s), 0);
   }
-  const rateQueue = new Set();
+  const rateQueue = new Set(), rateBusy = new Set();
   let rateTimer = 0, rating = false;
+  // the judge has this paper in hand (queued or in a request), and it has no score yet: the page shows "scoring"
+  const ratePending = (id) => !store.ratings[id] && (rateQueue.has(id) || rateBusy.has(id)) && qualityOf(id) == null;
+  // papers the judge let go of without a rating (an error, the budget): the page stops showing "scoring"
+  const letGo = (ids) => { if (ids.length) send('feed:quality', { scores: {}, unrated: ids }); };
   function wantRatings(ids) {
     const r = rateSettings();
-    if (!r.on || !keyFor(aiSettings().provider)) return;
+    if (!r.on || !keyFor(aiSettings().provider) || rateSpentToday() >= r.cap) return;
     for (const id of ids) if (store.papers[id] && !store.ratings[id]) rateQueue.add(id);
     clearTimeout(rateTimer);
     if (rateQueue.size) rateTimer = setTimeout(flushRatings, rateQueue.size >= 10 ? 300 : 2500);
@@ -340,16 +350,23 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     rating = true;
     try {
       while (rateQueue.size) {
-        if (!rateSettings().on || rateSpentToday() >= rateSettings().cap) { rateQueue.clear(); break; }
+        if (!rateSettings().on || rateSpentToday() >= rateSettings().cap) { const left = [...rateQueue]; rateQueue.clear(); letGo(left); break; }
         const batch = [...rateQueue].slice(0, 10);
-        batch.forEach((id) => rateQueue.delete(id));
+        batch.forEach((id) => { rateQueue.delete(id); rateBusy.add(id); });
         const papers = batch.map((id) => store.papers[id]).filter((p) => p && !store.ratings[p.id]);
-        if (!papers.length) continue;
+        if (!papers.length) { batch.forEach((id) => rateBusy.delete(id)); continue; }
         let got = {};
         try {
           const text = await complete({ system: RATING_SYSTEM, user: ratingPrompt(papers), maxTokens: 500 }, 'rate');
           got = parseRatings(text, papers.map((p) => p.id));
-        } catch (e) { if (debug) console.error('[feed] rating', e.message); break; }
+        } catch (e) {
+          if (debug) console.error('[feed] rating', e.message);
+          const left = [...batch, ...rateQueue];
+          batch.forEach((id) => rateBusy.delete(id)); rateQueue.clear(); letGo(left);
+          break;
+        }
+        batch.forEach((id) => rateBusy.delete(id));
+        letGo(batch.filter((id) => !got[id]));
         const s = aiSettings(), t = Date.now();
         const model = s.provider === 'claude' ? CL.model : s.model;
         store.setRatings(Object.fromEntries(Object.entries(got).map(([id, sc]) => [id, { s: sc, m: model, v: RATING_V, t }])));
@@ -531,6 +548,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
 
   // ---------- translation into Chinese: only what is on screen, cached for good ----------
   const trInFlight = new Set(); // `t:${id}` / `a:${id}`
+  // args.onText(delta): the reply as it streams in (translation)
   const complete = (args, kind = 'translate') => {
     const s = aiSettings();
     const apiKey = keyFor(s.provider);
@@ -555,11 +573,31 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       const batch = todo.slice(i, i + 20);
       batch.forEach((id) => trInFlight.add(`t:${id}`));
       const input = Object.fromEntries(batch.map((id) => [id, store.papers[id].title.replace(/\s+/g, ' ')]));
-      complete({ system: TITLES_SYSTEM, user: JSON.stringify(input, null, 1), maxTokens: 4000 })
+      // as the JSON streams in, each title goes to the page the moment it is complete, and the one being written as far as it has got
+      const sent = new Set(), lastPart = new Map();
+      let acc = '', at = 0;
+      const progress = (final) => {
+        for (const id of batch) {
+          if (sent.has(id)) continue;
+          const k = acc.indexOf(`"${id}"`);
+          if (k < 0) continue;
+          const m = /^\s*:\s*"((?:[^"\\]|\\.)*)("?)/.exec(acc.slice(k + id.length + 2));
+          if (!m) continue;
+          let v;
+          try { v = JSON.parse(`"${m[1].replace(/\\$/, '')}"`); } catch { continue; }
+          if (m[2]) {
+            sent.add(id);
+            if (v.trim()) { store.setTranslation(id, { title: v.trim() }); send('feed:tr', { id, title: v.trim() }); }
+          } else if (!final && v && v !== lastPart.get(id)) { lastPart.set(id, v); send('feed:tr', { id, titlePart: v }); }
+        }
+      };
+      const onText = (d) => { acc += d; const now = Date.now(); if (now - at > 45) { at = now; progress(false); } };
+      complete({ system: TITLES_SYSTEM, user: JSON.stringify(input, null, 1), maxTokens: 4000, onText })
         .then((text) => {
+          acc = text; progress(true);
           const map = parseTitleMap(text);
           for (const id of batch) {
-            if (!map[id]) continue;
+            if (!map[id] || sent.has(id)) continue;
             store.setTranslation(id, { title: map[id] });
             send('feed:tr', { id, title: map[id] });
           }
@@ -578,7 +616,10 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     if (!keyFor(aiSettings().provider)) return { error: { code: 'nokey' } };
     if (!trInFlight.has(`a:${id}`)) {
       trInFlight.add(`a:${id}`);
-      complete({ system: ABSTRACT_SYSTEM, user: `Title: ${p.title}\n\nAbstract:\n${p.abstract}`, maxTokens: 6000 })
+      // the translation so far, at most every 40 ms: the page writes it over the English as it comes
+      let acc = '', at = 0;
+      const onText = (d) => { acc += d; const now = Date.now(); if (now - at > 40) { at = now; const part = zhAbs(acc, true); if (part) send('feed:tr', { id, abstractPart: part }); } };
+      complete({ system: ABSTRACT_SYSTEM, user: `Title: ${p.title}\n\nAbstract:\n${p.abstract}`, maxTokens: 6000, onText })
         .then((text) => {
           const abstract = zhAbs(text);
           if (!abstract) throw new Error('empty translation');

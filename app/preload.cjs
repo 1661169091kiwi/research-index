@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('portal', {
   chrome: (bg, fg) => ipcRenderer.send('ri:chrome', String(bg), String(fg)),
   // a paper as an image: save it (a file dialog) or put it on the clipboard
   saveImage: (name, bytes) => ipcRenderer.invoke('ri:save-image', String(name), bytes),
+  saveText: (name, text) => ipcRenderer.invoke('ri:save-text', String(name), String(text)),
   copyImage: (bytes) => ipcRenderer.invoke('ri:copy-image', bytes),
   // a paper's figure, for its share card: { bytes, type } or null
   fetchImage: (url) => ipcRenderer.invoke('ri:fetch-image', String(url)),
