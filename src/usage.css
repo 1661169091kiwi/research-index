@@ -169,7 +169,8 @@ html.fl .usage-body::-webkit-scrollbar-track { margin-block: 14px; }
 .is-mobile .usage-body { scrollbar-width: none; }
 
 /* ---------- room to breathe: one idea per block, each with a heading ---------- */
-.usage-panel { width: min(600px, calc(100vw - 32px)); }
+/* (the phone's panel is the whole screen: this width is for wider windows only) */
+@media (min-width: 641px) { .usage-panel { width: min(600px, calc(100vw - 32px)); } }
 .usage-body { gap: 20px; padding-top: 14px; }
 .u-balance { padding: 22px 22px 16px; }
 .u-block { display: grid; gap: 12px; }

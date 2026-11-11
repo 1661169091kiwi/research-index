@@ -434,7 +434,7 @@ body.swipe-on .scroller > main { animation: none; }
 
 /* Saved / Liked: a grid of your papers inside this view, three across on a phone */
 .swipe.is-shelf .sw-track, .swipe.is-shelf .sw-actions, .swipe.is-shelf .sw-nav, .swipe.is-shelf .sw-keys, .swipe.is-shelf .sw-hint { display: none; }
-.sw-shelf { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 14px 14px calc(28px + var(--sa-bottom)); scrollbar-width: none; }
+.sw-shelf { position: absolute; inset: 0; z-index: 1; isolation: isolate; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 14px 14px calc(28px + var(--sa-bottom)); scrollbar-width: none; }
 .sw-shelf::-webkit-scrollbar { display: none; }
 .sw-shelf[hidden] { display: none; }
 .sw-shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; max-width: calc(var(--sw-card-w) + 2 * var(--sw-rail)); margin: 0 auto; }
