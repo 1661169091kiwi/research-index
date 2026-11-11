@@ -51,6 +51,7 @@
     document.body.appendChild(modal);
     document.addEventListener('keydown', onKey, true);
     modal.addEventListener('click', onClick);
+    modal.querySelector('.usage-body').addEventListener('scroll', () => modal?.querySelector('#u-chart')?._hideTip?.(), { passive: true });
     renderBalance();
     load().then(() => refreshBalance());
   }
@@ -64,6 +65,8 @@
   }
   function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }
   function onClick(e) {
+    // a tap anywhere outside the chart puts its tip away
+    if (!e.target.closest('.u-svg')) modal.querySelector('#u-chart')?._hideTip?.();
     if (e.target.closest('[data-usage-close]')) return close();
     const r = e.target.closest('[data-range]');
     if (r) { state.range = +r.dataset.range; return load(); }
@@ -114,42 +117,64 @@
   }
 
   // ---------- this app's spending ----------
+  // One idea per block, each with its own heading: the totals (with the period to show), the days, what it went on,
+  // the tokens, the key's use elsewhere, and how costs are worked out.
   function renderRest() {
     const el = modal?.querySelector('#u-rest');
     const d = state.data;
     if (!el || !d) return;
     const cur = d.currency;
     const tot = d.totals;
-    const rangeLabel = t('usageRange', { n: state.range });
+    const head = (title, extra = '') => `<div class="u-head"><h3>${esc(title)}</h3>${extra}</div>`;
     const seg = `<div class="u-range seg" role="tablist">${RANGES.map((n) => `<button type="button" role="tab" data-range="${n}" class="${n === state.range ? 'is-on' : ''}" aria-selected="${n === state.range}">${esc(t('usageRange', { n }))}</button>`).join('')}</div>`;
-    const tiles = `<div class="u-tiles">
-      <div class="u-tile u-tile-main"><p class="ut-label">${esc(t('usageApp', { range: rangeLabel }))}</p><p class="ut-value">${money(tot.cost, cur)}</p><p class="ut-sub">${esc(t('usageCalls', { n: tot.calls }))}</p></div>
-      <div class="u-tile"><p class="ut-label">${esc(t('usageToday'))}</p><p class="ut-value">${money(d.today, cur)}</p></div>
-      <div class="u-tile" title="${esc(t('usageCacheHint'))}"><p class="ut-label">${esc(t('usageCache'))}</p><p class="ut-value">${d.cacheRate == null ? '—' : `${Math.round(d.cacheRate * 100)}<span class="ut-unit">%</span>`}</p></div>
-    </div>`;
-    const legend = `<ul class="u-legend">${KINDS.map((k, i) => `<li><i class="sw${i + 1}"></i>${esc(t(`usageKind_${k}`))}<b>${money(tot.byKind[k], cur)}</b></li>`).join('')}</ul>`;
-    const chartCard = `<div class="u-card">
-      <div class="uc-head"><h3>${esc(t('usageDaily'))}</h3><div class="u-view seg"><button type="button" data-view="chart" class="${state.view === 'chart' ? 'is-on' : ''}">${esc(t('usageChart'))}</button><button type="button" data-view="table" class="${state.view === 'table' ? 'is-on' : ''}">${esc(t('usageTable'))}</button></div></div>
-      ${legend}
-      ${tot.calls ? (state.view === 'chart' ? '<div class="u-chart" id="u-chart"></div>' : table(d)) : `<p class="u-empty">${esc(t('usageEmpty'))}</p>`}
-    </div>`;
-    // what share each kind of use took, and the tokens behind it
+    const totals = `<section class="u-block">
+      ${head(t('usageAppTitle'), seg)}
+      <div class="u-tiles">
+        <div class="u-tile u-tile-main"><p class="ut-label">${esc(t('usageSpent', { range: t('usageRange', { n: state.range }) }))}</p><p class="ut-value">${money(tot.cost, cur)}</p><p class="ut-sub">${esc(t('usageCalls', { n: tot.calls }))}</p></div>
+        <div class="u-tile"><p class="ut-label">${esc(t('usageToday'))}</p><p class="ut-value">${money(d.today, cur)}</p></div>
+        <div class="u-tile"><p class="ut-label">${esc(t('usageCache'))}</p><p class="ut-value">${d.cacheRate == null ? '—' : `${Math.round(d.cacheRate * 100)}<span class="ut-unit">%</span>`}</p><p class="ut-sub">${esc(t('usageCacheShort'))}</p></div>
+      </div>
+    </section>`;
+    if (!tot.calls) {
+      el.innerHTML = totals + `<section class="u-card u-empty-card"><p class="u-empty">${esc(t('usageEmpty'))}</p></section>` + outsideCard(d) + note(d);
+      return;
+    }
+    const kinds = KINDS.filter((k) => tot.byKind[k] > 0 || k !== 'rate');
+    const legend = `<ul class="u-legend">${kinds.map((k) => `<li><i class="sw${KINDS.indexOf(k) + 1}"></i>${esc(t(`usageKind_${k}`))}</li>`).join('')}</ul>`;
+    const daily = `<section class="u-card">
+      ${head(t('usageDaily'), `<div class="u-view seg"><button type="button" data-view="chart" class="${state.view === 'chart' ? 'is-on' : ''}">${esc(t('usageChart'))}</button><button type="button" data-view="table" class="${state.view === 'table' ? 'is-on' : ''}">${esc(t('usageTable'))}</button></div>`)}
+      ${state.view === 'chart' ? `${legend}<div class="u-chart" id="u-chart"></div><p class="u-hint">${esc(t('usageTapHint'))}</p>` : table(d)}
+    </section>`;
+    // what share each kind of use took
     const share = KINDS.map((k) => (tot.cost ? tot.byKind[k] / tot.cost : 0));
-    const breakdown = tot.calls ? `<div class="u-card">
+    const byKind = `<section class="u-card">
+      ${head(t('usageByKind'))}
       <div class="u-share" aria-hidden="true">${KINDS.map((k, i) => (share[i] > 0 ? `<i class="sw${i + 1}" style="flex-grow:${share[i].toFixed(4)}"></i>` : '')).join('')}</div>
-      <ul class="u-rows">${KINDS.map((k, i) => `<li><i class="sw${i + 1}"></i><span class="ur-label">${esc(t(`usageKind_${k}`))}</span><span class="ur-pct">${Math.round(share[i] * 100)}%</span><b>${money(tot.byKind[k], cur)}</b></li>`).join('')}</ul>
-      <div class="u-tokens"><div><p class="ut-label">${esc(t('usageIn'))}</p><p class="utk-value">${num(tot.hit + tot.miss)}</p><p class="ut-sub">${esc(t('usageInCached', { n: num(tot.hit) }))}</p></div><div><p class="ut-label">${esc(t('usageOut'))}</p><p class="utk-value">${num(tot.out)}</p><p class="ut-sub">${esc(t('usageTokens'))}</p></div></div>
-    </div>` : '';
+      <ul class="u-rows">${kinds.map((k) => { const i = KINDS.indexOf(k); return `<li><i class="sw${i + 1}"></i><span class="ur-label">${esc(t(`usageKind_${k}`))}</span><span class="ur-pct">${Math.round(share[i] * 100)}%</span><b>${money(tot.byKind[k], cur)}</b></li>`; }).join('')}</ul>
+    </section>`;
+    const tokens = `<section class="u-card">
+      ${head(t('usageTokens'))}
+      <div class="u-tokens">
+        <div><p class="ut-label">${esc(t('usageIn'))}</p><p class="utk-value">${num(tot.hit + tot.miss)}</p><p class="ut-sub">${esc(t('usageInCached', { n: num(tot.hit) }))}</p></div>
+        <div><p class="ut-label">${esc(t('usageOut'))}</p><p class="utk-value">${num(tot.out)}</p></div>
+      </div>
+    </section>`;
+    el.innerHTML = totals + daily + byKind + tokens + outsideCard(d) + note(d);
+    if (state.view === 'chart') chart(el.querySelector('#u-chart'), d);
+  }
+  function outsideCard(d) {
+    if (!d.hasKey) return '';
     const o = d.outside;
-    const outside = d.hasKey ? `<div class="u-card u-outside">
-      <h3>${esc(t('usageOutside'))}</h3>
-      ${o ? `<p class="uo-value">${money(o.amount, cur)}<span class="uo-since">${esc(lang === 'zh' ? `自 ${dayLabel(isoDay(o.since), true)}` : `since ${dayLabel(isoDay(o.since), true)}`)}</span></p><p class="u-fine">${esc(t('usageOutsideNote'))}</p>` : `<p class="u-fine">${esc(t('usageOutsideWait'))}</p>`}
-    </div>` : '';
-    const note = `<p class="u-note"><span class="u-peak${d.peakNow ? ' is-peak' : ''}">${esc(t(d.peakNow ? 'usagePeakNow' : 'usageOffPeakNow'))}</span>${esc(t('usagePriceNote', cur === 'USD'
+    return `<section class="u-card u-outside">
+      <div class="u-head"><h3>${esc(t('usageOutside'))}</h3></div>
+      ${o ? `<p class="uo-value">${money(o.amount, d.currency)}<span class="uo-since">${esc(lang === 'zh' ? `自 ${dayLabel(isoDay(o.since), true)}` : `since ${dayLabel(isoDay(o.since), true)}`)}</span></p><p class="u-fine">${esc(t('usageOutsideNote'))}</p>` : `<p class="u-fine">${esc(t('usageOutsideWait'))}</p>`}
+    </section>`;
+  }
+  function note(d) {
+    const prices = d.currency === 'USD'
       ? { model: 'deepseek-flash', hit: '$0.006', miss: '$0.30', out: '$1.20' }
-      : { model: 'deepseek-flash', hit: '¥0.04', miss: '¥2', out: '¥8' }))}</p>`;
-    el.innerHTML = seg + tiles + chartCard + breakdown + outside + note;
-    if (state.view === 'chart' && tot.calls) chart(el.querySelector('#u-chart'), d);
+      : { model: 'deepseek-flash', hit: '¥0.04', miss: '¥2', out: '¥8' };
+    return `<footer class="u-note"><span class="u-peak${d.peakNow ? ' is-peak' : ''}">${esc(t(d.peakNow ? 'usagePeakNow' : 'usageOffPeakNow'))}</span><p>${esc(t('usagePriceNote', prices))}</p></footer>`;
   }
   const isoDay = (ms) => { const x = new Date(ms); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
 
@@ -222,8 +247,15 @@
     const hide = () => { tip.hidden = true; hl.setAttribute('visibility', 'hidden'); };
     el.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') show(e.clientX); });
     el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hide(); });
-    el.addEventListener('click', (e) => show(e.clientX));
-    host.addEventListener('focusout', hide);
+    let shownAt = -1;
+    el.addEventListener('click', (e) => {
+      const r = el.getBoundingClientRect();
+      const i = Math.max(0, Math.min(n - 1, Math.floor(((e.clientX - r.left) * (W / r.width) - padL) / band)));
+      if (!tip.hidden && shownAt === i && e.pointerType !== 'mouse') { hide(); shownAt = -1; return; }
+      show(e.clientX);
+      shownAt = i;
+    });
+    host._hideTip = () => { hide(); shownAt = -1; };
   }
   // the chart redraws to the panel's width
   let rz = 0;

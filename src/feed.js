@@ -1766,6 +1766,16 @@
     ready: new Promise((r) => { readyResolve = r; }),
   };
   $('#view-btn')?.addEventListener('click', () => hooks.enter?.());
+  // the settings panel (top bar): AI settings, AI usage, interests
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('#about-pop [data-ab="ai"], #about-pop [data-ab="usage"], #about-pop [data-ab="tune"]');
+    if (!b) return;
+    e.stopPropagation();
+    $('#about-pop').hidden = true;
+    document.querySelectorAll('[data-about]').forEach((x) => x.setAttribute('aria-expanded', 'false'));
+    const kind = b.dataset.ab;
+    setTimeout(() => { if (kind === 'usage') window.RIUsage?.open(); else $(kind === 'ai' ? '#ai-btn' : '#tune')?.click(); }, 0);
+  });
   document.addEventListener('click', (e) => { const x = e.target.closest('[data-pop-close]'); if (x) { e.stopPropagation(); x.closest('.tune-pop').hidden = true; } });
 
   // ---------- start ----------

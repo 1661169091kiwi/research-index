@@ -161,3 +161,42 @@ html.fl .ai-usage-row:hover { background: color-mix(in srgb, var(--on) 9%, var(-
 /* the app's own scrollbars (shown only while scrolling), kept clear of the panel's rounded corners */
 html.fl .usage-body::-webkit-scrollbar-track { margin-block: 14px; }
 .is-mobile .usage-body { scrollbar-width: none; }
+
+/* ---------- room to breathe: one idea per block, each with a heading ---------- */
+.usage-panel { width: min(600px, calc(100vw - 32px)); }
+.usage-body { gap: 20px; padding-top: 14px; }
+.u-balance { padding: 22px 22px 16px; }
+.u-block { display: grid; gap: 12px; }
+.u-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; }
+.u-head h3 { margin: 0; font: 650 16px/1.3 var(--display); letter-spacing: -0.01em; color: var(--ink); }
+.u-card { padding: 18px 20px 20px; display: grid; gap: 14px; }
+.u-card > .u-head { margin: 0; }
+.u-tiles { gap: 12px; }
+.u-tile { padding: 14px 16px 15px; }
+.ut-value { margin-top: 8px; font-size: 24px; }
+.ut-sub { margin-top: 6px; }
+.u-legend { margin: 0; gap: 8px 18px; font-size: 13px; }
+.u-chart { margin-top: 0; }
+.u-hint { margin: -4px 0 0; font: 500 12px var(--display); color: var(--muted); }
+.u-share { height: 10px; }
+.u-rows { margin: 2px 0 0; gap: 12px; }
+.u-rows li { font-size: 14.5px; }
+.u-tokens { margin: 0; padding: 0; border: 0; gap: 16px; }
+.utk-value { font-size: 22px; margin-top: 6px; }
+.u-outside { gap: 8px; }
+.uo-value { font-size: 24px; }
+.u-empty-card { padding: 26px 20px; }
+.u-empty { margin: 0; }
+.u-note { display: grid; gap: 8px; margin: 0 4px; font: 500 12px/1.65 var(--display); color: var(--muted); }
+.u-note p { margin: 0; }
+.u-peak { justify-self: start; margin: 0; padding: 3px 10px; }
+@media (max-width: 640px) {
+  .usage-body { gap: 16px; }
+  .u-card { padding: 16px 16px 18px; }
+  .u-block > .u-head { flex-wrap: wrap; }
+}
+html.fl .usage-body { gap: 20px; padding-top: 14px; }
+@media (max-width: 640px) { html.fl .usage-body { gap: 16px; } }
+/* the sections under the balance: the same space between each */
+#u-rest { display: grid; gap: 20px; grid-auto-rows: max-content; min-width: 0; }
+@media (max-width: 640px) { #u-rest { gap: 16px; } }

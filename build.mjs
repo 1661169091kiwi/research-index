@@ -63,7 +63,7 @@ const I18N = {
       matches: '<b>{n}</b> matches for “{q}”', match: '<b>1</b> match for “{q}”', topN: ' · showing the top {n}',
       noMatches: 'No matches. Try fewer or shorter words.', findNone: 'No results', updated: 'Updated just now',
       readPct: '{p}% read',
-      about: 'Settings and updates', more: 'More', langName: 'Language', styleLabel: 'Style', version: 'Version {v}', available: '{v} available', checkUpdates: 'Check for updates', checking: 'Checking…',
+      about: 'Settings and updates', more: 'More', settings: 'Settings', langName: 'Language', styleLabel: 'Style', version: 'Version {v}', available: '{v} available', checkUpdates: 'Check for updates', checking: 'Checking…',
       upToDate: 'Up to date', checkFailed: 'Could not reach GitHub',
       updateTitle: 'Version {v} is available', updateDownload: 'Download', updateInstall: 'Download and install', updateSkip: 'Skip this version',
       updateLater: 'Later', updateNotes: 'What is new', downloading: 'Downloading… {p}%', updateOpening: 'Starting the installer…',
@@ -108,7 +108,7 @@ const I18N = {
       matches: '“{q}”共 <b>{n}</b> 条结果', match: '“{q}”共 <b>1</b> 条结果', topN: '，显示前 {n} 条',
       noMatches: '没有匹配的结果，试试更少或更短的关键词。', findNone: '无结果', updated: '内容已更新',
       readPct: '已读 {p}%',
-      about: '设置与更新', more: '更多', langName: '语言', styleLabel: '风格', version: '版本 {v}', available: '有新版本 {v}', checkUpdates: '检查更新', checking: '正在检查…',
+      about: '设置与更新', more: '更多', settings: '设置', langName: '语言', styleLabel: '风格', version: '版本 {v}', available: '有新版本 {v}', checkUpdates: '检查更新', checking: '正在检查…',
       upToDate: '已是最新', checkFailed: '无法连接 GitHub',
       updateTitle: '发现新版本 {v}', updateDownload: '下载', updateInstall: '下载并安装', updateSkip: '跳过此版本',
       updateLater: '以后再说', updateNotes: '更新内容', downloading: '正在下载… {p}%', updateOpening: '正在启动安装程序…',
@@ -173,6 +173,7 @@ const FEED = {
     qNote: 'A rough guide from public evidence, not a verdict: 50 means no evidence either way. Acceptance at a top venue, citations, released code and the AI review move it; in a backtest these predicted top-venue acceptance better than upvotes, the authors’ record or the institution, which are shown for reference. Citations and authors’ records come from OpenAlex about a week after a paper appears.',
     qNone: 'Little evidence so far: the score will firm up as citations, upvotes and reviews come in.', qOnly: 'High quality only', qOnlyHint: 'Scoring 70 or more',
     rateOn: 'AI rating', rateHint: 'Rates the papers you see from their abstracts (about ¥0.001 each), once each, within a daily budget; older ones only off-peak, at half price.', rateCap: 'Daily budget', rateSpent: 'Today {v}',
+    usageAppTitle: 'This app’s spending', usageSpent: 'Spent · {range}', usageCacheShort: 'Billed at about 2%', usageByKind: 'What it went on', usageTapHint: 'Tap or point at a day for its details',
     usageMenu: 'AI usage', usageTitle: 'AI usage', usageBalance: 'DeepSeek balance', usageAvailable: 'Available', usageUnavailable: 'Too low to call the API',
     usageToppedUp: 'Topped up {v}', usageGranted: 'Granted {v}', usageUpdated: 'Updated {rel}', usageRefresh: 'Refresh balance', usageChecking: 'Checking…',
     usageNoKey: 'Add a DeepSeek key in AI settings to see its balance here.', usageAddKey: 'Open AI settings', usageBalanceFailed: 'Could not read the balance ({why}).',
@@ -272,6 +273,7 @@ const FEED = {
     qNote: '依据公开证据的粗略参考，不是对论文的定论：50 表示还没有证据。顶会/顶刊接收、引用、开源代码和 AI 评审会影响评分；回测中它们比点赞数、作者履历或机构更能预测顶会接收，后者仅供参考。引用和作者数据来自 OpenAlex，论文发布约一周后才有。',
     qNone: '目前证据还不多：随着引用、点赞和评审的增加，评分会更可靠。', qOnly: '只看高质量', qOnlyHint: '评分 70 及以上',
     rateOn: 'AI 评分', rateHint: '根据摘要给你看到的论文打分（每篇约 ¥0.001），每篇只评一次，不超过每日预算；较早的论文只在闲时（半价）评。', rateCap: '每日预算', rateSpent: '今天 {v}',
+    usageAppTitle: '本应用的花费', usageSpent: '{range}花费', usageCacheShort: '约按 2% 计费', usageByKind: '用在了哪里', usageTapHint: '点按或指向某一天，查看当天明细',
     usageMenu: 'AI 用量', usageTitle: 'AI 用量', usageBalance: 'DeepSeek 余额', usageAvailable: '可用', usageUnavailable: '余额不足，无法调用',
     usageToppedUp: '充值 {v}', usageGranted: '赠送 {v}', usageUpdated: '{rel}更新', usageRefresh: '刷新余额', usageChecking: '正在查询…',
     usageNoKey: '在 AI 设置里添加 DeepSeek 密钥后，这里会显示余额。', usageAddKey: '打开 AI 设置', usageBalanceFailed: '没能读取余额（{why}）。',
@@ -578,12 +580,17 @@ function styleSwitch(L) {
   const T = I18N[L];
   return `<nav class="lang style-switch" aria-label="${T.styleLabel}"><button type="button" data-style-set="glass">${T.styleGlass}</button><button type="button" data-style-set="classic">${T.styleClassic}</button></nav>`;
 }
+// The settings button at the right of the top bar, and its panel: on the Papers page it also leads to the AI
+// settings, the AI usage meter and your interests (the swipe view has the same in its ⋯ menu).
 function barMenu(L, page) {
-  const T = I18N[L], C = T.client;
+  const T = I18N[L], C = T.client, F = FEED[L];
   const row = (label, control) => `<div class="ab-row"><span class="ab-label">${label}</span>${control}</div>`;
-  return `<button class="bar-menu-btn" type="button" data-about data-pop-opener aria-label="${C.more}" title="${C.more}" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="about-dot" hidden></span></button>
+  const go = (kind, label) => `<button type="button" class="ab-row ab-btn" data-ab="${kind}"><span class="ab-label">${label}</span><span class="ab-go" aria-hidden="true">›</span></button>`;
+  const feedRows = page === 'papers.html' ? `<div class="ab-group">${go('ai', F.aiTitle)}${go('usage', F.usageMenu)}${go('tune', F.interests)}</div>` : '';
+  return `<button class="bar-menu-btn" type="button" data-about data-pop-opener aria-label="${C.settings}" title="${C.settings}" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="about-dot" hidden></span></button>
 <div class="about-pop" id="about-pop" data-glass="menu" data-pop role="dialog" aria-label="${C.about}" hidden>
   <div class="ab-head"><img class="ab-icon" src="../assets/icon.svg" alt=""><div class="ab-name"><b>${T.siteTitle}</b><span>${C.version.replace('{v}', CTX.version)}</span></div></div>
+  ${feedRows}
   <div class="ab-group">${row(C.langName, langSwitch(L, page))}${row(C.styleLabel, styleSwitch(L))}</div>
   <div class="ab-group">
     <button type="button" class="ab-row ab-btn" data-ab="check"><span class="ab-label">${C.checkUpdates}</span><span class="ab-status" role="status"></span></button>
