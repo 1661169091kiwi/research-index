@@ -28,7 +28,9 @@
   };
   if (!MODES.includes(sw.mode)) sw.mode = 'recommended'; // "For you" is part of Recommended now
   const live = () => LIVE.has(sw.mode) && !sw.query;
-  const shelfOn = () => SHELF.has(sw.mode) && !sw.query && !sw.player;
+  // a grid instead of single cards: your own papers (Saved, Liked), and search results
+  const shelfOn = () => (SHELF.has(sw.mode) || !!sw.query) && !sw.player;
+  const shelfKey = () => (sw.query ? `q:${sw.query}` : sw.mode);
 
   // ---------- time on each card ----------
   // Counted only while the card is the one on screen, the app is visible and no paper is open on top.
@@ -575,15 +577,15 @@
   function paintChrome() {
     const shelfShown = shelfOn();
     root.classList.toggle('is-shelf', shelfShown);
-    root.classList.toggle('is-player', sw.player && !sw.query);
+    root.classList.toggle('is-player', sw.player);
     root.classList.toggle('is-search', searchOpen);
     shelfEl.hidden = !shelfShown;
     searchForm.hidden = !searchOpen;
     const back = $('#sw-back');
-    back.hidden = !(sw.player && !sw.query) || searchOpen;
-    // Android's back button closes the search first, then the paper you are reading from the grid
-    back.toggleAttribute('data-back-close', !back.hidden);
-    $('#sw-search-cancel').toggleAttribute('data-back-close', searchOpen);
+    back.hidden = !sw.player;
+    // Android's back button: from a paper read off a grid, back to the grid; then out of the search
+    back.toggleAttribute('data-back-close', sw.player);
+    $('#sw-search-cancel').toggleAttribute('data-back-close', searchOpen && !sw.player);
   }
 
   // ---------- Saved / Liked: a grid of your papers; tap one to read them one at a time from there ----------
@@ -594,9 +596,9 @@
     return `<button type="button" class="sw-tile${c.cover?.url ? ' has-fig' : ''}" data-tile="${i}" data-id="${esc(c.id)}">${coverHtml(c, { ratio: false })}<span class="sw-tile-title">${titleMath(zh ? c.title_zh : c.title)}</span></button>`;
   }
   async function loadShelf({ fresh = false } = {}) {
-    if (!fresh && shelf.mode === sw.mode && shelf.items.length) return; // back from reading them: the grid as it was
+    if (!fresh && shelf.mode === shelfKey() && shelf.items.length) return; // back from reading them: the grid as it was
     shelf.token++;
-    Object.assign(shelf, { mode: sw.mode, items: [], off: 0, done: false, loading: false });
+    Object.assign(shelf, { mode: shelfKey(), items: [], off: 0, done: false, loading: false });
     shelfGrid.innerHTML = '';
     shelfEmpty.hidden = true;
     shelfEl.scrollTop = 0;
@@ -605,17 +607,17 @@
   async function shelfMore() {
     if (shelf.loading || shelf.done || !shelfOn()) return;
     shelf.loading = true;
-    const token = shelf.token, mode = sw.mode;
+    const token = shelf.token, key = shelfKey();
     const res = await api.list({ ...baseParams(), offset: shelf.off, limit: 36 });
     shelf.loading = false;
-    if (token !== shelf.token || mode !== sw.mode) return;
+    if (token !== shelf.token || key !== shelfKey()) return;
     const from = shelf.items.length;
     for (const c of res.items) { sw.cards.set(c.id, { ...(sw.cards.get(c.id) || {}), ...c }); shelf.items.push(c.id); }
     shelf.off += res.items.length;
     shelf.done = shelf.off >= res.total || !res.items.length;
     shelfGrid.insertAdjacentHTML('beforeend', res.items.map((c, k) => tileHtml(sw.cards.get(c.id), from + k)).join(''));
     wireFigure(shelfGrid);
-    shelfEmpty.textContent = t(sw.mode === 'liked' ? 'shelfEmptyLiked' : 'shelfEmptySaved');
+    shelfEmpty.textContent = t(sw.query ? 'swNoResults' : sw.mode === 'liked' ? 'shelfEmptyLiked' : 'shelfEmptySaved');
     shelfEmpty.hidden = shelf.items.length > 0;
     const noCover = res.items.filter((c) => !c.cover).map((c) => c.id);
     if (noCover.length) api.covers(noCover);
@@ -656,7 +658,7 @@
   }
   $('#sw-back').addEventListener('click', closePlayer);
 
-  // ---------- search: the results one at a time, like any other tab ----------
+  // ---------- search: the results as a grid (like Saved and Liked); tap one to read them one at a time ----------
   const searchForm = $('#sw-search'), qInput = $('#sw-q');
   let searchOpen = false;
   $('#sw-search-btn').addEventListener('click', (e) => {
@@ -692,7 +694,8 @@
     const q = qInput.value.trim();
     qInput.blur();
     if (!q) return closeSearch();
-    if (q === sw.query) return;
+    if (q === sw.query && !sw.player) return;
+    if (sw.player) closePlayer();
     sw.query = q;
     sw.player = false;
     sw.deck = '';

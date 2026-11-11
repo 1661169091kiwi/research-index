@@ -476,3 +476,7 @@ body.swipe-on .scroller > main { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .swipe.is-search .sw-search-field, .swipe.is-search .sw-search-cancel, .swipe.is-search-out .sw-search-field, .swipe.is-search-out .sw-search-cancel, .swipe.is-search-back .sw-top-in > * { animation: none; }
 }
+
+/* reading a search result from the results grid: the back arrow beside the search field */
+.swipe.is-search.is-player .sw-top-in > #sw-back { display: grid !important; }
+.swipe.is-search.is-player .sw-search { grid-column: 2 / -1; }

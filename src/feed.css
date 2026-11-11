@@ -538,3 +538,6 @@ html.fl .inst-more { background: var(--fill); }
 .q-ref { margin-top: 12px; padding-top: 10px; border-top: var(--line-w) solid var(--hair); }
 .q-list.is-ref svg { color: var(--muted); }
 .q-list.is-ref li { color: var(--ink-2); font-weight: 500; }
+
+.q-num.is-none b { color: var(--faint); }
+.q-panel.is-none .q-none { margin: 2px 0 0; }

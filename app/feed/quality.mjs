@@ -109,6 +109,8 @@ export function scoreAll(papers, ratings, { now = Date.now(), weights = WEIGHTS 
   const out = new Map();
   for (const p of Object.values(papers)) {
     const e = evidence(p, ratings[p.id], now);
+    // nothing to go on (no acceptance, citations, code or AI review yet): no score, rather than a made-up middle one
+    if (!e.venue && !e.cites && !e.code && !e.ai) { out.set(p.id, { score: null, e }); continue; }
     const z = logit(weights, features(e)) + AI_WEIGHT * aiTerm(e);
     let s = Math.round(50 + 49 * Math.tanh(z / 1.1));
     if (e.venue) s = Math.max(s, e.venue.note ? 92 : 85);

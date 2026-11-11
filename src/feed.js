@@ -233,7 +233,8 @@
   const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2 8.8-9.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function qualityPanel(q) {
     if (!q) return '';
-    const tier = t(`qTier${qTier(q.score)}`);
+    const noScore = q.score == null;
+    const tier = noScore ? '' : t(`qTier${qTier(q.score)}`);
     // what the score counts, and what is shown alongside for reference
     const items = [], ref = [];
     const ok = (list, text, strong) => list.push(`<li${strong ? ' class="is-strong"' : ''}>${CHECK}<span>${esc(text)}</span></li>`);
@@ -245,13 +246,16 @@
     if (q.up) ok(ref, t('qUp', { n: q.up }));
     if (q.stars) ok(ref, t('qStars', { n: q.stars }));
     const ai = q.ai ? `<div class="q-ai"><p class="q-sub">${esc(t('qAi'))}</p><div class="q-ai-grid">${['qN', 'qR', 'qS', 'qC'].map((k, i) => `<div class="q-ai-row"><span>${esc(t(k))}</span><i><b style="width:${q.ai[i] * 10}%"></b></i><em>${q.ai[i]}</em></div>`).join('')}</div></div>` : '';
-    const on = Math.max(1, Math.round(q.score / 20));
-    return `<section class="q-panel q-t${qTier(q.score)}" aria-label="${esc(t('qTitle'))}">
-      <div class="q-head"><p class="q-num"><b>${q.score}</b><span>/100</span></p><div class="q-what"><p class="q-label">${esc(t('qTitle'))} · <strong>${esc(tier)}</strong></p><span class="q-meter q-meter-lg" aria-hidden="true">${[1, 2, 3, 4, 5].map((k) => `<i${k <= on ? ' class="on"' : ''}></i>`).join('')}</span></div></div>
-      ${items.length ? `<p class="q-sub q-sub-first">${esc(t('qCounted'))}</p><ul class="q-list">${items.join('')}</ul>` : q.ai ? '' : `<p class="q-none">${esc(t('qNone'))}</p>`}
+    const on = noScore ? 0 : Math.max(1, Math.round(q.score / 20));
+    const head = noScore
+      ? `<div class="q-head"><p class="q-num is-none"><b>—</b></p><div class="q-what"><p class="q-label">${esc(t('qTitle'))} · <strong>${esc(t('qNoScore'))}</strong></p><p class="q-none">${esc(t('qNone'))}</p></div></div>`
+      : `<div class="q-head"><p class="q-num"><b>${q.score}</b><span>/100</span></p><div class="q-what"><p class="q-label">${esc(t('qTitle'))} · <strong>${esc(tier)}</strong></p><span class="q-meter q-meter-lg" aria-hidden="true">${[1, 2, 3, 4, 5].map((k) => `<i${k <= on ? ' class="on"' : ''}></i>`).join('')}</span></div></div>`;
+    return `<section class="q-panel${noScore ? ' is-none' : ` q-t${qTier(q.score)}`}" aria-label="${esc(t('qTitle'))}">
+      ${head}
+      ${items.length ? `<p class="q-sub q-sub-first">${esc(t('qCounted'))}</p><ul class="q-list">${items.join('')}</ul>` : ''}
       ${ai}
       ${ref.length ? `<div class="q-ref"><p class="q-sub">${esc(t('qRef'))}</p><ul class="q-list is-ref">${ref.join('')}</ul></div>` : ''}
-      <p class="q-note">${esc(t('qNote'))}</p>
+      ${noScore ? '' : `<p class="q-note">${esc(t('qNote'))}</p>`}
     </section>`;
   }
   function cardHtml(c) {
@@ -520,7 +524,11 @@
       const c = feed.cards.get(id);
       if (!c || c.q === q) continue;
       c.q = q;
-      document.querySelectorAll(`.card[data-id="${CSS.escape(id)}"] .card-venue`).forEach((el) => { el.innerHTML = qualityBadge(c) + venueHtml(c); });
+      document.querySelectorAll(`.card[data-id="${CSS.escape(id)}"]`).forEach((card) => {
+        let line = card.querySelector('.card-venue');
+        if (!line) { line = document.createElement('p'); line.className = 'card-venue'; card.querySelector('.card-title')?.before(line); }
+        line.innerHTML = qualityBadge(c) + venueHtml(c);
+      });
     }
   });
 
