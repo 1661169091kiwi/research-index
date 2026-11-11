@@ -490,3 +490,5 @@ body.swipe-on .scroller > main { animation: none; }
 .sw-shelf-export:active { transform: scale(0.96); }
 .sw-shelf-export[hidden] { display: none; }
 .is-mobile .sw-shelf-head { padding: 0 12px; margin-bottom: 8px; }
+.sw-shelf-head.is-picking .sw-shelf-n { color: var(--ink); }
+html.fl .sw-shelf-head.is-picking .sw-shelf-n { color: var(--on); }

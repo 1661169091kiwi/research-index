@@ -1,5 +1,6 @@
-// Research index — export your Saved or Liked papers: as Markdown (a list to keep in notes) or as one long image.
-// A small panel picks which list, which format and whether to include abstracts; the result is shown first,
+// Research index — export papers you picked in Saved or Liked (long-press one to start picking): as Markdown
+// (a list to keep in notes) or as one long image. A small panel picks the format and whether to include
+// abstracts; the result is shown first,
 // then saved or shared (desktop: a file dialog or the clipboard; phone: the share sheet, or Downloads / the gallery).
 // Uses the page's feed script (window.RIFeed) and the share card's drawing kit (window.RIShare.kit).
 (function () {
@@ -13,7 +14,7 @@
   const today = () => new Date().toISOString().slice(0, 10);
 
   // ---------- the papers of a list, all of them ----------
-  async function gather(mode) {
+  async function gather(mode, ids) {
     const out = [];
     for (let offset = 0; offset < 3000;) {
       const r = await api.list({ mode, offset, limit: 100, withAbstract: true, minQ: 0 });
@@ -22,7 +23,9 @@
       offset += items.length;
       if (!items.length || offset >= (r.total ?? 0)) break;
     }
-    return out;
+    if (!ids) return out;
+    const want = new Set(ids);
+    return out.filter((p) => want.has(p.id));
   }
   async function counts() {
     const [s, l] = await Promise.all(['saved', 'liked'].map((mode) => api.list({ mode, offset: 0, limit: 1, minQ: 0 })));
@@ -147,7 +150,7 @@
 
   // ---------- the panel: which list, which format ----------
   let panel = null;
-  const pick = { mode: 'saved', fmt: 'md', abs: true };
+  const pick = { mode: 'saved', fmt: 'md', abs: true, ids: null };
   function closePanel() {
     if (!panel) return;
     const p = panel;
@@ -159,9 +162,12 @@
   function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (result) closeResult(); else closePanel(); } }
   const ICON_MD = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 15V9l2.5 3L11 9v6M15.5 9v6m0 0l-2-2.2m2 2.2l2-2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const ICON_IMG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3.5" width="18" height="17" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9.5" r="1.8" fill="currentColor"/><path d="M4 18l5-5 3.5 3.5L16 13l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
-  async function open(mode) {
+  // open({ mode: 'saved' | 'liked', ids }): export those papers of that list (ids omitted: the whole list)
+  async function open(arg) {
     if (panel) return;
+    const { mode, ids } = typeof arg === 'string' ? { mode: arg, ids: null } : arg || {};
     pick.mode = mode === 'liked' ? 'liked' : 'saved';
+    pick.ids = Array.isArray(ids) && ids.length ? [...ids] : null;
     document.querySelectorAll('[data-pop]').forEach((el) => { if (el.dataset.pop === 'remove') (window.riPopRemove || ((x) => x.remove()))(el); else el.hidden = true; });
     panel = document.createElement('div');
     panel.className = 'ex-modal';
@@ -169,13 +175,13 @@
     panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-label', t('exTitle'));
     panel.innerHTML = `<div class="ex-scrim" data-ex-close></div>
-      <section class="ex-panel">
+      <section class="ex-panel" data-glass="menu">
         <header class="ex-head"><h2>${esc(t('exTitle'))}</h2><button type="button" class="ex-x" data-ex-close data-back-close aria-label="${esc(t('close'))}">×</button></header>
-        <div class="ex-seg" role="radiogroup" aria-label="${esc(t('exWhich'))}">
+        ${pick.ids ? `<p class="ex-sub">${esc(t('exPicked', { n: pick.ids.length, list: t(pick.mode === 'liked' ? 'exLiked' : 'exSaved') }))}</p>` : `<div class="ex-seg" role="radiogroup" aria-label="${esc(t('exWhich'))}">
           <button type="button" role="radio" data-ex-mode="saved">${esc(t('exSaved'))}<span class="ex-n" data-n="saved"></span></button>
           <button type="button" role="radio" data-ex-mode="liked">${esc(t('exLiked'))}<span class="ex-n" data-n="liked"></span></button>
           <i class="ex-seg-thumb" aria-hidden="true"></i>
-        </div>
+        </div>`}
         <div class="ex-fmts" role="radiogroup" aria-label="${esc(t('exFormat'))}">
           <button type="button" role="radio" class="ex-fmt" data-ex-fmt="md">${ICON_MD}<b>Markdown</b><span>${esc(t('exMdHint'))}</span></button>
           <button type="button" role="radio" class="ex-fmt" data-ex-fmt="img">${ICON_IMG}<b>${esc(t('exImg'))}</b><span>${esc(t('exImgHint'))}</span></button>
@@ -189,14 +195,15 @@
     const n = { saved: 0, liked: 0 };
     const paint = () => {
       p.querySelectorAll('[data-ex-mode]').forEach((b) => { const on = b.dataset.exMode === pick.mode; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
-      p.querySelector('.ex-seg').classList.toggle('is-second', pick.mode === 'liked');
+      p.querySelector('.ex-seg')?.classList.toggle('is-second', pick.mode === 'liked');
       p.querySelectorAll('[data-ex-fmt]').forEach((b) => { const on = b.dataset.exFmt === pick.fmt; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
       const go = p.querySelector('[data-ex-go]');
       go.disabled = !n[pick.mode];
       go.querySelector('span').textContent = n[pick.mode] ? t('exGo', { n: n[pick.mode] }) : t('exEmpty');
     };
-    paint();
-    counts().then((c) => {
+    if (pick.ids) { n[pick.mode] = pick.ids.length; paint(); }
+    else paint();
+    if (!pick.ids) counts().then((c) => {
       if (panel !== p) return;
       Object.assign(n, c);
       p.querySelector('[data-n="saved"]').textContent = c.saved;
@@ -218,7 +225,7 @@
       go.classList.add('is-busy');
       go.querySelector('span').textContent = t('exWorking');
       try {
-        const papers = await gather(pick.mode);
+        const papers = await gather(pick.mode, pick.ids);
         if (panel !== p) return;
         if (pick.fmt === 'md') showResult({ kind: 'md', text: markdown(pick.mode, papers, pick.abs), mode: pick.mode, n: papers.length });
         else {

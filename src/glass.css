@@ -693,12 +693,15 @@ html.fl .tr-en { color: var(--on-2); }
 html.fl [data-pop].is-closing { animation: flFold 0.17s cubic-bezier(0.4, 0, 0.7, 0.2) both !important; }
 @keyframes flFold { to { opacity: 0; transform: scale(0.7); } }
 
-html.fl .ex-panel { border: 0; border-radius: var(--r-xl); padding: 20px; background: color-mix(in srgb, var(--card) 94%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.24), 0 0 0 0.5px rgba(0, 0, 0, 0.06); }
+/* the export panel stays liquid glass; what sits behind it is softened a little, and the controls on it are
+   frosted cards, so its text reads as clearly as on a solid sheet */
+html.fl .ex-panel { border: 0; border-radius: var(--r-xl); padding: 20px; }
+html.fl .ex-scrim { background: rgba(10, 10, 14, 0.26); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 html.fl .ex-x { border: 0; background: var(--glass-tint); color: var(--on); }
-html.fl .ex-seg { border: 0; background: var(--fill); border-radius: 14px; }
+html.fl .ex-seg { border: 0; background: color-mix(in srgb, var(--card) 45%, transparent); border-radius: 14px; }
 html.fl .ex-seg-thumb { background: var(--card); border-radius: 11px; }
 html.fl .ex-seg button.is-on { color: var(--on); }
-html.fl .ex-fmt { border: 1.5px solid transparent; background: var(--fill); border-radius: 18px; color: var(--on); }
+html.fl .ex-fmt { border: 1.5px solid transparent; background: color-mix(in srgb, var(--card) 62%, transparent); border-radius: 18px; color: var(--on); }
 html.fl .ex-fmt.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--card)); }
 html.fl .ex-fmt.is-on svg { color: var(--primary); }
 html.fl .ex-go { background: var(--primary); border-radius: 999px; box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 32%, transparent); }
@@ -707,3 +710,10 @@ html.fl .ex-md { color: var(--on); }
 html.fl .sw-shelf-export { border: 0; background: var(--glass-tint, var(--fill)); color: var(--on); }
 @media (max-width: 640px) { html.fl .ex-panel { border-radius: 26px 26px 0 0; } }
 @supports (corner-shape: superellipse(1.5)) { html.fl .ex-panel, html.fl .ex-fmt { corner-shape: superellipse(1.5); } }
+
+html.fl .pick-export { border: 0; background: var(--fill); color: var(--on); }
+html.fl .pick-txt { color: var(--primary); }
+html.fl .is-picking .pick-export:not(:disabled), html.fl .is-picking .sw-shelf-export:not(:disabled) { background: var(--primary); color: #fff; box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 30%, transparent); }
+html.fl #grid.is-picking .card.is-picked, html.fl .sw-shelf-grid.is-picking .sw-tile.is-picked { box-shadow: 0 0 0 3px var(--primary); }
+html.fl #grid.is-picking .card.is-picked::after, html.fl .sw-shelf-grid.is-picking .sw-tile.is-picked::after { background-color: var(--primary); }
+html.fl .ex-sub { color: var(--on-2); }

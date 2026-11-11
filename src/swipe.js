@@ -599,6 +599,7 @@
     root.classList.toggle('is-search', searchOpen);
     shelfEl.hidden = !shelfShown;
     $('#sw-shelf-head').hidden = !shelfShown || !!sw.query;
+    if (!shelfShown) $('#sw-pick-cancel').removeAttribute('data-back-close'); // picking ends with the grid (loadShelf)
     searchForm.hidden = !searchOpen;
     const back = $('#sw-back');
     back.hidden = !sw.player;
@@ -609,16 +610,53 @@
 
   // ---------- Saved / Liked: a grid of your papers; tap one to read them one at a time from there ----------
   const shelfEl = $('#sw-shelf'), shelfGrid = $('#sw-shelf-grid'), shelfEmpty = $('#sw-shelf-empty');
-  $('#sw-export').addEventListener('click', () => window.RIExport?.open(sw.mode === 'liked' ? 'liked' : 'saved'));
-  const shelf = { mode: '', items: [], off: 0, done: false, loading: false, token: 0 };
+  const shelf = { mode: '', items: [], off: 0, done: false, loading: false, token: 0, total: 0 };
+  // picking papers to export: long-press one (or tap Export), tap more, then Export
+  const pick = { on: false, ids: new Set() };
+  const shelfTotal = () => shelf.total || 0;
+  function paintPick() {
+    const head = $('#sw-shelf-head');
+    head.classList.toggle('is-picking', pick.on);
+    shelfGrid.classList.toggle('is-picking', pick.on);
+    const n = pick.ids.size;
+    $('#sw-shelf-n').textContent = pick.on ? (n ? t('pickN', { n }) : t('pickHint')) : shelfTotal() ? t('shelfN', { n: shelfTotal() }) : '';
+    $('#sw-pick-all').hidden = $('#sw-pick-cancel').hidden = !pick.on;
+    $('#sw-pick-all').textContent = t(n && n >= shelfTotal() ? 'pickNone' : 'pickAll');
+    $('#sw-pick-cancel').toggleAttribute('data-back-close', pick.on && shelfOn());
+    const ex = $('#sw-export');
+    ex.hidden = !shelfTotal();
+    ex.disabled = pick.on && !n;
+    ex.querySelector('span').textContent = pick.on && n ? t('exGoShort', { n }) : t('exShort');
+    shelfGrid.querySelectorAll('.sw-tile').forEach((el) => el.classList.toggle('is-picked', pick.ids.has(el.dataset.id)));
+  }
+  function endPick() { pick.on = false; pick.ids.clear(); paintPick(); }
+  function togglePick(id) { if (pick.ids.has(id)) pick.ids.delete(id); else pick.ids.add(id); paintPick(); }
+  $('#sw-pick-cancel').addEventListener('click', endPick);
+  $('#sw-pick-all').addEventListener('click', async () => {
+    if (pick.ids.size && pick.ids.size >= shelfTotal()) { pick.ids.clear(); return paintPick(); }
+    while (!shelf.done && shelfOn()) { const before = shelf.items.length; await shelfMore(); if (shelf.items.length === before) break; }
+    shelf.items.forEach((id) => pick.ids.add(id));
+    paintPick();
+  });
+  $('#sw-export').addEventListener('click', () => {
+    if (!pick.on) { pick.on = true; return paintPick(); }
+    if (!pick.ids.size) return;
+    window.RIExport?.open({ mode: sw.mode === 'liked' ? 'liked' : 'saved', ids: shelf.items.filter((id) => pick.ids.has(id)) });
+  });
+  F.longPress?.(shelfGrid, '.sw-tile', (el) => {
+    if (sw.query || !SHELF.has(sw.mode)) return;
+    if (!pick.on) pick.on = true;
+    togglePick(el.dataset.id);
+  });
   function tileHtml(c, i) {
     const zh = F.trOn && c.title_zh;
-    return `<button type="button" class="sw-tile${c.cover?.url ? ' has-fig' : ''}" data-tile="${i}" data-id="${esc(c.id)}">${coverHtml(c, { ratio: false })}<span class="sw-tile-title">${titleMath(zh ? c.title_zh : c.title)}</span></button>`;
+    return `<button type="button" class="sw-tile${c.cover?.url ? ' has-fig' : ''}${pick.ids.has(c.id) ? ' is-picked' : ''}" data-tile="${i}" data-id="${esc(c.id)}">${coverHtml(c, { ratio: false })}<span class="sw-tile-title">${titleMath(zh ? c.title_zh : c.title)}</span></button>`;
   }
   async function loadShelf({ fresh = false } = {}) {
     if (!fresh && shelf.mode === shelfKey() && shelf.items.length) return; // back from reading them: the grid as it was
     shelf.token++;
-    Object.assign(shelf, { mode: shelfKey(), items: [], off: 0, done: false, loading: false });
+    Object.assign(shelf, { mode: shelfKey(), items: [], off: 0, done: false, loading: false, total: 0 });
+    if (pick.on || pick.ids.size) { pick.on = false; pick.ids.clear(); }
     shelfGrid.innerHTML = '';
     shelfEmpty.hidden = true;
     shelfEl.scrollTop = 0;
@@ -638,8 +676,8 @@
     shelfGrid.insertAdjacentHTML('beforeend', res.items.map((c, k) => tileHtml(sw.cards.get(c.id), from + k)).join(''));
     wireFigure(shelfGrid);
     shelfEmpty.textContent = t(sw.query ? 'swNoResults' : sw.mode === 'liked' ? 'shelfEmptyLiked' : 'shelfEmptySaved');
-    $('#sw-shelf-n').textContent = res?.total ? t('shelfN', { n: res.total }) : '';
-    $('#sw-export').hidden = !res?.total;
+    shelf.total = res?.total || 0;
+    paintPick();
     shelfEmpty.hidden = shelf.items.length > 0;
     const noCover = res.items.filter((c) => !c.cover).map((c) => c.id);
     if (noCover.length) api.covers(noCover);
@@ -648,7 +686,9 @@
   new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) shelfMore(); }, { root: shelfEl, rootMargin: '700px 0px' }).observe($('#sw-shelf-more'));
   shelfGrid.addEventListener('click', (e) => {
     const b = e.target.closest('[data-tile]');
-    if (b) openPlayer(+b.dataset.tile);
+    if (!b) return;
+    if (pick.on) togglePick(b.dataset.id); // picking: a tap picks, it does not open
+    else openPlayer(+b.dataset.tile);
   });
   F.sideSwipe?.(shelfEl, { tabs: () => MODES, current: () => sw.mode, go: setMode, moveEl: () => shelfGrid });
   function openPlayer(i) {
@@ -791,7 +831,6 @@
     if (kind === 'tune') { $('#tune').click(); return; }
     if (kind === 'ai') { $('#ai-btn').click(); return; }
     if (kind === 'usage') { window.RIUsage?.open(); return; }
-    if (kind === 'export') { window.RIExport?.open(sw.mode === 'liked' ? 'liked' : 'saved'); return; }
     if (kind === 'share') { const c = sw.atEnd ? null : current(); if (c) window.RIShare?.open(c); return; }
     if (kind === 'about') { window.RIUpdate?.about(); return; }
     if (kind === 'grid') exit();

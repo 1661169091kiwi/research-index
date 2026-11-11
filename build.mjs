@@ -167,7 +167,7 @@ const FEED = {
     showOriginal: 'Show original', showTranslation: 'Show Chinese', trFailed: 'Translation failed: {message}',
     qN: 'Novelty', qR: 'Rigour', qS: 'Significance', qC: 'Clarity',
     q: 'Quality', qTier3: 'Excellent', qTier2: 'Good', qTier1: 'Fair', qTier0: 'Weak',
-    qTip: 'Quality {s}/100 · {tier} · for reference only', qNoScore: 'No score yet', qScoring: 'Scoring…', exMenu: 'Export Saved & Liked', exShort: 'Export', exTitle: 'Export papers', exWhich: 'Which list', exFormat: 'Format', exSaved: 'Saved', exLiked: 'Liked', exMdHint: 'Text for your notes app', exImg: 'Image', exImgHint: 'One long image to share', exAbs: 'Include abstracts', exGo: 'Export {n} papers', exEmpty: 'Nothing to export yet', exWorking: 'Preparing…', exCopy: 'Copy', exCopied: 'Copied', exSave: 'Save', exSaveAs: 'Save…', exCut: 'The image holds the first {n}; export Markdown for the whole list.', exHeadSaved: 'My saved papers', exHeadLiked: 'Papers I liked', exAt: 'Exported {d} · {n} papers', exAuthors: 'Authors', exInst: 'Institutions', exDate: 'Published', exScore: 'Quality', exLinks: 'Links', shelfN: '{n} papers', qScoringHint: 'The AI is rating it from the abstract; this takes a few seconds.', qCounted: 'Counted in the score', qRef: 'For reference',
+    qTip: 'Quality {s}/100 · {tier} · for reference only', qNoScore: 'No score yet', qScoring: 'Scoring…', exMenu: 'Export Saved & Liked', pickN: '{n} selected', pickCancel: 'Cancel', pickHint: 'Tap the papers to export', pickAll: 'Select all', pickNone: 'Select none', exGoShort: 'Export {n}', exPicked: '{n} papers selected from {list}', exShort: 'Export', exTitle: 'Export papers', exWhich: 'Which list', exFormat: 'Format', exSaved: 'Saved', exLiked: 'Liked', exMdHint: 'Text for your notes app', exImg: 'Image', exImgHint: 'One long image to share', exAbs: 'Include abstracts', exGo: 'Export {n} papers', exEmpty: 'Nothing to export yet', exWorking: 'Preparing…', exCopy: 'Copy', exCopied: 'Copied', exSave: 'Save', exSaveAs: 'Save…', exCut: 'The image holds the first {n}; export Markdown for the whole list.', exHeadSaved: 'My saved papers', exHeadLiked: 'Papers I liked', exAt: 'Exported {d} · {n} papers', exAuthors: 'Authors', exInst: 'Institutions', exDate: 'Published', exScore: 'Quality', exLinks: 'Links', shelfN: '{n} papers', qScoringHint: 'The AI is rating it from the abstract; this takes a few seconds.', qCounted: 'Counted in the score', qRef: 'For reference',
     qTitle: 'Quality', qOutOf: 'out of 100', qVenue: 'Accepted at {v}', qInst: 'From {names}', qH: 'Authors’ h-index up to {h}', qUp: '{n} upvotes on Hugging Face',
     qStars: '{n} GitHub stars', qCites: 'Cited {n} times', qCode: 'Code released', qAi: 'AI review of the abstract', qAiParts: 'novelty {n} · rigour {r} · significance {s} · clarity {c}',
     qNote: 'For reference only.',
@@ -267,7 +267,7 @@ const FEED = {
     showOriginal: '显示原文', showTranslation: '显示译文', trFailed: '翻译失败：{message}',
     qN: '新颖', qR: '严谨', qS: '重要', qC: '清晰',
     q: '质量', qTier3: '优秀', qTier2: '良好', qTier1: '一般', qTier0: '偏弱',
-    qTip: '质量 {s}/100 · {tier} · 仅供参考', qNoScore: '暂无评分', qScoring: '评分中', exMenu: '导出收藏与喜欢', exShort: '导出', exTitle: '导出论文列表', exWhich: '哪个列表', exFormat: '格式', exSaved: '收藏', exLiked: '喜欢', exMdHint: '纯文本，可导入笔记软件', exImg: '图片', exImgHint: '一张长图，便于分享', exAbs: '包含摘要', exGo: '导出 {n} 篇', exEmpty: '这里还没有论文', exWorking: '正在生成…', exCopy: '复制', exCopied: '已复制', exSave: '保存', exSaveAs: '保存…', exCut: '图片只放得下前 {n} 篇，完整列表请导出 Markdown。', exHeadSaved: '我的收藏', exHeadLiked: '我喜欢的论文', exAt: '导出于 {d} · 共 {n} 篇', exAuthors: '作者', exInst: '机构', exDate: '发表', exScore: '质量', exLinks: '链接', shelfN: '共 {n} 篇', qScoringHint: 'AI 正在根据摘要评分，通常几秒钟。', qCounted: '计入评分', qRef: '供参考',
+    qTip: '质量 {s}/100 · {tier} · 仅供参考', qNoScore: '暂无评分', qScoring: '评分中', exMenu: '导出收藏与喜欢', pickN: '已选 {n} 篇', pickCancel: '取消', pickHint: '点选要导出的论文', pickAll: '全选', pickNone: '全不选', exGoShort: '导出 {n} 篇', exPicked: '已从「{list}」选了 {n} 篇', exShort: '导出', exTitle: '导出论文列表', exWhich: '哪个列表', exFormat: '格式', exSaved: '收藏', exLiked: '喜欢', exMdHint: '纯文本，可导入笔记软件', exImg: '图片', exImgHint: '一张长图，便于分享', exAbs: '包含摘要', exGo: '导出 {n} 篇', exEmpty: '这里还没有论文', exWorking: '正在生成…', exCopy: '复制', exCopied: '已复制', exSave: '保存', exSaveAs: '保存…', exCut: '图片只放得下前 {n} 篇，完整列表请导出 Markdown。', exHeadSaved: '我的收藏', exHeadLiked: '我喜欢的论文', exAt: '导出于 {d} · 共 {n} 篇', exAuthors: '作者', exInst: '机构', exDate: '发表', exScore: '质量', exLinks: '链接', shelfN: '共 {n} 篇', qScoringHint: 'AI 正在根据摘要评分，通常几秒钟。', qCounted: '计入评分', qRef: '供参考',
     qTitle: '质量评分', qOutOf: '满分 100', qVenue: '{v} 已接收', qInst: '来自 {names}', qH: '作者最高 h 指数 {h}', qUp: 'Hugging Face {n} 赞',
     qStars: 'GitHub {n} 星', qCites: '被引用 {n} 次', qCode: '已开源代码', qAi: 'AI 对摘要的评审', qAiParts: '新颖 {n} · 严谨 {r} · 重要 {s} · 清晰 {c}',
     qNote: '仅供参考。',
@@ -586,7 +586,7 @@ function barMenu(L, page) {
   const T = I18N[L], C = T.client, F = FEED[L];
   const row = (label, control) => `<div class="ab-row"><span class="ab-label">${label}</span>${control}</div>`;
   const go = (kind, label) => `<button type="button" class="ab-row ab-btn" data-ab="${kind}"><span class="ab-label">${label}</span><span class="ab-go" aria-hidden="true">›</span></button>`;
-  const feedRows = page === 'papers.html' ? `<div class="ab-group">${go('ai', F.aiTitle)}${go('usage', F.usageMenu)}${go('tune', F.interests)}${go('export', F.exMenu)}</div>` : '';
+  const feedRows = page === 'papers.html' ? `<div class="ab-group">${go('ai', F.aiTitle)}${go('usage', F.usageMenu)}${go('tune', F.interests)}</div>` : '';
   return `<button class="bar-menu-btn" type="button" data-about data-pop-opener aria-label="${C.settings}" title="${C.settings}" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="about-dot" hidden></span></button>
 <div class="about-pop" id="about-pop" data-glass="menu" data-pop role="dialog" aria-label="${C.about}" hidden>
   <div class="ab-head"><img class="ab-icon" src="../assets/icon.svg" alt=""><div class="ab-name"><b>${T.siteTitle}</b><span>${C.version.replace('{v}', CTX.version)}</span></div></div>
@@ -800,6 +800,7 @@ function papersPage(L, config) {
   <section class="wrap">
     <p class="feed-basis" id="feed-basis" hidden></p>
     <p class="feed-cold" id="feed-cold" hidden><span>${F.coldFor}</span> <button class="link-btn" type="button" id="cold-tune">${F.coldForBtn}</button></p>
+    <div class="pick-bar" id="pick-bar" hidden><span class="pick-n" id="pick-n"></span><span class="pick-tools"><button type="button" class="pick-txt" id="pick-all" hidden>${F.pickAll}</button><button type="button" class="pick-txt" id="pick-cancel" hidden>${F.pickCancel}</button><button type="button" class="pick-export" id="pick-export"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${F.exShort}</span></button></span></div>
     <div class="masonry" id="grid"></div>
     <div class="feed-msg" id="feed-msg" hidden></div>
     <div class="feed-more" id="feed-more"></div>
@@ -843,7 +844,6 @@ function papersPage(L, config) {
         <button type="button" data-sw-menu="tune">${F.interests}</button>
         <button type="button" data-sw-menu="ai">${F.aiTitle}</button>
         <button type="button" data-sw-menu="usage">${F.usageMenu}</button>
-        <button type="button" data-sw-menu="export">${F.exMenu}</button>
         <button type="button" data-sw-menu="about">${I18N[L].client.about}</button>
         <button type="button" data-sw-menu="grid">${F.view_grid}<kbd>V</kbd></button>
       </div>
@@ -851,7 +851,7 @@ function papersPage(L, config) {
   </header>
   <div class="sw-stage">
     <div class="sw-track" id="sw-track" tabindex="-1"></div>
-    <div class="sw-shelf" id="sw-shelf" hidden><div class="sw-shelf-head" id="sw-shelf-head" hidden><span class="sw-shelf-n" id="sw-shelf-n"></span><button type="button" class="sw-shelf-export" id="sw-export" data-glass="round"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${F.exShort}</button></div><div class="sw-shelf-grid" id="sw-shelf-grid"></div><p class="sw-shelf-empty" id="sw-shelf-empty" hidden></p><div class="sw-shelf-more" id="sw-shelf-more"></div></div>
+    <div class="sw-shelf" id="sw-shelf" hidden><div class="sw-shelf-head" id="sw-shelf-head" hidden><span class="sw-shelf-n" id="sw-shelf-n"></span><span class="pick-tools"><button type="button" class="pick-txt" id="sw-pick-all" hidden>${F.pickAll}</button><button type="button" class="pick-txt" id="sw-pick-cancel" hidden>${F.pickCancel}</button><button type="button" class="sw-shelf-export" id="sw-export" data-glass="round"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${F.exShort}</span></button></span></div><div class="sw-shelf-grid" id="sw-shelf-grid"></div><p class="sw-shelf-empty" id="sw-shelf-empty" hidden></p><div class="sw-shelf-more" id="sw-shelf-more"></div></div>
     <div class="sw-nav" id="sw-nav">
       <button type="button" data-sw-go="-1" data-glass="round" aria-label="${F.swPrev}" title="${F.swPrev} (↑)">${SWI.up}</button>
       <button type="button" data-sw-go="1" data-glass="round" aria-label="${F.swNext}" title="${F.swNext} (↓)">${SWI.down}</button>

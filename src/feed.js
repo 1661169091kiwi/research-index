@@ -261,7 +261,7 @@
     </section>`;
   }
   function cardHtml(c) {
-    return `<article class="card${c.opened ? ' is-opened' : ''}" data-id="${esc(c.id)}">
+    return `<article class="card${c.opened ? ' is-opened' : ''}${picking.ids.has(c.id) ? ' is-picked' : ''}" data-id="${esc(c.id)}">
       ${coverHtml(c)}
       <button class="cv-save${c.saved ? ' on' : ''}" type="button" data-act="save" aria-label="${esc(t('save'))}" title="${esc(t('save'))}">${ICON.mark}</button>
       <div class="card-body">
@@ -398,6 +398,7 @@
     sessionSet(deckKey(), feed.deck);
     if (reset) makeColumns(lastCols);
     feed.total = res.total;
+    paintPick();
     feed.offset += res.items.length;
     feed.done = feed.offset >= res.total;
     addCards(res.items);
@@ -695,6 +696,7 @@
     chips.innerHTML = '';
   }
   function setView(patch, { keepQuery = false } = {}) {
+    if ('mode' in patch && patch.mode !== view.mode && picking.on) { picking.on = false; picking.ids.clear(); }
     Object.assign(view, patch);
     if (!keepQuery && !('query' in patch)) { view.query = ''; $('#fq').value = ''; }
     store.set('ri-feed-view', { mode: view.mode, topic: view.topic, collection: view.collection });
@@ -1589,6 +1591,84 @@
     el.classList.add('is-streaming');
     trFlicker();
   }
+  // ---------- holding a finger (or the mouse button) on something: 450 ms, without moving ----------
+  // fn(el) runs; the click that follows the release is swallowed (so the long press does not also open it)
+  function longPress(root, sel, fn, ms = 450) {
+    let timer = 0, x0 = 0, y0 = 0, fired = false;
+    const cancel = () => { clearTimeout(timer); timer = 0; };
+    root.addEventListener('pointerdown', (e) => {
+      if (e.button > 0) return;
+      const el = e.target.closest(sel);
+      if (!el || !root.contains(el)) return;
+      fired = false; x0 = e.clientX; y0 = e.clientY;
+      cancel();
+      timer = setTimeout(() => { timer = 0; fired = true; try { navigator.vibrate?.(12); } catch { /* no vibration */ } fn(el); }, ms);
+    });
+    root.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > 8) cancel(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => root.addEventListener(t, cancel));
+    root.addEventListener('contextmenu', (e) => { if (e.target.closest(sel) && (fired || timer)) e.preventDefault(); });
+    root.addEventListener('click', (e) => { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  }
+
+  // ---------- Saved / Liked in the grid: pick papers (long-press one, or Export), then export them ----------
+  const picking = { on: false, ids: new Set() };
+  const pickBar = $('#pick-bar');
+  function paintPick() {
+    if (!pickBar) return;
+    const show = personal() && (feed.total > 0 || picking.on);
+    pickBar.hidden = !show;
+    grid.classList.toggle('is-picking', picking.on);
+    pickBar.classList.toggle('is-picking', picking.on);
+    const n = picking.ids.size;
+    $('#pick-n').textContent = picking.on ? (n ? t('pickN', { n }) : t('pickHint')) : t('shelfN', { n: feed.total || 0 });
+    $('#pick-all').hidden = $('#pick-cancel').hidden = !picking.on;
+    $('#pick-all').textContent = t(n && n >= (feed.total || 0) ? 'pickNone' : 'pickAll');
+    const ex = $('#pick-export');
+    ex.disabled = picking.on && !n;
+    ex.querySelector('span').textContent = picking.on && n ? t('exGoShort', { n }) : t('exShort');
+    document.querySelectorAll('#grid .card').forEach((el) => el.classList.toggle('is-picked', picking.ids.has(el.dataset.id)));
+  }
+  function startPick(id) {
+    picking.on = true;
+    if (id) picking.ids.add(id);
+    paintPick();
+  }
+  function endPick() { picking.on = false; picking.ids.clear(); paintPick(); }
+  function togglePick(id) { if (picking.ids.has(id)) picking.ids.delete(id); else picking.ids.add(id); paintPick(); }
+  if (pickBar) {
+    $('#pick-cancel').addEventListener('click', endPick);
+    $('#pick-all').addEventListener('click', async () => {
+      if (picking.ids.size && picking.ids.size >= (feed.total || 0)) { picking.ids.clear(); return paintPick(); }
+      // every paper of the list, not only those loaded so far
+      const mode = view.mode === 'liked' ? 'liked' : 'saved';
+      for (let off = 0; off < 3000;) {
+        const r = await api.list({ mode, offset: off, limit: 100, minQ: 0 });
+        (r?.items || []).forEach((c) => picking.ids.add(c.id));
+        off += r?.items?.length || 0;
+        if (!r?.items?.length || off >= (r.total || 0)) break;
+      }
+      paintPick();
+    });
+    $('#pick-export').addEventListener('click', () => {
+      if (!picking.on) return startPick();
+      if (!picking.ids.size) return;
+      // in the order the grid shows them
+      const order = [...document.querySelectorAll('#grid .card')].map((el) => el.dataset.id).filter((id) => picking.ids.has(id));
+      const rest = [...picking.ids].filter((id) => !order.includes(id));
+      window.RIExport?.open({ mode: view.mode === 'liked' ? 'liked' : 'saved', ids: [...order, ...rest] });
+    });
+    longPress(grid, '.card', (el) => { if (personal()) { if (picking.on) togglePick(el.dataset.id); else startPick(el.dataset.id); } });
+    // while picking, a click picks (it does not open the paper, like or save)
+    grid.addEventListener('click', (e) => {
+      if (!picking.on) return;
+      const card = e.target.closest('.card');
+      if (!card) return;
+      e.stopPropagation(); e.preventDefault();
+      togglePick(card.dataset.id);
+    }, true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && picking.on && !document.querySelector('.ex-modal, .share-modal')) endPick(); });
+  }
+
   const KEY_CUE_ZH = /我们(提出|引入|展示|发现|设计|开发|证明)|本文(提出|引入)|优于|超过|超越|显著|提升了|达到了|实现了/;
   const abstractZhHtml = (text) => text.split(/(?<=[。！？])/).map((s) => (KEY_CUE_ZH.test(s) ? `<span class="key">${mathHtml(s)}</span>` : mathHtml(s))).join('');
   function renderAbstract() {
@@ -1846,7 +1926,7 @@
     openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView, openDirs, closeDirs, paintDirBtn, fitTabs,
     // the swipe view's Saved / Liked tabs open here, in the grid
     showMode(mode) { hooks.exit?.(); if (view.mode !== mode || view.query) setView({ mode, collection: '' }); else relayout(); },
-    sideSwipe, trStream,
+    sideSwipe, trStream, longPress,
     act: async (c, kind) => (kind === 'like' ? toggleLike(c) : toggleSave(c)),
     get META() { return META; }, get AI() { return AI; }, get trOn() { return trOn; }, get sheetId() { return sheetState.id; }, get sheetPaper() { return sheetState.data?.paper || null; },
     gridShown() { if (!feed.order.length && !feed.loading) load(true); else relayout(); },
@@ -1855,17 +1935,13 @@
   $('#view-btn')?.addEventListener('click', () => hooks.enter?.());
   // the settings panel (top bar): AI settings, AI usage, interests
   document.addEventListener('click', (e) => {
-    const b = e.target.closest('#about-pop [data-ab="ai"], #about-pop [data-ab="usage"], #about-pop [data-ab="tune"], #about-pop [data-ab="export"]');
+    const b = e.target.closest('#about-pop [data-ab="ai"], #about-pop [data-ab="usage"], #about-pop [data-ab="tune"]');
     if (!b) return;
     e.stopPropagation();
     $('#about-pop').hidden = true;
     document.querySelectorAll('[data-about]').forEach((x) => x.setAttribute('aria-expanded', 'false'));
     const kind = b.dataset.ab;
-    setTimeout(() => {
-      if (kind === 'usage') window.RIUsage?.open();
-      else if (kind === 'export') window.RIExport?.open(view.mode === 'liked' ? 'liked' : 'saved');
-      else $(kind === 'ai' ? '#ai-btn' : '#tune')?.click();
-    }, 0);
+    setTimeout(() => { if (kind === 'usage') window.RIUsage?.open(); else $(kind === 'ai' ? '#ai-btn' : '#tune')?.click(); }, 0);
   });
   document.addEventListener('click', (e) => { const x = e.target.closest('[data-pop-close]'); if (x) { e.stopPropagation(); x.closest('.tune-pop').hidden = true; } });
 

@@ -629,3 +629,38 @@ html.fl .inst-more { background: var(--fill); }
   @keyframes exDown { to { transform: translateY(100%); } }
 }
 @media (prefers-reduced-motion: reduce) { .ex-panel, .ex-modal.is-leaving .ex-panel { animation: none; } }
+
+/* ---------- picking papers to export (Saved / Liked) ---------- */
+.pick-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; min-height: 38px; }
+.pick-bar[hidden] { display: none; }
+.pick-n { font: 600 14px var(--display); color: var(--muted); transition: color 0.2s; }
+.is-picking .pick-n, .pick-bar.is-picking .pick-n { color: var(--ink); }
+.pick-tools { display: inline-flex; align-items: center; gap: 6px; }
+.pick-txt { appearance: none; border: 0; background: none; padding: 8px 10px; font: 600 14px var(--display); color: var(--blue); cursor: pointer; border-radius: 999px; animation: pickIn 0.24s var(--ease) both; }
+.pick-txt[hidden] { display: none; }
+@keyframes pickIn { from { opacity: 0; transform: translateX(8px); } }
+.pick-export, .sw-shelf-export { appearance: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 15px 0 12px; border: var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font: 600 14px var(--display); cursor: pointer; transition: background 0.2s, color 0.2s, opacity 0.2s, transform 0.15s; }
+.pick-export svg, .sw-shelf-export svg { width: 16px; height: 16px; }
+.pick-export:active, .sw-shelf-export:active { transform: scale(0.96); }
+.is-picking .pick-export:not(:disabled), .is-picking .sw-shelf-export:not(:disabled) { background: var(--blue); border-color: var(--blue); color: #fff; }
+.pick-export:disabled, .sw-shelf-export:disabled { opacity: 0.45; cursor: default; }
+/* the papers: a round check on each while picking; a picked one sinks a little and its check fills */
+#grid .card, .sw-tile { -webkit-touch-callout: none; user-select: none; }
+#grid.is-picking .card, .sw-shelf-grid.is-picking .sw-tile { transition: transform 0.25s cubic-bezier(0.2, 1.2, 0.4, 1), box-shadow 0.2s; }
+#grid.is-picking .card::after, .sw-shelf-grid.is-picking .sw-tile::after {
+  content: ""; position: absolute; top: 10px; left: 10px; z-index: 3; width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid #fff; background: rgba(0, 0, 0, 0.28) center / 16px no-repeat; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  animation: pickDot 0.3s cubic-bezier(0.2, 1.5, 0.4, 1) both; pointer-events: none;
+}
+.sw-shelf-grid.is-picking .sw-tile::after { left: auto; right: 8px; top: 8px; }
+@keyframes pickDot { from { opacity: 0; transform: scale(0.4); } }
+#grid.is-picking .card.is-picked, .sw-shelf-grid.is-picking .sw-tile.is-picked { transform: scale(0.95); box-shadow: 0 0 0 3px var(--blue); }
+#grid.is-picking .card.is-picked::after, .sw-shelf-grid.is-picking .sw-tile.is-picked::after { background-color: var(--blue); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); animation: pickCheck 0.32s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes pickCheck { 0% { transform: scale(0.6); } 100% { transform: none; } }
+#grid.is-picking .card { position: relative; }
+.ex-sub { margin: -4px 0 0; font: 600 14px var(--display); color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .pick-txt, #grid.is-picking .card::after, .sw-shelf-grid.is-picking .sw-tile::after { animation: none; } }
+
+/* while picking, the card's corner labels make way for the check, and its save button steps aside */
+#grid .card .cv-top { transition: opacity 0.2s; }
+#grid.is-picking .card .cv-top, #grid.is-picking .card .cv-save { opacity: 0; pointer-events: none; }
