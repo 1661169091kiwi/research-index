@@ -1,0 +1,123 @@
+<div id="ri-splash" role="status" aria-live="polite" aria-label="{{name}}">
+<style>
+/* Research Index — the phone's loading screen (designed in Remotion: D:\D-projects\Idea_of_papers\splash).
+   Inline, so it is on screen before any stylesheet or script has loaded. */
+#ri-splash{--pg:#eef0f4;--ink:#16171b;--mu:rgba(22,23,27,.5);--gl:rgba(255,255,255,.6);--rim:rgba(255,255,255,.9);--tr:rgba(20,24,40,.08);
+  position:fixed;inset:0;z-index:2147483000;background:var(--pg);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:"Inter","Inter Variable","Noto Sans SC Variable","Noto Sans SC","PingFang SC","Microsoft YaHei UI",system-ui,sans-serif;-webkit-user-select:none;user-select:none;
+  transition:background-color .5s ease,opacity .5s ease}
+@media (prefers-color-scheme:dark){#ri-splash{--pg:#111216;--ink:#f2f3f5;--mu:rgba(235,236,240,.56);--gl:rgba(40,42,48,.6);--rim:rgba(255,255,255,.16);--tr:rgba(255,255,255,.09)}}
+#ri-splash .b{position:absolute;border-radius:50%;filter:blur(48px);opacity:0;animation:rsFade .6s ease forwards,rsDrift 9s ease-in-out infinite alternate}
+#ri-splash .b1{left:-100px;top:12%;width:340px;height:340px;background:#007aff;--o:.22}
+#ri-splash .b2{right:-90px;top:62%;width:310px;height:310px;background:#f3c246;--o:.26;animation-delay:0s,-3s}
+#ri-splash .b3{left:-50px;top:72%;width:240px;height:240px;background:#14805e;--o:.14;animation-delay:0s,-6s}
+@media (prefers-color-scheme:dark){#ri-splash .b1{--o:.28}#ri-splash .b2{--o:.17}#ri-splash .b3{--o:.16}}
+#ri-splash .in{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-6vh;transition:transform .55s cubic-bezier(.4,0,.2,1),opacity .45s ease,filter .5s ease}
+#ri-splash .tile{position:relative;width:112px;height:112px;border-radius:26px;overflow:hidden;background:linear-gradient(150deg,#3352ff,#1f3be6 55%,#1630c2);
+  box-shadow:0 16px 36px rgba(31,59,230,.32),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 8px rgba(0,0,0,.18);
+  opacity:0;animation:rsTile .75s cubic-bezier(.34,1.5,.5,1) .12s forwards,rsBreathe 3.2s ease-in-out 1.6s infinite}
+#ri-splash .tile i{position:absolute;background:#fff;border-radius:2.5px}
+#ri-splash .p1{left:21.9%;top:21.9%;width:15.6%;height:56.25%;transform-origin:top;transform:scaleY(0);animation:rsY .42s cubic-bezier(.2,.9,.2,1) .46s forwards}
+#ri-splash .p2{left:46.9%;top:21.9%;width:31.25%;height:15.6%;transform-origin:left;transform:scaleX(0);animation:rsX .42s cubic-bezier(.2,.9,.2,1) .62s forwards}
+#ri-splash .p3{left:62.5%;top:62.5%;width:15.6%;height:15.6%;transform:scale(0);animation:rsPop .5s cubic-bezier(.3,1.9,.5,1) .86s forwards}
+#ri-splash .gl{position:absolute;top:-40%;bottom:-40%;width:35%;left:-60%;transform:rotate(22deg);background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.42),rgba(255,255,255,0));animation:rsGlint .6s ease 1.32s}
+#ri-splash.is-ready .gl{animation:rsGlint2 .6s ease}
+#ri-splash .nm{margin-top:30px;display:flex;font-size:34px;font-weight:750;color:var(--ink);letter-spacing:{{tracking}}}
+#ri-splash .nm span{display:inline-block;white-space:pre;opacity:0;transform:translateY(17px);filter:blur(4px);animation:rsRise .6s cubic-bezier(.3,1.35,.5,1) forwards}
+#ri-splash .tg{margin-top:9px;font-size:15px;font-weight:500;color:var(--mu);letter-spacing:{{tagTracking}};opacity:0;transform:translateY(7px);animation:rsUp .5s cubic-bezier(.2,.9,.3,1) 1.26s forwards}
+#ri-splash .pill{margin-top:54px;padding:7px;border-radius:99px;background:var(--gl);border:1px solid var(--rim);
+  -webkit-backdrop-filter:blur(18px) saturate(1.8);backdrop-filter:blur(18px) saturate(1.8);box-shadow:0 8px 22px rgba(20,30,70,.12),inset 0 1px 0 var(--rim);
+  opacity:0;transform:scale(.7);animation:rsPill .55s cubic-bezier(.3,1.45,.5,1) 1.38s forwards}
+#ri-splash .tk{position:relative;width:164px;height:6px;border-radius:99px;background:var(--tr);overflow:hidden}
+#ri-splash .fl{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;background:linear-gradient(90deg,#4aa3ff,#007aff);box-shadow:0 0 8px rgba(0,122,255,.55);overflow:hidden;transition:width .45s cubic-bezier(.2,.9,.3,1)}
+#ri-splash .fl::after{content:"";position:absolute;top:0;bottom:0;width:60px;left:-60px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.7),rgba(255,255,255,0));animation:rsSheen 1.1s linear infinite}
+#ri-splash .st{margin-top:13px;height:18px;font-size:13px;font-weight:550;color:var(--mu);text-align:center;opacity:0;animation:rsFade .4s ease 1.5s forwards;--o:1;transition:color .25s}
+#ri-splash .st b{font-weight:inherit;display:inline-block;animation:rsUp .3s ease both}
+#ri-splash .st i{font-style:normal;animation:rsDot 1.2s ease-in-out infinite}
+#ri-splash .st i:nth-of-type(2){animation-delay:.2s}#ri-splash .st i:nth-of-type(3){animation-delay:.4s}
+#ri-splash.is-ready .st{color:#007aff}
+/* everything loaded: the splash lifts away and the page settles in */
+#ri-splash.is-out{pointer-events:none;background-color:transparent}
+#ri-splash.is-out .in{transform:translateY(-34px) scale(1.06);opacity:0;filter:blur(6px)}
+#ri-splash.is-out .b{transition:opacity .4s;opacity:0!important}
+@keyframes rsFade{to{opacity:var(--o,1)}}
+@keyframes rsDrift{from{transform:translate(0,0)}to{transform:translate(28px,-22px)}}
+@keyframes rsTile{from{opacity:0;transform:scale(.55) rotate(-10deg)}40%{opacity:1}to{opacity:1;transform:none}}
+@keyframes rsBreathe{50%{transform:scale(1.012)}}
+@keyframes rsY{to{transform:scaleY(1)}}
+@keyframes rsX{to{transform:scaleX(1)}}
+@keyframes rsPop{to{transform:scale(1)}}
+@keyframes rsGlint{from{left:-60%}to{left:140%}}
+@keyframes rsGlint2{from{left:-60%}to{left:140%}}
+@keyframes rsRise{to{opacity:1;transform:none;filter:none}}
+@keyframes rsUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes rsPill{to{opacity:1;transform:none}}
+@keyframes rsSheen{to{left:180px}}
+@keyframes rsDot{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#ri-splash *,#ri-splash *::after{animation-duration:.01s!important;animation-delay:0s!important;animation-iteration-count:1!important}}
+body.ri-settle .swipe,body.ri-settle .scroller{animation:rsSettle .55s cubic-bezier(.2,.9,.3,1) both}
+@keyframes rsSettle{from{opacity:.4;transform:translateY(26px) scale(.975)}}
+</style>
+<i class="b b1"></i><i class="b b2"></i><i class="b b3"></i>
+<div class="in">
+  <div class="tile" aria-hidden="true"><i class="p1"></i><i class="p2"></i><i class="p3"></i><span class="gl"></span></div>
+  <div class="nm" aria-hidden="true">{{chars}}</div>
+  <div class="tg">{{tag}}</div>
+  <div class="pill" aria-hidden="true"><div class="tk"><div class="fl"></div></div></div>
+  <div class="st"></div>
+</div>
+<script>
+// Stays until the app is really ready: the feed service has started (1), papers are on screen (2), and the first
+// ones' covers and the fonts have loaded (3). The bar moves toward each stage as it is reached and creeps on in
+// between, so it never looks stuck. At least 1.9 s on screen (the mark and the name finish drawing); at most 15 s (a first
+// start fetches the library from arXiv: the page then shows its own progress).
+(function () {
+  var el = document.getElementById('ri-splash'); if (!el) return;
+  var S = {{steps}}, SLOW = {{slow}};
+  var fill = el.querySelector('.fl'), st = el.querySelector('.st');
+  var t0 = performance.now(), stage = 0, shown = -1, cur = 0, since = t0, coverWait = 0, done = false;
+  var GOAL = [0.34, 0.7, 0.92, 1];
+  function say(i, slow) {
+    var key = i + (slow ? 's' : '');
+    if (shown === key) return; shown = key;
+    st.innerHTML = '<b>' + (slow ? SLOW : S[i]) + '</b>' + (i < 3 ? '<i>.</i><i>.</i><i>.</i>' : ' ✓');
+  }
+  say(0);
+  function q(s) { return document.querySelector(s); }
+  function ready1() { try { return !!(window.RIFeed && window.RIFeed.META); } catch (e) { return false; } }
+  function cards() { return document.querySelectorAll('#sw-track .sw-card[data-id], #grid .card'); }
+  function coversIn() {
+    var imgs = document.querySelectorAll('#sw-track .sw-card.is-active img, #sw-track .sw-card[data-i="0"] img, #grid .card:nth-child(-n+4) img');
+    for (var i = 0; i < imgs.length; i++) if (!imgs[i].complete) return false;
+    return !document.fonts || document.fonts.status === 'loaded';
+  }
+  function finish() {
+    if (done) return; done = true;
+    stage = 3; say(3); el.classList.add('is-ready'); fill.style.width = '100%';
+    setTimeout(function () {
+      el.classList.add('is-out');
+      document.body.classList.add('ri-settle');
+      setTimeout(function () { el.remove(); document.body.classList.remove('ri-settle'); }, 620);
+    }, 420);
+  }
+  window.RISplash = { finish: finish };
+  (function tick() {
+    if (done) return;
+    var now = performance.now();
+    if (stage === 0 && ready1()) { stage = 1; since = now; }
+    if (stage === 1 && cards().length) { stage = 2; since = now; coverWait = now; }
+    if (stage < 2 && now - t0 > 5000) say(stage, true); else say(stage);
+    var goal = GOAL[stage];
+    // creep toward the next stage while waiting, never reaching it
+    var next = GOAL[Math.min(3, stage + 1)];
+    goal += (next - goal) * 0.75 * (1 - Math.exp(-(now - since) / 4000));
+    cur += (goal - cur) * 0.14;
+    if (now - t0 > 1400) fill.style.width = (cur * 100).toFixed(1) + '%';
+    var minOk = now - t0 > 1900; // the name has landed
+    if (minOk && stage === 2 && (coversIn() || now - coverWait > 2500)) return finish();
+    if (now - t0 > 15000) return finish();
+    requestAnimationFrame(tick);
+  })();
+})();
+</script>
+</div>

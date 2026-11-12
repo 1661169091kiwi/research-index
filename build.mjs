@@ -540,6 +540,22 @@ function tabs(L, current) {
   return `<nav class="tabs" aria-label="Sections"><a href="index.html"${current === 'surveys' ? ' class="is-current"' : ''}>${T.tabSurveys}</a><a href="papers.html"${current === 'papers' ? ' class="is-current"' : ''}>${T.tabPapers}</a></nav>`;
 }
 
+// the phone app's loading screen (src/splash.html): inline in the page, so it shows before anything else loads
+const SPLASH_TEXT = {
+  zh: { name: '研究索引', tag: '一次读一篇论文', steps: ['正在连接论文库', '正在整理推荐', '正在加载封面', '准备就绪'], slow: '首次启动，正在获取论文', tracking: '0.06em', tagTracking: '0.12em' },
+  en: { name: 'Research Index', tag: 'One paper at a time', steps: ['Opening the library', 'Picking papers for you', 'Loading covers', 'Ready'], slow: 'First start: fetching papers', tracking: '-0.02em', tagTracking: '0.01em' },
+};
+function splashHtml(L) {
+  const x = SPLASH_TEXT[L] || SPLASH_TEXT.en;
+  // one character after another, the whole name within 0.35 s (a long English name staggers faster)
+  const n = [...x.name].length, gap = Math.min(0.083, 0.35 / Math.max(1, n - 1));
+  const chars = [...x.name].map((c, i) => `<span style="animation-delay:${(0.93 + i * gap).toFixed(3)}s">${esc(c)}</span>`).join('');
+  return fs.readFileSync(path.join(SRC, 'splash.html'), 'utf8')
+    .replace('{{chars}}', chars).replace('{{tag}}', esc(x.tag)).replace('{{name}}', esc(x.name))
+    .replace('{{tracking}}', x.tracking).replace('{{tagTracking}}', x.tagTracking)
+    .replace('{{steps}}', JSON.stringify(x.steps.map((v) => esc(v)))).replace('{{slow}}', JSON.stringify(esc(x.slow)));
+}
+
 function layout({ L, title, bodyClass, bar, main, after = '' }) {
   const T = I18N[L];
   return `<!doctype html>
@@ -563,7 +579,8 @@ function layout({ L, title, bodyClass, bar, main, after = '' }) {
 <script src="../assets/update.js" defer></script>
 <script src="../assets/app.js" defer></script>${bodyClass === 'page-papers' ? '\n<script src="../assets/katex/katex.min.js" defer></script>\n<script src="../assets/feed.js" defer></script>\n<script src="../assets/swipe.js" defer></script>\n<script src="../assets/qrcode.js" defer></script>\n<script src="../assets/share.js" defer></script>\n<script src="../assets/export.js" defer></script>\n<script src="../assets/usage.js" defer></script>' : ''}
 </head>
-<body class="${bodyClass}">
+<body class="${bodyClass}">${CTX.mobile && bodyClass === 'page-papers' ? `
+${splashHtml(L)}` : ''}
 <header class="bar"><div class="bar-inner">${bar}</div><div class="progress" aria-hidden="true"><span></span></div></header>
 <div class="scroller" id="scroller">
 ${main}
@@ -877,7 +894,7 @@ function papersPage(L, config) {
 function redirectPage(start = 'index.html') {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="theme-color" content="#f6f5f1"><title>Research index · 研究索引</title>
-<style>html{background:#f6f5f1;font:15px system-ui,sans-serif}a{color:#1f3be6;margin:0 8px}</style>
+<style>html{background:#eef0f4;font:15px system-ui,sans-serif}a{color:#1f3be6;margin:0 8px}@media (prefers-color-scheme:dark){html{background:#111216}}</style>
 <script>var l;try{l=localStorage.getItem('ri-lang')}catch(e){}if(l!=='en'&&l!=='zh'){l=/^zh/i.test(navigator.language||'')?'zh':'en'}location.replace(l+'/${start}'+location.hash);</script>
 </head><body><noscript><a href="en/index.html">English</a><a href="zh/index.html">中文</a></noscript></body></html>
 `;

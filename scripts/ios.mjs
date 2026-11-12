@@ -19,7 +19,7 @@ const log = (s) => console.log(`\n== ${s}`);
 const run = (cmd, args, opts = {}) => { const r = spawnSync(cmd, args, { stdio: 'inherit', ...opts }); if (r.status !== 0) throw new Error(`${path.basename(cmd)} failed (${r.status})`); };
 
 // ---------- images: the Research Index mark (as in make-icon.mjs) ----------
-const BLUE = [0x1f, 0x3b, 0xe6], PAPER = [0xf6, 0xf5, 0xf1];
+const BLUE = [0x1f, 0x3b, 0xe6], PAPER = [0xee, 0xf0, 0xf4];
 const RECTS = [[14, 14, 10, 36], [30, 14, 20, 10], [40, 40, 10, 10]];
 // an opaque square: `bg` everywhere, the blue mark of size `mark` in the middle
 function image(size, { mark = size, bg = BLUE } = {}) {

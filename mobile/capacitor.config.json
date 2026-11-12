@@ -4,7 +4,7 @@
   "webDir": "www",
   "loggingBehavior": "debug",
   "android": {
-    "backgroundColor": "#f6f5f1",
+    "backgroundColor": "#eef0f4",
     "webContentsDebuggingEnabled": false
   },
   "plugins": {

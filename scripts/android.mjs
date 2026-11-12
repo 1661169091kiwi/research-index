@@ -113,7 +113,7 @@ function writeResources() {
   // start-up screen: plain paper colour with the mark (instead of Capacitor's own splash)
   fs.writeFileSync(path.join(res, 'drawable', 'ri_splash.xml'), `<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item><color android:color="#F6F5F1"/></item>
+    <item><color android:color="@color/ri_paper"/></item>
     <item android:width="56dp" android:height="56dp" android:gravity="center" android:drawable="@mipmap/ic_launcher"/>
 </layer-list>
 `);
@@ -121,14 +121,17 @@ function writeResources() {
   let s = fs.readFileSync(styles, 'utf8');
   s = s.replace(/<style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">[\s\S]*?<\/style>/, `<style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/ri_splash</item>
-        <item name="windowSplashScreenBackground">#F6F5F1</item>
+        <item name="windowSplashScreenBackground">@color/ri_paper</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>`);
   // the window behind the page (once: this runs on every build)
   s = s.replace(/\n\s*<item name="android:windowBackground">@color\/ri_paper<\/item>/g, '');
   s = s.replace('<item name="android:background">@null</item>', '<item name="android:background">@null</item>\n        <item name="android:windowBackground">@color/ri_paper</item>');
   fs.writeFileSync(styles, s);
-  fs.writeFileSync(path.join(res, 'values', 'ri_colors.xml'), '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ri_paper">#F6F5F1</color>\n</resources>\n');
+  // start-up colour = the loading screen's (the page's own splash takes over from it), light and dark
+  fs.writeFileSync(path.join(res, 'values', 'ri_colors.xml'), '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ri_paper">#EEF0F4</color>\n</resources>\n');
+  fs.mkdirSync(path.join(res, 'values-night'), { recursive: true });
+  fs.writeFileSync(path.join(res, 'values-night', 'ri_colors.xml'), '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ri_paper">#111216</color>\n</resources>\n');
   // version shown in Android's app info
   const gradle = path.join(ANDROID, 'app', 'build.gradle');
   const [a, b, c] = VERSION.split('.').map(Number);
