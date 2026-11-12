@@ -192,6 +192,7 @@ const FEED = {
     aiKeyHint_deepseek: 'Stored encrypted on this computer and sent only to the DeepSeek API. Create a key at platform.deepseek.com.',
     aiKeyHint_claude: 'Stored encrypted on this computer and sent only to api.anthropic.com. Create a key at console.anthropic.com.',
     aiKeyHint_deepseek_mobile: 'Stored encrypted on this phone (Android Keystore or iOS Keychain) and added only to requests to the DeepSeek API. Create a key at platform.deepseek.com.',
+    aiKeyHint_deepseek_web: 'Kept only in this browser and sent only to the DeepSeek API, never to this site. Remove it when you are done on a shared computer. The 7-day AI limit (AI usage) is on to cap spending. Create a key at platform.deepseek.com.',
     aiKeySaved: 'Key saved ({hint})', aiKeyEnv: 'Using the API key from the environment', aiNoKey: 'No key yet',
     aiBase: 'API URL', aiModel: 'Model',
     aiContext: 'About you and your project', aiContextHint: 'The model uses this to tailor “Ideas for you” to your own work.', aiSave: 'Save',
@@ -292,6 +293,7 @@ const FEED = {
     aiKeyHint_deepseek: '密钥加密保存在本机，只会发送给 DeepSeek API。可在 platform.deepseek.com 创建密钥。',
     aiKeyHint_claude: '密钥加密保存在本机，只会发送给 api.anthropic.com。可在 console.anthropic.com 创建密钥。',
     aiKeyHint_deepseek_mobile: '密钥加密保存在这部手机上（Android 密钥库或 iOS 钥匙串），只会附加到发往 DeepSeek API 的请求中。可在 platform.deepseek.com 创建密钥。',
+    aiKeyHint_deepseek_web: '密钥只保存在这个浏览器里，只发送给 DeepSeek API，不会发给本网站。在公用电脑上用完请删除。已默认开启 7 天 AI 用量上限（在“AI 用量”里），避免意外花费。可在 platform.deepseek.com 创建密钥。',
     aiKeySaved: '已保存密钥（{hint}）', aiKeyEnv: '正在使用环境变量中的密钥', aiNoKey: '尚未设置密钥',
     aiBase: '接口地址', aiModel: '模型',
     aiContext: '关于你和你的项目', aiContextHint: '模型会据此把“给你的研究灵感”贴合到你自己的工作上。', aiSave: '保存',
@@ -559,13 +561,17 @@ function splashHtml(L) {
 function layout({ L, title, bodyClass, bar, main, after = '' }) {
   const T = I18N[L];
   return `<!doctype html>
-<html lang="${T.htmlLang}" data-lang="${L}" data-version="${CTX.version}" data-repo="${REPO}" data-platform="${CTX.mobile ? 'android' : 'desktop'}"${CTX.mobile ? ' class="is-app is-mobile"' : ''}>
+<html lang="${T.htmlLang}" data-lang="${L}" data-version="${CTX.version}" data-repo="${REPO}" data-platform="${CTX.web ? 'web' : CTX.mobile ? 'android' : 'desktop'}"${CTX.web ? ' class="is-web"' : CTX.mobile ? ' class="is-app is-mobile"' : ''}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1${CTX.mobile ? ', viewport-fit=cover' : ''}">
 <meta name="theme-color" content="#f6f5f1">
 <meta name="color-scheme" content="light">
-<title>${esc(title)}</title>
+<title>${esc(title)}</title>${CTX.web ? `
+<meta name="ri-relay" content="${esc(CTX.relay || '')}">
+<meta name="description" content="${esc(L === 'zh' ? '一次读一篇论文：arXiv 智能体、强化学习等方向的论文推荐，带中文翻译和 AI 解读。' : 'One paper at a time: arXiv papers on agents, RL and more, with translation and AI takes.')}">
+<link rel="manifest" href="../manifest.webmanifest">
+<script>(function(){var r=document.documentElement;if(matchMedia('(max-width: 760px) and (pointer: coarse)').matches)r.classList.add('is-mobile');}());</script>` : ''}
 <script>(function(){var r=document.documentElement,d=window.devicePixelRatio||1;r.style.setProperty('--line-w',Math.max(1,Math.round(d*0.8))/d+'px');r.style.setProperty('--rule-w',Math.max(2,Math.round(d*1.6))/d+'px');if(window.portal&&window.portal.isApp)r.classList.add('is-app');var t;try{t=localStorage.getItem('ri-style')}catch(e){}if(t!=='classic'){r.classList.add('fl');var m=document.querySelector('meta[name="color-scheme"]');if(m)m.content='light dark';}}());</script>
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../assets/fonts.css">
@@ -929,9 +935,11 @@ function copyMobile(dist, seedDir) {
   fs.writeFileSync(path.join(out, 'seed', 'state.json'), JSON.stringify({ meta: { lastFetch: st.meta?.lastFetch || 0, lastDeep: st.meta?.lastDeep || 0 } }));
 }
 
-export function build({ quiet = false, docsDir = DOCS_DIR, outDir = DIST, mobile = false, seedDir = '' } = {}) {
+// web: the phone app's pages for any browser (no seed of your papers, the arXiv relay from relay)
+export function build({ quiet = false, docsDir = DOCS_DIR, outDir = DIST, mobile = false, seedDir = '', web = false, relay = '' } = {}) {
+  if (web) mobile = true;
   const version = JSON.parse(fs.readFileSync(path.join(ROOT, mobile ? 'mobile/package.json' : 'package.json'), 'utf8')).version;
-  CTX = { docsDir: path.resolve(docsDir), outDir: path.resolve(outDir), mobile, version };
+  CTX = { docsDir: path.resolve(docsDir), outDir: path.resolve(outDir), mobile, web, relay, version };
   const DIST = CTX.outDir;
   if (!fs.existsSync(CTX.docsDir)) throw new Error(`Survey folder not found: ${CTX.docsDir}`);
   const config = readConfig();
@@ -1010,8 +1018,17 @@ export function build({ quiet = false, docsDir = DOCS_DIR, outDir = DIST, mobile
   }
   for (const f of fs.readdirSync(DIST)) if (f.endsWith('.html') && f !== 'index.html') fs.rmSync(path.join(DIST, f));
   fs.writeFileSync(path.join(DIST, 'index.html'), redirectPage(mobile ? 'papers.html' : 'index.html'));
+  if (web) {
+    // installable to a phone's home screen; GitHub Pages: no Jekyll
+    fs.writeFileSync(path.join(DIST, 'manifest.webmanifest'), JSON.stringify({
+      name: 'Research Index · 研究索引', short_name: '研究索引', start_url: './index.html', display: 'standalone',
+      background_color: '#eef0f4', theme_color: '#eef0f4', icons: [{ src: 'assets/icon.svg', sizes: 'any', type: 'image/svg+xml' }],
+    }, null, 1));
+    fs.writeFileSync(path.join(DIST, '.nojekyll'), '');
+  }
 
-  if (!quiet && mobile) console.log(`Research index: built the phone app's pages (paper feed only) → ${DIST}`);
+  if (!quiet && web) console.log(`Research index: built the web version${relay ? ` (arXiv relay ${relay})` : ' (no arXiv relay: papers from Hugging Face only)'} → ${DIST}`);
+  else if (!quiet && mobile) console.log(`Research index: built the phone app's pages (paper feed only) → ${DIST}`);
   else if (!quiet) {
     console.log(`Research index: built ${docs.length} survey(s) in English and Chinese → ${DIST}`);
     for (const d of docs) {
@@ -1026,9 +1043,16 @@ export function build({ quiet = false, docsDir = DOCS_DIR, outDir = DIST, mobile
 const isCli = process.argv[1] && path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();
 if (isCli) {
   const mobile = process.argv.includes('--mobile');
+  const web = process.argv.includes('--web');
   const seedArg = process.argv.find((a) => a.startsWith('--seed='));
   try {
-    if (mobile) {
+    if (web) {
+      // the relay's address: --relay=<url>, or RI_RELAY, or web/relay.txt
+      const relayArg = process.argv.find((a) => a.startsWith('--relay='));
+      let relay = relayArg ? relayArg.slice(8) : process.env.RI_RELAY || '';
+      if (!relay) try { relay = fs.readFileSync(path.join(ROOT, 'web', 'relay.txt'), 'utf8').trim(); } catch { /* none yet */ }
+      build({ web: true, relay, outDir: path.join(ROOT, 'web', 'www'), seedDir: '' });
+    } else if (mobile) {
       const seedDir = seedArg ? seedArg.slice(7) : (process.argv.includes('--no-seed') ? '' : 'D:/Research Index Data/feed');
       build({ mobile: true, outDir: path.join(ROOT, 'mobile', 'www'), seedDir });
     } else build();

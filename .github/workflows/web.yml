@@ -1,0 +1,55 @@
+# The web version: the phone app's pages for any browser, published on GitHub Pages
+# (https://1661169091kiwi.github.io/research-index/).
+#   - on every published release (with the .exe, .apk and .ipa)
+#   - by hand: Actions → "Web version" → Run workflow
+# arXiv's search API goes through the relay in web/relay/worker.js (a Cloudflare Worker); its address is the
+# repository variable RI_RELAY (Settings → Secrets and variables → Actions → Variables). Without it the web
+# version still runs, with papers from Hugging Face only.
+name: Web version
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Packages (fonts, KaTeX, QR codes; not Electron)
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Build the web version
+        env:
+          RI_RELAY: ${{ vars.RI_RELAY }}
+        run: node build.mjs --web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/www
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

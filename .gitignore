@@ -24,3 +24,6 @@ mobile/keystore/
 .vscode/
 Thumbs.db
 .DS_Store
+
+# the web version: built pages (web/relay and web/dev.mjs are source)
+web/www/

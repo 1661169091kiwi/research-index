@@ -1153,7 +1153,8 @@
   const live = new Map(); // `${id}|${lang}:${mode}` -> { buf, stage, mode } while a take is being written
   const takeKey = (mode) => `${lang}:${mode}`;
   // on the phone the key note says where it is kept there
-  const keyHint = (provider) => t(root.classList.contains('is-mobile') && S[`aiKeyHint_${provider}_mobile`] ? `aiKeyHint_${provider}_mobile` : `aiKeyHint_${provider}`);
+  const keyHint = (provider) => t(root.dataset.platform === 'web' && S[`aiKeyHint_${provider}_web`] ? `aiKeyHint_${provider}_web`
+    : root.classList.contains('is-mobile') && S[`aiKeyHint_${provider}_mobile`] ? `aiKeyHint_${provider}_mobile` : `aiKeyHint_${provider}`);
   const modelName = (m) => String(m || '').replace(/^claude-/, 'Claude ').replace(/-(\d+)-(\d+)$/, ' $1.$2').replace(/-/g, ' ').replace(/\b(opus|sonnet|haiku|fable|mythos)\b/g, (w) => w[0].toUpperCase() + w.slice(1));
   const labelFor = (provider, model) => (provider === 'claude' || /^claude/.test(model || '') ? modelName(model) : `DeepSeek · ${model}`);
   const currentLabel = () => (!AI ? '' : AI.provider === 'claude' ? modelName(AI.claude.model) : `DeepSeek · ${AI.deepseek.model}`);

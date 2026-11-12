@@ -116,7 +116,7 @@ body.ri-settle .swipe,body.ri-settle .scroller{animation:rsSettle .55s cubic-bez
     var minOk = now - t0 > 1900; // the name has landed
     if (minOk && stage === 2 && (coversIn() || now - coverWait > 2500)) return finish();
     if (now - t0 > 15000) return finish();
-    requestAnimationFrame(tick);
+    setTimeout(tick, 40); // a timer, not animation frames: those stop in a background tab
   })();
 })();
 </script>

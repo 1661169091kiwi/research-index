@@ -5,7 +5,7 @@ import { createStoreCore, FILES } from './feed/store-core.mjs';
 import { createFeedService } from './feed/service.mjs';
 import { useFetch } from './feed/sources.mjs';
 import { summarizeDeepSeek, streamDeepSeek, completeDeepSeek, classifyDeepSeekError, DEEPSEEK_DEFAULTS, useAiFetch } from './feed/deepseek.mjs';
-import { files, httpFetch, createKeys, isNative, device } from './native.mjs';
+import { files, httpFetch, createKeys, isNative, isWeb, device } from './native.mjs';
 
 // the same pages run in the iPhone app: say so before the page's other scripts read it
 if (window.Capacitor?.getPlatform?.() === 'ios') {
@@ -54,6 +54,8 @@ const ready = (async () => {
   }, { delay: 600 });
   if (!data.papers || !Object.keys(data.papers).length) store.flush();
   await keys.load(['deepseek']);
+  // the web version starts with the 7-day AI limit on (¥5): its key lives in the browser, so a cap is a sensible default
+  if (isWeb && !store.state.ai?.limit) store.setAi({ limit: { on: true, cap: 5 } });
   service = createFeedService({
     store, keys, send, maxPool: 4500,
     providers: { fetch: httpFetch, deepseek: { summarize: summarizeDeepSeek, stream: streamDeepSeek, complete: completeDeepSeek, classify: classifyDeepSeekError, defaults: DEEPSEEK_DEFAULTS } },
@@ -82,19 +84,21 @@ ready.catch((e) => console.error('[ri] feed failed to start', e));
 const invoke = (channel) => async (...args) => clone(await (await ready).handlers[channel](...args));
 window.portal = {
   isApp: true,
-  isMobile: true,
+  isMobile: !isWeb || document.documentElement.classList.contains('is-mobile'),
+  isWeb,
   native: isNative,
   openFile() {}, reveal() {}, openFolder() {}, chooseFolder() {},
   // a paper as an image: the Android share sheet, or Pictures/Research Index
   shareImage: device?.shareImage,
-  saveImage: device ? (name, bytes) => device.saveImage(name, bytes).catch((e) => ({ ok: false, error: String(e?.message || e) })) : undefined,
+  saveImage: device?.saveImage ? (name, bytes) => device.saveImage(name, bytes).catch((e) => ({ ok: false, error: String(e?.message || e) })) : undefined,
   shareText: device?.shareText,
-  saveText: device ? (name, text) => device.saveText(name, text).catch((e) => ({ ok: false, error: String(e?.message || e) })) : undefined,
+  saveText: device?.saveText ? (name, text) => device.saveText(name, text).catch((e) => ({ ok: false, error: String(e?.message || e) })) : undefined,
   openUrl: device?.openUrl,
   fetchImage: device?.fetchImage,
   // updates: the latest release on GitHub (the page's version is stamped in by the build); a new APK downloads
   // in the browser and installs over this one (same signing key)
-  update: {
+  // (the web version is always the latest: no update checks)
+  update: isWeb ? undefined : {
     async check() {
       const current = document.documentElement.dataset.version || '';
       try {

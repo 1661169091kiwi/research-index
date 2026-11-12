@@ -3,10 +3,13 @@
 //   files   → @capacitor/filesystem, in the app's private storage
 //   fetch   → RiNative.request (Java): no CORS, streams the reply back in chunks, and adds the API key
 //             itself, so the key never enters the page (it is stored encrypted with the Android Keystore)
-// In a plain browser (developer previews and tests) they fall back to fetch() and localStorage.
+// In a plain browser (the web version, and developer previews) they fall back to fetch() and IndexedDB; the web
+// version sends arXiv's search API (the one source that does not allow a web page to call it) through a relay,
+// and keeps the reader's API key in this browser.
 
 const cap = window.Capacitor;
 export const isNative = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
+export const isWeb = !isNative && document.documentElement.dataset.platform === 'web';
 const call = (plugin, method, options) => cap.nativePromise(plugin, method, options);
 
 // ---------- files ----------
@@ -25,10 +28,48 @@ export const files = isNative ? {
     await call('Filesystem', 'deleteFile', { path: file, directory: DIR }).catch(() => {});
     await call('Filesystem', 'rename', { from: tmp, to: file, directory: DIR, toDirectory: DIR });
   },
-} : {
-  async read(name) { try { const v = localStorage.getItem(`ri-file:${name}`); return v == null ? undefined : JSON.parse(v); } catch { return undefined; } },
-  async write(name, value) { try { localStorage.setItem(`ri-file:${name}`, JSON.stringify(value)); } catch (e) { console.warn('[ri] cannot store', name, e.message); } },
-};
+} : browserFiles();
+
+// The browser's own database (IndexedDB): room for a whole library, where localStorage stops at about 5 MB.
+// Files an older build kept in localStorage are moved over the first time they are read.
+function browserFiles() {
+  let db = null;
+  const open = () => db || (db = new Promise((resolve, reject) => {
+    const req = indexedDB.open('research-index', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('files');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  }));
+  const tx = async (mode, fn) => {
+    const d = await open();
+    return new Promise((resolve, reject) => {
+      const t = d.transaction('files', mode);
+      const r = fn(t.objectStore('files'));
+      t.oncomplete = () => resolve(r?.result);
+      t.onerror = () => reject(t.error);
+      t.onabort = () => reject(t.error);
+    });
+  };
+  return {
+    async read(name) {
+      try {
+        const v = await tx('readonly', (s) => s.get(name));
+        if (v !== undefined) return typeof v === 'string' ? JSON.parse(v) : v;
+      } catch (e) { console.warn('[ri] cannot read', name, e?.message); }
+      try {
+        const old = localStorage.getItem(`ri-file:${name}`);
+        if (old == null) return undefined;
+        const v = JSON.parse(old);
+        await this.write(name, v);
+        localStorage.removeItem(`ri-file:${name}`);
+        return v;
+      } catch { return undefined; }
+    },
+    async write(name, value) {
+      try { await tx('readwrite', (s) => s.put(JSON.stringify(value), name)); } catch (e) { console.warn('[ri] cannot store', name, e?.message); }
+    },
+  };
+}
 
 // ---------- network ----------
 let rid = 0;
@@ -82,7 +123,11 @@ function nativeFetch(url, init = {}) {
     }).catch((e) => fail(Object.assign(new Error(e?.message || 'network error'), { code: 'network' })));
   });
 }
-export const httpFetch = isNative ? nativeFetch : (url, init) => fetch(url, init);
+// the web version: arXiv's search API through the relay named in the page (<meta name="ri-relay">)
+const RELAY = (document.querySelector('meta[name="ri-relay"]')?.content || '').replace(/\/+$/, '');
+const relayed = (url) => (RELAY && /^https?:\/\/(export\.)?arxiv\.org\/api\//i.test(String(url)) ? `${RELAY}/?u=${encodeURIComponent(String(url).replace(/^http:/, 'https:'))}` : url);
+export const hasRelay = !!RELAY;
+export const httpFetch = isNative ? nativeFetch : (url, init = {}) => { const { until, ...rest } = init; return fetch(relayed(url), rest); };
 
 // ---------- a paper's share card to the share sheet or the gallery; a page in the browser ----------
 const base64 = (bytes) => {
@@ -103,7 +148,28 @@ export const device = isNative ? {
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return { bytes, type: r.type || 'image/png' };
   }).catch(() => null),
-} : null;
+} : isWeb ? webDevice() : null;
+
+// The web version: a paper's image or an exported list goes to the browser's share sheet when it can take files
+// (phones); figures are fetched directly (arXiv allows it). Without a share sheet the page falls back to a download.
+function webDevice() {
+  const canFiles = (file) => { try { return !!(navigator.canShare && navigator.canShare({ files: [file] })); } catch { return false; } };
+  const fileOf = (name, data, type) => new File([data], name, { type });
+  const d = {
+    fetchImage: async (url) => {
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!r.ok || !/^image\//i.test(r.headers.get('content-type') || '')) return null;
+        return { bytes: new Uint8Array(await r.arrayBuffer()), type: r.headers.get('content-type') };
+      } catch { return null; }
+    },
+  };
+  if (navigator.share && canFiles(fileOf('x.png', new Uint8Array(1), 'image/png'))) {
+    d.shareImage = (name, bytes, title, text) => navigator.share({ files: [fileOf(name, bytes, 'image/png')], title, text }).then(() => ({ ok: true }), (e) => (e?.name === 'AbortError' ? { ok: false, canceled: true } : Promise.reject(e)));
+    d.shareText = (name, text, title) => navigator.share({ files: [fileOf(name, text, 'text/markdown')], title }).catch((e) => { if (e?.name !== 'AbortError') return navigator.share({ title, text }); });
+  }
+  return d;
+}
 
 // ---------- API keys ----------
 // The page only ever sees a placeholder ("@native:deepseek"); the native request swaps in the real key,
@@ -111,7 +177,10 @@ export const device = isNative ? {
 const HOST_OF = (url) => { try { return new URL(url).host; } catch { return ''; } };
 export function createKeys() {
   const info = {}; // provider -> { has, hint }
-  const mem = {};  // browser fallback only
+  // browser: the web version keeps the key in this browser (localStorage) and sends it only to the AI provider;
+  // a developer preview keeps it in memory
+  const mem = {};
+  if (isWeb) { try { const k = localStorage.getItem('ri-key:deepseek'); if (k) mem.deepseek = k; } catch { /* storage off */ } }
   return {
     async load(providers) {
       if (!isNative) return;
@@ -124,7 +193,11 @@ export function createKeys() {
     hint(provider) { return isNative ? (info[provider]?.hint ? `…${info[provider].hint}` : '') : `…${(mem[provider] || '').slice(-4)}`; },
     set(provider, value, baseUrl) {
       const key = String(value || '').trim();
-      if (!isNative) { mem[provider] = key; return; }
+      if (!isNative) {
+        mem[provider] = key;
+        if (isWeb) { try { if (key) localStorage.setItem(`ri-key:${provider}`, key); else localStorage.removeItem(`ri-key:${provider}`); } catch { /* storage off */ } }
+        return;
+      }
       info[provider] = { has: !!key, hint: key.slice(-4) };
       call('RiNative', 'setKey', { provider, key, host: HOST_OF(baseUrl) }).catch((e) => console.error('[ri] key not saved', e?.message));
     },
