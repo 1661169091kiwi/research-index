@@ -207,3 +207,37 @@ html.fl .usage-body { gap: 20px; padding-top: 14px; }
 /* the sections under the balance: the same space between each */
 #u-rest { display: grid; gap: 20px; grid-auto-rows: max-content; min-width: 0; }
 @media (max-width: 640px) { #u-rest { gap: 16px; } }
+
+/* ---------- the 7-day limit ---------- */
+.u-limit { display: grid; gap: 14px; }
+.ul-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.ul-what h3 { margin: 0; font: 650 16px var(--display); }
+.ul-status { margin: 3px 0 0; font: 600 12.5px var(--display); color: var(--muted); }
+.u-limit.is-near .ul-status { color: #b26b00; }
+.u-limit.is-over .ul-status { color: #d23b2e; }
+.ul-body { display: grid; gap: 14px; animation: ulIn 0.32s var(--ease) both; }
+.ul-body[hidden] { display: none; }
+@keyframes ulIn { from { opacity: 0; transform: translateY(-4px); } }
+.ul-nums { margin: 0 0 8px; font: 500 13px var(--display); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ul-nums b { font: 750 24px/1 var(--display); letter-spacing: -0.02em; color: var(--ink); margin-right: 4px; }
+.ul-bar { height: 10px; border-radius: 999px; background: var(--hair); overflow: hidden; }
+.ul-bar i { display: block; height: 100%; width: var(--p); border-radius: inherit; background: var(--u1); transition: width 0.6s cubic-bezier(0.2, 0.9, 0.3, 1), background 0.3s; animation: ulFill 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+@keyframes ulFill { from { width: 0; } }
+.u-limit.is-near .ul-bar i { background: var(--u4); }
+.u-limit.is-over .ul-bar i { background: #e5484d; }
+.ul-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ul-chip { appearance: none; display: inline-flex; align-items: center; gap: 2px; height: 34px; padding: 0 14px; border: 1.5px solid var(--hair); border-radius: 999px; background: var(--paper); color: var(--ink); font: 600 14px var(--display); font-variant-numeric: tabular-nums; cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.15s; }
+.ul-chip:active { transform: scale(0.95); }
+.ul-chip.is-on { border-color: var(--u1); background: color-mix(in srgb, var(--u1) 10%, var(--paper)); color: var(--u1); }
+.ul-custom { padding: 0 6px 0 12px; cursor: text; }
+.ul-custom input { width: 64px; border: 0; background: none; font: inherit; color: inherit; outline: none; padding: 0; }
+.ul-hint { margin: 0; font: 500 12px/1.5 var(--display); color: var(--muted); }
+html.fl .ul-bar { background: var(--fill-2); }
+html.fl .ul-chip { border-color: transparent; background: var(--fill); color: var(--on); }
+html.fl .ul-chip.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--card)); color: var(--primary); }
+html.fl .ul-bar i { background: var(--primary); }
+html.fl .u-limit.is-near .ul-bar i { background: var(--u4); }
+html.fl .u-limit.is-over .ul-bar i { background: #e5484d; }
+@media (prefers-color-scheme: dark) { .u-limit.is-near .ul-status { color: #e0a33a; } .u-limit.is-over .ul-status { color: #ff6b5e; } }
+/* the phone: sideways drags inside the panel belong to the swipe-away (see usage.js) */
+@media (max-width: 640px) { .usage-body { touch-action: pan-y; } }

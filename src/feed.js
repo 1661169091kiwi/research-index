@@ -1693,8 +1693,8 @@
     const ids = [...trWanted].slice(0, 40);
     ids.forEach((id) => trWanted.delete(id));
     const res = await api.trTitles(ids);
+    for (const [id, zh] of Object.entries(res?.titles || {})) setTitleZh(id, zh);
     if (res?.error) return trProblem(res.error);
-    for (const [id, zh] of Object.entries(res.titles || {})) setTitleZh(id, zh);
     if (trWanted.size) scheduleTr();
   }
   function scheduleTr() { clearTimeout(trTimer); trTimer = setTimeout(flushTr, 350); }

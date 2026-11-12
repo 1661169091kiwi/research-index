@@ -51,6 +51,7 @@
     document.body.appendChild(modal);
     document.addEventListener('keydown', onKey, true);
     modal.addEventListener('click', onClick);
+    modal.addEventListener('change', onChange);
     modal.querySelector('.usage-body').addEventListener('scroll', () => modal?.querySelector('#u-chart')?._hideTip?.(), { passive: true });
     swipeAway(modal);
     renderBalance();
@@ -65,42 +66,45 @@
     document.removeEventListener('keydown', onKey, true);
   }
   // On the phone the panel follows a finger dragged to the right and goes if let go far or fast enough
-  // (else it springs back). Vertical drags stay the page's own scrolling.
+  // (else it springs back). Touch events, not pointer events: the panel's body scrolls, and a phone's browser
+  // takes a sideways touch inside a scrolling area for itself (pointercancel) before a pointer handler sees a
+  // drag. Here a mostly sideways move is claimed with preventDefault on touchmove; vertical moves stay scrolling.
   function swipeAway(m) {
     const panel = m.querySelector('.usage-panel'), scrim = m.querySelector('.usage-scrim');
-    let x0 = 0, y0 = 0, t0 = 0, dx = 0, state = '', id = -1, lastX = 0, lastT = 0, vx = 0;
+    let x0 = 0, y0 = 0, dx = 0, state = '', lastX = 0, lastT = 0, vx = 0;
     const narrow = () => matchMedia('(max-width: 640px)').matches;
-    panel.addEventListener('pointerdown', (e) => {
-      if (!narrow() || e.pointerType === 'mouse' || modal !== m) return;
-      x0 = lastX = e.clientX; y0 = e.clientY; t0 = lastT = e.timeStamp; dx = 0; vx = 0; state = 'maybe'; id = e.pointerId;
-    });
-    panel.addEventListener('pointermove', (e) => {
-      if (e.pointerId !== id || !state) return;
-      const ddx = e.clientX - x0, ddy = e.clientY - y0;
+    const isEdgy = (el) => el?.closest?.('input, textarea, .u-table-wrap, .ul-chips');
+    panel.addEventListener('touchstart', (e) => {
+      if (!narrow() || modal !== m || e.touches.length !== 1 || isEdgy(e.target)) { state = ''; return; }
+      const p = e.touches[0];
+      x0 = lastX = p.clientX; y0 = p.clientY; lastT = e.timeStamp; dx = 0; vx = 0; state = 'maybe';
+    }, { passive: true });
+    panel.addEventListener('touchmove', (e) => {
+      if (!state) return;
+      const p = e.touches[0];
+      const ddx = p.clientX - x0, ddy = p.clientY - y0;
       if (state === 'maybe') {
-        if (Math.abs(ddx) < 10 && Math.abs(ddy) < 10) return;
-        // a mostly sideways drag to the right takes the panel; anything else is left alone
-        if (ddx > 0 && ddx > Math.abs(ddy) * 1.3) {
-          state = 'drag'; m.classList.add('is-dragging'); try { panel.setPointerCapture(id); } catch { /* gone */ } m.querySelector('#u-chart')?._hideTip?.();
-          lastX = e.clientX; lastT = e.timeStamp; vx = 0; // the speed counts from here, not across the slop
+        if (Math.abs(ddx) < 8 && Math.abs(ddy) < 8) return;
+        if (ddx > 0 && ddx > Math.abs(ddy) * 1.2) {
+          state = 'drag'; m.classList.add('is-dragging'); m.querySelector('#u-chart')?._hideTip?.();
+          lastX = p.clientX; lastT = e.timeStamp; vx = 0;
         } else { state = ''; return; }
       }
+      if (e.cancelable) e.preventDefault(); // the drag is ours: no scrolling, no other gesture
       dx = Math.max(0, ddx);
       const dt = e.timeStamp - lastT;
-      if (dt >= 8) { vx = 0.6 * vx + 0.4 * ((e.clientX - lastX) / dt); lastX = e.clientX; lastT = e.timeStamp; }
+      if (dt >= 8) { vx = 0.6 * vx + 0.4 * ((p.clientX - lastX) / dt); lastX = p.clientX; lastT = e.timeStamp; }
       panel.style.transform = `translateX(${dx}px)`;
       scrim.style.opacity = String(1 - Math.min(1, dx / panel.clientWidth));
-    });
+    }, { passive: false });
     const end = (e) => {
-      if (e.pointerId !== id) return;
       const was = state;
-      state = ''; id = -1;
+      state = '';
       if (was !== 'drag') return;
       m.classList.remove('is-dragging');
       m.classList.add('is-flung');
       if (e.timeStamp - lastT > 90) vx = 0; // held still before letting go: no throw
-      const w = panel.clientWidth, go = e.type !== 'pointercancel' && (dx > w * 0.32 || vx > 0.45);
-      // the rest of the way at about the speed it was thrown, or back with a little spring
+      const w = panel.clientWidth, go = e.type !== 'touchcancel' && (dx > w * 0.3 || vx > 0.4);
       const ms = go ? Math.max(140, Math.min(300, (w - dx) / Math.max(vx, 1.2))) : 340;
       panel.style.transition = `transform ${ms}ms ${go ? 'cubic-bezier(0.25, 0.6, 0.4, 1)' : 'cubic-bezier(0.2, 1.3, 0.4, 1)'}`;
       scrim.style.transition = `opacity ${ms}ms ease`;
@@ -114,9 +118,9 @@
         setTimeout(() => m.remove(), ms + 40);
       } else setTimeout(() => { m.classList.remove('is-flung'); panel.style.transition = scrim.style.transition = ''; }, ms + 20);
     };
-    panel.addEventListener('pointerup', end);
-    panel.addEventListener('pointercancel', end);
-    // a drag that became a swipe must not also count as a tap on what it started on
+    panel.addEventListener('touchend', end);
+    panel.addEventListener('touchcancel', end);
+    // a drag must not also count as a tap on what it started on
     panel.addEventListener('click', (e) => { if (dx > 8) { e.stopPropagation(); e.preventDefault(); dx = 0; } }, true);
   }
   function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }
@@ -130,6 +134,12 @@
     if (v) { state.view = v.dataset.view; return renderRest(); }
     if (e.target.closest('[data-u="refresh"]')) return refreshBalance();
     if (e.target.closest('[data-u="settings"]')) { close(); setTimeout(() => document.getElementById('ai-btn')?.click(), 60); }
+    const chip = e.target.closest('[data-u-limit]');
+    if (chip) return setLimit({ on: true, cap: +chip.dataset.uLimit });
+  }
+  function onChange(e) {
+    if (e.target.matches('[data-u-limit-on]')) return setLimit({ on: e.target.checked });
+    if (e.target.matches('[data-u-limit-custom]')) { const v = parseFloat(e.target.value); if (v > 0) setLimit({ on: true, cap: v }); }
   }
   async function load() {
     state.data = await api.usage({ days: state.range });
@@ -175,6 +185,31 @@
   // ---------- this app's spending ----------
   // One idea per block, each with its own heading: the totals (with the period to show), the days, what it went on,
   // the tokens, the key's use elsewhere, and how costs are worked out.
+  // ---------- the 7-day limit: a switch, how much of it is used, and the amount ----------
+  const PRESETS = [1, 2, 5, 10, 20, 50];
+  function limitCard(d) {
+    const L = d.limit || { on: false, cap: 5, spent7: 0 };
+    const pct = L.on ? Math.min(1, L.spent7 / L.cap) : 0;
+    const level = !L.on ? '' : L.spent7 >= L.cap ? ' is-over' : pct >= 0.75 ? ' is-near' : '';
+    const status = !L.on ? t('limOff') : L.spent7 >= L.cap ? t('limOver') : pct >= 0.75 ? t('limNear') : '';
+    const custom = !PRESETS.includes(L.cap);
+    return `<section class="u-card u-limit${L.on ? ' is-on' : ''}${level}">
+      <div class="ul-top"><div class="ul-what"><h3>${esc(t('limTitle'))}</h3>${status ? `<p class="ul-status">${esc(status)}</p>` : ''}</div>
+        <input type="checkbox" class="ab-switch" data-u-limit-on aria-label="${esc(t('limTitle'))}"${L.on ? ' checked' : ''}></div>
+      <div class="ul-body"${L.on ? '' : ' hidden'}>
+        <div class="ul-meter"><p class="ul-nums"><b>¥${L.spent7 ? L.spent7.toFixed(L.spent7 < 10 ? 3 : 2) : '0'}</b> <span>${esc(t('limOf', { cap: `¥${L.cap}` }))}</span></p>
+          <div class="ul-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct * 100)}"><i style="--p:${(pct * 100).toFixed(1)}%"></i></div></div>
+        <div class="ul-chips">${PRESETS.map((v) => `<button type="button" class="ul-chip${v === L.cap ? ' is-on' : ''}" data-u-limit="${v}">¥${v}</button>`).join('')}
+          <label class="ul-chip ul-custom${custom ? ' is-on' : ''}"><span>¥</span><input type="number" inputmode="decimal" min="0.1" step="0.1" data-u-limit-custom placeholder="${esc(t('limCustom'))}" value="${custom ? L.cap : ''}"></label></div>
+      </div>
+      <p class="ul-hint">${esc(t('limHint'))}</p>
+    </section>`;
+  }
+  async function setLimit(patch) {
+    await api.ai({ limit: patch });
+    state.data = await api.usage({ days: state.range });
+    if (modal) renderRest();
+  }
   function renderRest() {
     const el = modal?.querySelector('#u-rest');
     const d = state.data;
@@ -192,7 +227,7 @@
       </div>
     </section>`;
     if (!tot.calls) {
-      el.innerHTML = totals + `<section class="u-card u-empty-card"><p class="u-empty">${esc(t('usageEmpty'))}</p></section>` + outsideCard(d) + note(d);
+      el.innerHTML = totals + limitCard(d) + `<section class="u-card u-empty-card"><p class="u-empty">${esc(t('usageEmpty'))}</p></section>` + outsideCard(d) + note(d);
       return;
     }
     const kinds = KINDS.filter((k) => tot.byKind[k] > 0 || k !== 'rate');
@@ -215,7 +250,7 @@
         <div><p class="ut-label">${esc(t('usageOut'))}</p><p class="utk-value">${num(tot.out)}</p></div>
       </div>
     </section>`;
-    el.innerHTML = totals + daily + byKind + tokens + outsideCard(d) + note(d);
+    el.innerHTML = totals + limitCard(d) + daily + byKind + tokens + outsideCard(d) + note(d);
     if (state.view === 'chart') chart(el.querySelector('#u-chart'), d);
   }
   function outsideCard(d) {

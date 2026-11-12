@@ -340,7 +340,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   const letGo = (ids) => { if (ids.length) send('feed:quality', { scores: {}, unrated: ids }); };
   function wantRatings(ids) {
     const r = rateSettings();
-    if (!r.on || !keyFor(aiSettings().provider) || rateSpentToday() >= r.cap) return;
+    if (!r.on || !keyFor(aiSettings().provider) || rateSpentToday() >= r.cap || overLimit()) return;
     for (const id of ids) if (store.papers[id] && !store.ratings[id]) rateQueue.add(id);
     clearTimeout(rateTimer);
     if (rateQueue.size) rateTimer = setTimeout(flushRatings, rateQueue.size >= 10 ? 300 : 2500);
@@ -387,6 +387,18 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     wantRatings(fresh.map((p) => p.id));
   }, 30 * 60e3);
 
+  // ---------- a ceiling on this app's AI spending over the last seven days (off unless the reader sets it) ----------
+  // in yuan (a Claude call, billed in dollars, at about 7.1); once reached, the app makes no more AI calls until
+  // older spending drops out of the seven days, or the reader raises or turns off the limit
+  const limitSettings = () => { const l = store.state.ai?.limit || {}; return { on: !!l.on, cap: Number.isFinite(+l.cap) && +l.cap > 0 ? +l.cap : 5 }; };
+  function spent7() {
+    const from = Date.now() - 7 * 864e5;
+    return (store.state.usage?.log || []).reduce((s, e) => (e.t > from ? s + (e.CNY ?? (e.USD || 0) * 7.1) : s), 0);
+  }
+  const overLimit = () => { const l = limitSettings(); return l.on && spent7() >= l.cap; };
+  const limitError = () => ({ code: 'limit', message: `¥${limitSettings().cap}` });
+  const limitInfo = () => ({ ...limitSettings(), spent7: Math.round(spent7() * 10000) / 10000 });
+
   // ---------- the usage meter: every call's tokens and cost, and the DeepSeek balance ----------
   function recordUsage(provider, model, kind, usage) {
     if (!usage) return;
@@ -418,7 +430,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   });
   handle('feed:usage', (opts = {}) => ({
     ...usageSummary(store.state.usage || {}, { days: Math.min(90, Math.max(7, +opts.days || 30)) }),
-    provider: aiSettings().provider, hasKey: !!keyFor('deepseek'),
+    provider: aiSettings().provider, hasKey: !!keyFor('deepseek'), limit: limitInfo(),
   }));
 
   handle('feed:ai', (patch) => {
@@ -432,6 +444,11 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     }
     if (patch && 'context' in patch) store.setAiContext(String(patch.context || '').trim());
     if (patch?.rate) store.setAi({ rate: { ...rateSettings(), ...patch.rate } });
+    if (patch?.limit) {
+      const l = { ...limitSettings(), ...patch.limit };
+      store.setAi({ limit: { on: !!l.on, cap: Math.min(10000, Math.max(0.1, Math.round((+l.cap || 5) * 100) / 100)) } });
+      send('feed:usage', { t: Date.now() });
+    }
     return aiInfo();
   });
   handle('feed:take:get', (id) => store.takes[id] || {});
@@ -442,6 +459,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     const settings = aiSettings();
     const apiKey = keyFor(settings.provider);
     if (!apiKey) return { error: { code: 'nokey' } };
+    if (overLimit()) return { error: limitError() };
     const classify = settings.provider === 'claude' ? CL.classify : DS.classify;
     mode = mode === 'deep' ? 'deep' : 'quick';
     lang = lang === 'zh' ? 'zh' : 'en';
@@ -504,6 +522,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     const settings = aiSettings();
     const apiKey = keyFor(settings.provider);
     if (!apiKey) return { error: { code: 'nokey' } };
+    if (overLimit()) return { error: limitError() };
     if (chatRuns.has(id)) return { started: true };
     const classify = settings.provider === 'claude' ? CL.classify : DS.classify;
     lang = lang === 'zh' ? 'zh' : 'en';
@@ -550,6 +569,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   const trInFlight = new Set(); // `t:${id}` / `a:${id}`
   // args.onText(delta): the reply as it streams in (translation)
   const complete = (args, kind = 'translate') => {
+    if (overLimit()) return Promise.reject(Object.assign(new Error('limit'), { code: 'limit' }));
     const s = aiSettings();
     const apiKey = keyFor(s.provider);
     const onUsage = (usage, model) => recordUsage(s.provider, model || s.model, kind, usage);
@@ -557,10 +577,15 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       ? CL.complete({ ...args, apiKey, onUsage })
       : DS.complete({ ...args, apiKey, baseUrl: s.baseUrl, model: s.model, onUsage });
   };
-  const trError = (err) => (aiSettings().provider === 'claude' ? CL.classify : DS.classify)(err);
+  const trError = (err) => (err?.code === 'limit' ? limitError() : (aiSettings().provider === 'claude' ? CL.classify : DS.classify)(err));
 
   handle('feed:tr:titles', (ids) => {
     if (!keyFor(aiSettings().provider)) return { error: { code: 'nokey' } };
+    if (overLimit()) {
+      const cached = {};
+      for (const id of (Array.isArray(ids) ? ids : []).slice(0, 40)) { const zh = store.translations[id]?.title; if (zh) cached[id] = zh; }
+      return { titles: cached, error: limitError() };
+    }
     const cached = {}, todo = [];
     for (const id of (Array.isArray(ids) ? ids : []).slice(0, 40)) {
       if (!store.papers[id]) continue;
@@ -614,6 +639,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     const zh = zhAbs(store.translations[id]?.abstract);
     if (zh) return { abstract: zh };
     if (!keyFor(aiSettings().provider)) return { error: { code: 'nokey' } };
+    if (overLimit()) return { error: limitError() };
     if (!trInFlight.has(`a:${id}`)) {
       trInFlight.add(`a:${id}`);
       // the translation so far, at most every 40 ms: the page writes it over the English as it comes
