@@ -69,6 +69,11 @@ public class RiNative extends Plugin {
     private static final int MAX_FIGURE_SCAN = 3_000_000;
 
     private final ExecutorService pool = Executors.newFixedThreadPool(6);
+    // a share card's figure gets threads of its own: behind long requests (streamed translations, arXiv pages) in
+    // the pool above it waited, and the share view with it
+    private final ExecutorService imagePool = Executors.newFixedThreadPool(2);
+    // and so does closing a cancelled request (queued behind the requests it was meant to stop, it came too late)
+    private final ExecutorService closer = Executors.newSingleThreadExecutor();
     private final Map<Integer, HttpURLConnection> open = new ConcurrentHashMap<>();
     private final Map<Integer, Boolean> cancelled = new ConcurrentHashMap<>();
 
@@ -92,7 +97,7 @@ public class RiNative extends Plugin {
         cancelled.put(rid, true);
         HttpURLConnection c = open.remove(rid);
         if (c != null) {
-            pool.execute(c::disconnect);
+            closer.execute(c::disconnect);
         }
         call.resolve();
     }
@@ -410,12 +415,12 @@ public class RiNative extends Plugin {
     public void fetchImage(PluginCall call) {
         final String url = call.getString("url", "");
         if (!url.startsWith("https://")) { call.reject("only https"); return; }
-        pool.execute(() -> {
+        imagePool.execute(() -> {
             HttpURLConnection c = null;
             try {
                 c = (HttpURLConnection) new URL(url).openConnection();
-                c.setConnectTimeout(15000);
-                c.setReadTimeout(20000);
+                c.setConnectTimeout(8000);
+                c.setReadTimeout(10000);
                 c.setInstanceFollowRedirects(true);
                 c.setRequestProperty("User-Agent", "research-index-app");
                 String type = c.getContentType();

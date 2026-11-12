@@ -62,11 +62,13 @@
   }
   // the paper's figure, when it has one: fetched by the app (desktop: main process; phone: natively), so the
   // canvas stays exportable
+  // A paper's figure is a nice-to-have: the card is drawn without it if it is not here in 6 s.
+  const within = (ms, promise, fallback = null) => Promise.race([promise, new Promise((res) => setTimeout(() => res(fallback), ms))]);
   async function figure(p) {
     const url = p.cover?.url;
     if (!url || !portal.fetchImage) return null;
     try {
-      const r = await portal.fetchImage(url);
+      const r = await within(6000, portal.fetchImage(url));
       if (!r?.bytes?.length) return null;
       const src = URL.createObjectURL(new Blob([r.bytes], { type: r.type || 'image/png' }));
       const im = await loadImage(src);
@@ -89,9 +91,12 @@
     const who = [names.slice(0, 6).join(', ') + (names.length > 6 ? (lang === 'zh' ? ' 等' : ' et al.') : ''), insts].filter(Boolean).join(' · ');
     const link = `https://arxiv.org/abs/${p.id}`;
     const all = [title, p.title, abstract, who, topic, t('shareScan'), t('shareApp'), t('shareGet'), t('abstract'), link].join(' ');
-    await Promise.all([font(700, 60), font(600, 30), font(500, 30), font(400, 34)].map((f) => document.fonts?.load(f, all).catch(() => {})));
-    const icon = await loadImage('../assets/icon.svg');
-    const fig = await figure(p);
+    // fonts, the icon and the figure at once, none of them able to hold the card up for long
+    const [, icon, fig] = await Promise.all([
+      within(2500, Promise.all([font(700, 60), font(600, 30), font(500, 30), font(400, 34)].map((f) => document.fonts?.load(f, all).catch(() => {})))),
+      within(2500, loadImage('../assets/icon.svg')),
+      figure(p),
+    ]);
 
     // measure, then draw on a canvas of the height that came out
     const m = document.createElement('canvas').getContext('2d');
@@ -195,7 +200,7 @@
     if (!paper?.id) return;
     close();
     let p = paper;
-    if (!p.abstract) p = { ...p, ...((await api.get(p.id))?.paper || {}) };
+    if (!p.abstract) p = { ...p, ...((await within(4000, api.get(p.id)))?.paper || {}) };
     const phone = !!portal.shareImage;
     modal = document.createElement('div');
     modal.className = 'share-modal';

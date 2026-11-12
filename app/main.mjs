@@ -252,7 +252,7 @@ ipcMain.handle('ri:save-text', async (e, name, text) => {
 ipcMain.handle('ri:fetch-image', async (e, url) => {
   if (e.sender !== win?.webContents || typeof url !== 'string' || !/^https:\/\//i.test(url)) return null;
   try {
-    const r = await net.fetch(url, { headers: { 'User-Agent': 'research-index-app' } });
+    const r = await net.fetch(url, { headers: { 'User-Agent': 'research-index-app' }, signal: AbortSignal.timeout(10000) });
     if (!r.ok || !/^image\//i.test(r.headers.get('content-type') || '')) return null;
     const buf = Buffer.from(await r.arrayBuffer());
     return buf.length <= 15e6 ? { bytes: new Uint8Array(buf), type: r.headers.get('content-type') } : null;
