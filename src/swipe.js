@@ -671,7 +671,26 @@
     shelfEl.scrollTop = 0;
     await shelfMore();
   }
+  // a search's grid that has shown everything: the next page from the source (arXiv / Europe PMC), added at the end
+  let srch = { added: 0 };
+  const sayShelf = (q) => (text, busy) => { if (sw.query !== q) return; const n = $('#sw-search-note'); n.hidden = !text || !shelfOn(); n.textContent = text || ''; n.classList.toggle('is-busy', !!busy); };
+  async function shelfSearchMore() {
+    const q = sw.query;
+    if (!q || sw.smart || srch.q !== q || !srch.more || srch.busy || shelf.loading) return;
+    const have = new Set(shelf.items);
+    const ids = (await F.searchMore(srch, sayShelf(q), () => sw.query === q)).filter((id) => !have.has(id));
+    if (!ids.length || sw.query !== q || !shelfOn()) return;
+    const res = await api.list({ ids, withAbstract: true });
+    const from = shelf.items.length;
+    for (const c of res.items) { sw.cards.set(c.id, { ...(sw.cards.get(c.id) || {}), ...c }); shelf.items.push(c.id); }
+    shelf.total += res.items.length;
+    shelfGrid.insertAdjacentHTML('beforeend', res.items.map((c, k) => tileHtml(sw.cards.get(c.id), from + k)).join(''));
+    wireFigure(shelfGrid);
+    const noCover = res.items.filter((c) => !c.cover).map((c) => c.id);
+    if (noCover.length) api.covers(noCover);
+  }
   async function shelfMore() {
+    if (shelf.done && sw.query) return shelfSearchMore();
     if (shelf.loading || shelf.done || !shelfOn()) return;
     shelf.loading = true;
     const token = shelf.token, key = shelfKey();
@@ -780,8 +799,8 @@
     sw.deck = '';
     reset();
     // all of arXiv too: what it finds joins the results
-    const say = (text, busy) => { if (sw.query !== q) return; const n = $('#sw-search-note'); n.hidden = !text || !shelfOn(); n.textContent = text || ''; n.classList.toggle('is-busy', !!busy); };
-    F.searchArxiv(q, say, () => sw.query === q).then((r) => { if (r?.added && sw.query === q) loadShelf({ fresh: true }); });
+    srch = { added: 0 };
+    F.searchArxiv(q, sayShelf(q), () => sw.query === q, srch).then((r) => { if (r?.added && sw.query === q) loadShelf({ fresh: true }); });
   });
   // ✦ in the search field: smart search (the AI searches all of arXiv and picks the matches)
   let smartOn = false;

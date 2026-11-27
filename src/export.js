@@ -56,7 +56,8 @@
       const inst = instsOf(p);
       if (inst) meta.push(`- **${t('exInst')}**: ${mdEsc(inst)}`);
       meta.push(`- **${t('exDate')}**: ${shortDate(p.published || '')}${p.venue ? ` · ⭐ ${mdEsc(venueOf(p))}` : ''}${p.q != null ? ` · ${t('exScore')} ${p.q}/100` : ''}`);
-      meta.push(`- **${t('exLinks')}**: [arXiv](https://arxiv.org/abs/${p.id}) · [PDF](https://arxiv.org/pdf/${p.id})`);
+      // an arXiv paper: its page and PDF; a Europe PMC one (doi:/pmid: ids): its DOI or PubMed link
+      meta.push(`- **${t('exLinks')}**: ${/^[a-z]+:/i.test(p.id) ? `[${p.ref || 'Link'}](${p.url})` : `[arXiv](https://arxiv.org/abs/${p.id}) · [PDF](https://arxiv.org/pdf/${p.id})`}`);
       out.push(...meta, '');
       const abs = withAbs && plain(absOf(p));
       if (abs) out.push(`> ${abs}`, '');
@@ -130,7 +131,7 @@
       if (p.venue) px = pill(`★ ${venueOf(p)}`, px, yy, '#fff4d6', '#8a5a00');
       if (p.q != null) px = pill(`${t('exScore')} ${p.q}`, px, yy, '#e8f1ff', '#0a58c2');
       ctx.font = font(500, 24); ctx.fillStyle = C.blue; ctx.textAlign = 'right';
-      ctx.fillText(`arXiv:${p.id}`, W - PAD, yy + 27); ctx.textAlign = 'left';
+      ctx.fillText(p.ref || `arXiv:${p.id}`, W - PAD, yy + 27); ctx.textAlign = 'left';
       yy += 44;
       if (B.length) { yy += 18; ctx.font = font(400, 28); ctx.fillStyle = '#2b2d31'; B.forEach((l, k) => ctx.fillText(l, x, yy + 32 + k * 43)); }
       y += bh;

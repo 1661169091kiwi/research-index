@@ -35,6 +35,7 @@ function makeQueue(minGapMs) {
     pump();
   });
 }
+export { makeQueue };
 const apiQueue = makeQueue(3100);
 const hfQueue = makeQueue(500);
 

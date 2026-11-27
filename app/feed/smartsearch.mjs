@@ -23,18 +23,20 @@ export function plainQuery(text) {
 }
 
 // (the reader, the field and its arXiv categories come from the discipline pack in use)
-export const planSystem = (today) => `You help ${pack().reader} find papers on arXiv. Turn their request (in any language) into arXiv API searches.
+// (for the life-sciences and medicine packs the source is Europe PMC: PubMed, PMC and bioRxiv/medRxiv preprints)
+const EPMC_QUERIES = `- queries: 2 to 4 Europe PMC search queries. Syntax: TITLE_ABS: (title and abstract), MESH: (a MeSH heading), PUB_TYPE: (e.g. "Randomized Controlled Trial", "Meta-Analysis", "Systematic Review", "Review", "Preprint"), AUTH: (author, "Surname I"), JOURNAL: (journal title), combined with AND, OR, NOT and parentheses; quote phrases, e.g. TITLE_ABS:"spatial transcriptomics" or MESH:"Heart Failure". Use English terms and MeSH where they fit. One query precise, the others covering synonyms and acronyms. PUB_TYPE: only when the request asks for a kind of study (trials, meta-analyses, reviews). No dates inside queries.`;
+export const planSystem = (today) => { const epmc = pack().source === 'epmc'; return `You help ${pack().reader} find papers ${epmc ? 'in Europe PMC (PubMed, PMC and bioRxiv/medRxiv preprints)' : 'on arXiv'}. Turn their request (in any language) into ${epmc ? 'Europe PMC' : 'arXiv API'} searches.
 
 Reply with only a JSON object:
 {"intent": "...", "queries": ["...", "..."], "keywords": "...", "from": "YYYY-MM-DD or null", "to": "YYYY-MM-DD or null"}
 
 - intent: the request restated in at most 24 characters, in the reader's language.
-- queries: 2 to 4 arXiv search_query strings. Syntax: ti: (title), abs: (abstract), au: (author surname), cat: (category; for this field: ${pack().categories}), combined with AND, OR, ANDNOT and parentheses; quote phrases, e.g. ${pack().id === 'ai' ? 'abs:"world model"' : 'abs:"solid electrolyte"'}. Use English technical terms. One query precise, the others covering synonyms and common acronyms. abs: for concepts, ti: for specific method or benchmark names, au: only when an author is named. No dates inside queries.
+${epmc ? EPMC_QUERIES : `- queries: 2 to 4 arXiv search_query strings. Syntax: ti: (title), abs: (abstract), au: (author surname), cat: (category; for this field: ${pack().categories}), combined with AND, OR, ANDNOT and parentheses; quote phrases, e.g. ${pack().id === 'ai' ? 'abs:"world model"' : 'abs:"solid electrolyte"'}. Use English technical terms. One query precise, the others covering synonyms and common acronyms. abs: for concepts, ti: for specific method or benchmark names, au: only when an author is named. No dates inside queries.`}
 - keywords: 5 to 10 English keywords for a full-text search of the reader's own library.
 - from / to: only when the request limits the time ("recent" = the last 6 months; "this year"; "since 2024"); otherwise null. Today is ${today}.
-- A wish for well-known venues or quality is not part of the queries (it is used when the results are screened).`;
+- A wish for well-known venues or quality is not part of the queries (it is used when the results are screened).`; };
 
-export const pickSystem = () => `You screen arXiv search results for ${pack().reader}. You get their request and candidate papers (id, date, venue if accepted, title, the start of the abstract). Keep the papers that truly match the request.
+export const pickSystem = () => `You screen ${pack().source === 'epmc' ? 'literature' : 'arXiv'} search results for ${pack().reader}. You get their request and candidate papers (id, date, venue if accepted, title, the start of the abstract). Keep the papers that truly match the request.
 
 Reply with only a JSON object:
 {"picks": [{"id": "...", "why": "..."}], "note": "..."}
@@ -66,7 +68,7 @@ export function parsePlan(text, request) {
   const j = jsonIn(text) || {};
   let queries = (Array.isArray(j.queries) ? j.queries : []).filter((q) => typeof q === 'string' && q.trim() && q.length < 500).map((q) => q.trim()).slice(0, 4);
   const keywords = typeof j.keywords === 'string' ? j.keywords.slice(0, 200) : '';
-  if (!queries.length) { const q = plainQuery(keywords || request); if (q) queries = [q]; }
+  if (!queries.length) { const q = pack().source === 'epmc' ? keywords.trim() : plainQuery(keywords || request); if (q) queries = [q]; }
   return { intent: typeof j.intent === 'string' ? j.intent.slice(0, 60) : '', queries, keywords, from: day(j.from), to: day(j.to) };
 }
 
@@ -83,6 +85,22 @@ export function parsePicks(text, ids) {
   }
   return { picks, note: typeof j.note === 'string' ? j.note.slice(0, 240) : '' };
 }
+
+// A looser search when the words together find too little: any of them, ranked by relevance (phrases stay phrases).
+export function looseQuery(text) {
+  const s = String(text || '').trim();
+  if (!s || CJK.test(s) || /\b(ti|abs|au|cat|all|co|jr):/.test(s)) return '';
+  const terms = [];
+  s.replace(/"([^"]+)"|(\S+)/g, (_, phrase, word) => {
+    const w = (phrase || word).replace(/[()"]/g, '').trim();
+    if (w && w.length > 2 && !/^(and|or|not|the|of|for|in|on|with|to|from|via|using)$/i.test(w)) terms.push(phrase ? `"${w}"` : w);
+    return '';
+  });
+  return terms.length > 1 ? terms.slice(0, 8).map((t) => `all:${t}`).join(' OR ') : '';
+}
+export const hasCJK = (s) => CJK.test(String(s || ''));
+// a search typed in Chinese, as English keywords (a few tokens of the AI)
+export const zhSystem = () => `Turn a search typed in Chinese into English keywords for finding ${pack().field} research papers. Reply with only the keywords: 2 to 6 technical English terms, multi-word terms in double quotes (for example "single-cell" "spatial transcriptomics"). No explanation.`;
 
 // a time limit from the plan, as arXiv's submittedDate range
 export function withDates(query, { from, to }) {

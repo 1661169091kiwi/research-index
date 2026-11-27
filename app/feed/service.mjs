@@ -4,9 +4,11 @@
 
 import { createRecommender } from './recommend.mjs';
 import { fetchAll, findFigure, fetchFullText, arxivSearch, arxivIds } from './sources.mjs';
-import { plainQuery, ARXIV_ID, planSystem, pickSystem, planPrompt, pickPrompt, parsePlan, parsePicks, withDates } from './smartsearch.mjs';
+import { plainQuery, looseQuery, hasCJK, zhSystem, ARXIV_ID, planSystem, pickSystem, planPrompt, pickPrompt, parsePlan, parsePicks, withDates } from './smartsearch.mjs';
 import { pack, PACK_LIST } from './packs.mjs';
-import { TOPICS, PALETTE } from './topics.mjs';
+import { fetchAllEpmc, epmcSearch, epmcFullText, EPMC_BASE, upToToday } from './epmc.mjs';
+import { isArxivId, paperLinks, paperUrl, paperRef } from './ids.mjs';
+import { TOPICS, PALETTE, CATS } from './topics.mjs';
 import { venueOf } from './venues.mjs';
 import { costOf, summarize as usageSummary } from './usage.mjs';
 import { canonical } from './affil.mjs';
@@ -60,6 +62,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       id: p.id, title: p.title,
       authors: (p.authors || []).slice(0, 3), nAuthors: (p.authors || []).length,
       org: p.hf?.org || '', inst: instOf(p), q: qualityOf(p.id), qp: ratePending(p.id), published: p.published || '',
+      url: paperUrl(p), ref: paperRef(p), ...(p.journal && !isArxivId(p.id) ? { journal: p.journal } : {}),
       topics: p.topics || [], survey: !!p.survey, venue: venueOf(p),
       up: p.hf?.upvotes || 0, stars: p.hf?.stars || 0,
       cover: coverOf(p),
@@ -90,6 +93,12 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     for (const t of TOPICS) if (!b[t.id]?.done) plan[t.id] = b[t.id]?.start ?? 60;
     return Object.keys(plan).length ? plan : null;
   }
+  // the oldest paper of a direction (where reading further back starts, for Europe PMC)
+  function oldestOf(topicId) {
+    let m = '';
+    for (const p of Object.values(store.papers)) if (p.topics?.includes(topicId) && p.published && (!m || p.published < m)) m = p.published;
+    return m;
+  }
   function onCursor(topicId, papers) {
     const b = { ...(store.state.meta.backfill || {}) };
     const cur = b[topicId] || { start: 60 };
@@ -107,11 +116,13 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     const deep = !only && (force || firstRun || Date.now() - (meta.lastDeep || 0) > 7 * 864e5);
     const venuesDeep = !only && (deep || (meta.venuesV || 0) < VENUES_V);
     let batches = 0;
-    fetching = fetchAll({
+    const plan = firstRun ? null : backfillPlan();
+    fetching = (pack().source === 'epmc' ? fetchAllEpmc : fetchAll)({
+      backfillBefore: Object.fromEntries(Object.keys(plan || {}).map((id) => [id, store.state.meta.backfill?.[id]?.oldest || oldestOf(id)])),
       firstRun,
       deepSurveys: deep,
       venues: only ? '' : venuesDeep ? 'deep' : 'recent',
-      backfill: firstRun ? null : backfillPlan(),
+      backfill: plan,
       only,
       onCursor,
       onBatch: (papers, label) => {
@@ -143,6 +154,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     // The end of coverWanted is served first. Cards on screen jump the queue, even if a background
     // prefetch already queued them; prefetches go to the back in rank order.
     for (const id of ids) {
+      if (!isArxivId(id)) continue; // Europe PMC papers: the generated cover
       const p = store.papers[id];
       if (!p || (p.cover && p.affil)) continue;
       if (coverSet.has(id)) {
@@ -210,7 +222,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   handle('feed:meta', () => ({
     topics: TOPICS.map(({ id, en, zh, color }) => ({ id, en, zh, color })),
     // the discipline pack in use, and the others to switch to
-    pack: { id: pack().id, en: pack().en, zh: pack().zh, hf: pack().hf !== false, venuesLabel: pack().venuesLabel, list: PACK_LIST },
+    pack: { id: pack().id, en: pack().en, zh: pack().zh, hf: pack().hf !== false, source: pack().source || 'arxiv', venuesLabel: pack().venuesLabel, list: PACK_LIST },
     palette: PALETTE,
     ...boards(),
     interests: store.state.interests,
@@ -219,6 +231,10 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   handle('feed:boards', () => boards());
   handle('feed:status', () => status());
   handle('feed:list', (params = {}) => {
+    if (Array.isArray(params.ids)) {
+      const items = params.ids.slice(0, 200).map((id) => store.papers[id]).filter(Boolean).map((p) => (params.withAbstract ? fullCard : card)(p));
+      return { items, total: items.length, deck: '', offset: 0 };
+    }
     if (params.mode === 'smart') {
       const s = smartLast, ids = s?.ids || [], offset = params.offset || 0, limit = params.limit || 30;
       const items = ids.slice(offset, offset + limit).map((id) => store.papers[id]).filter(Boolean)
@@ -253,7 +269,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
         github: p.hf?.github || '', comments: p.hf?.comments || 0,
         caption: p.cover?.caption || '',
         abstract_zh: zhAbs(store.translations[id]?.abstract),
-        links: { abs: `https://arxiv.org/abs/${p.id}`, pdf: `https://arxiv.org/pdf/${p.id}`, html: `https://arxiv.org/html/${p.id}`, hf: `https://huggingface.co/papers/${p.id}` },
+        links: paperLinks(p),
       },
       cols: st.saves[id]?.cols || [],
       note: st.notes[id]?.text || '',
@@ -482,7 +498,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       let fullText = null;
       if (mode === 'deep') {
         send('feed:take', { id, key, stage: 'fetching' });
-        try { fullText = fullTexts.has(id) ? fullTexts.get(id) : rememberFull(id, await fetchFullText(id)); } catch { fullText = null; }
+        try { fullText = fullTexts.has(id) ? fullTexts.get(id) : rememberFull(id, await fullTextOf(id)); } catch { fullText = null; }
         if (cancelled) throw Object.assign(new Error('stopped'), { code: 'stopped' });
       }
       send('feed:take', { id, key, stage: 'thinking' });
@@ -515,10 +531,16 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   // A question should not wait long for the paper: one try, 25 s. After a failure the paper is not
   // asked for again for 10 minutes, so follow-ups are answered from the abstract right away.
   const fullFailed = new Map(); // id -> time of the last failed download
+  // arXiv's HTML version, or for a Europe PMC paper its open-access text in PubMed Central (none: the abstract)
+  function fullTextOf(id, opts) {
+    if (isArxivId(id)) return fetchFullText(id, opts);
+    const p = store.papers[id];
+    return p?.pmcid ? epmcFullText(p.pmcid) : Promise.resolve(null);
+  }
   async function paperText(id) {
     if (fullTexts.has(id)) return fullTexts.get(id);
     if (Date.now() - (fullFailed.get(id) || 0) < 10 * 60e3) return null;
-    try { return rememberFull(id, await fetchFullText(id, { tries: 1, timeout: 25000 })); } catch { fullFailed.set(id, Date.now()); return null; }
+    try { return rememberFull(id, await fullTextOf(id, { tries: 1, timeout: 25000 })); } catch { fullFailed.set(id, Date.now()); return null; }
   }
   const latestTake = (id) => Object.values(store.takes[id] || {}).filter((x) => x?.text).sort((a, b) => (b.t || 0) - (a.t || 0))[0] || null;
 
@@ -597,23 +619,98 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     const list = papers.map((p) => { const old = store.papers[p.id]; return old ? (old.found ? { ...p, found: old.found } : p) : { ...p, found: now }; });
     return store.upsert(list);
   }
-  const arxivAsked = new Map(); // what was typed -> { t, ids }, for 10 minutes
-  // A plain search, on all of arXiv: the papers it finds join the library, and the page searches again.
-  handle('feed:search:arxiv', async (text) => {
+  // A plain search beyond the library, in the pack's own source (arXiv; Europe PMC for biology and medicine): the
+  // papers it finds join the library and the results. Page by page (40 a page, up to 5) as you scroll on. On arXiv:
+  // the pack's categories first, then all of arXiv, then any of the words when all of them together find too
+  // little. Chinese is turned into English keywords by the AI first (a few tokens; with a key, under the limit).
+  const PAGE = 40, MAX_PAGES = 5;
+  const searchPlans = new Map(); // pack|text -> { q, scope, en, cursors }
+  const searchPages = new Map(); // pack|text|page -> { t, res }, for 10 minutes
+  const zhAsked = new Map();
+  async function toEnglish(text) {
+    if (zhAsked.has(text)) return zhAsked.get(text);
+    const out = String(await complete({ system: zhSystem(), user: text, maxTokens: 80 }, 'search') || '')
+      .replace(/[\r\n]+/g, ' ').replace(/[“”]/g, '"').trim().slice(0, 160);
+    zhAsked.set(text, out);
+    return out;
+  }
+  async function arxivPage(words, page, key, en) {
+    let plan = searchPlans.get(key);
+    if (!plan || page === 0) {
+      const strict = plainQuery(words), loose = looseQuery(words);
+      const tries = [[strict && `(${strict}) AND ${CATS}`, 'pack'], [strict, 'all'], [loose, 'loose']].filter(([q]) => q);
+      let best = null;
+      for (const [q, scope] of tries) {
+        const papers = await arxivSearch(q, PAGE, 0, { sort: 'relevance', urgent: true });
+        if (!best || papers.length > best.papers.length) best = { q, scope, papers };
+        if (papers.length >= 10) break;
+      }
+      if (!best) return { ids: [], added: 0, more: false, en, source: 'arxiv' };
+      plan = { q: best.q, scope: best.scope, en };
+      searchPlans.set(key, plan);
+      if (page === 0) return { ids: best.papers.map((p) => p.id), added: addFound(best.papers), more: best.papers.length >= PAGE, scope: plan.scope, en, source: 'arxiv' };
+    }
+    const papers = await arxivSearch(plan.q, PAGE, PAGE * page, { sort: 'relevance', urgent: true });
+    return { ids: papers.map((p) => p.id), added: addFound(papers), more: papers.length >= PAGE && page < MAX_PAGES - 1, scope: plan.scope, en: plan.en, source: 'arxiv' };
+  }
+  async function epmcPage(words, page, key, en) {
+    let plan = searchPlans.get(key);
+    if (!plan || page === 0) {
+      const strict = String(words).trim(), loose = looseWords(words);
+      let best = null;
+      for (const [q, scope] of [[strict, 'all'], [loose, 'loose']].filter(([q]) => q)) {
+        const r = await epmcSearch(`(${q}) AND ${EPMC_BASE} AND ${upToToday()}`, { pageSize: PAGE, sort: '', urgent: true });
+        if (!best || r.papers.length > best.r.papers.length) best = { q, scope, r };
+        if (r.papers.length >= 10) break;
+      }
+      if (!best) return { ids: [], added: 0, more: false, en, source: 'epmc' };
+      plan = { q: best.q, scope: best.scope, en, cursors: { 1: best.r.next } };
+      searchPlans.set(key, plan);
+      if (page === 0) return { ids: best.r.papers.map((p) => p.id), added: addFound(best.r.papers), more: !!best.r.next, scope: plan.scope, en, source: 'epmc' };
+    }
+    const cursor = plan.cursors?.[page];
+    if (!cursor) return { ids: [], added: 0, more: false, en: plan.en, source: 'epmc' };
+    const r = await epmcSearch(`(${plan.q}) AND ${EPMC_BASE} AND ${upToToday()}`, { pageSize: PAGE, cursor, sort: '', urgent: true });
+    plan.cursors[page + 1] = r.next;
+    return { ids: r.papers.map((p) => p.id), added: addFound(r.papers), more: !!r.next && page < MAX_PAGES - 1, scope: plan.scope, en: plan.en, source: 'epmc' };
+  }
+  // any of the words (Europe PMC syntax; phrases stay phrases)
+  function looseWords(text) {
+    const terms = [];
+    String(text).replace(/"([^"]+)"|(\S+)/g, (_, phrase, word) => {
+      const w = (phrase || word).replace(/[()"]/g, '').trim();
+      if (w && w.length > 2 && !/^(and|or|not|the|of|for|in|on|with|to)$/i.test(w)) terms.push(phrase ? `"${w}"` : w);
+      return '';
+    });
+    return terms.length > 1 ? terms.slice(0, 8).join(' OR ') : '';
+  }
+  handle('feed:search:arxiv', async (text, opts = {}) => {
     const raw = String(text || '').trim();
-    const idm = ARXIV_ID.exec(raw);
-    const query = idm ? '' : plainQuery(raw);
-    if (!idm && (!query || raw.length < 2)) return { skipped: true };
-    const hit = arxivAsked.get(raw);
-    if (hit && Date.now() - hit.t < 10 * 60e3) return { ids: hit.ids, added: 0, cached: true };
+    const page = Math.max(0, Math.min(MAX_PAGES - 1, Math.floor(+opts?.page || 0)));
+    if (raw.length < 2) return { skipped: true };
+    const P = pack(), key = `${P.id}|${raw}`;
+    const hit = searchPages.get(`${key}|${page}`);
+    if (hit && Date.now() - hit.t < 10 * 60e3) return { ...hit.res, added: 0, cached: true };
     try {
-      const papers = idm ? await arxivIds([idm[1]]) : await arxivSearch(query, 40, 0, { sort: 'relevance', urgent: true });
-      const added = addFound(papers);
-      const ids = papers.map((p) => p.id);
-      arxivAsked.set(raw, { t: Date.now(), ids });
-      if (added) send('feed:batch', { added: 0, label: 'search', count: Object.keys(store.papers).length });
-      return { ids, added };
-    } catch (e) { return { error: { code: 'network', message: String(e?.message || e) } }; }
+      let res;
+      const idm = ARXIV_ID.exec(raw);
+      if (idm && P.source !== 'epmc') {
+        const papers = await arxivIds([idm[1]]);
+        res = { ids: papers.map((p) => p.id), added: addFound(papers), more: false, source: 'arxiv' };
+      } else {
+        let words = raw, en = '';
+        if (hasCJK(raw)) {
+          if (!keyFor(aiSettings().provider) || overLimit()) return { skipped: true, zh: true };
+          en = await toEnglish(raw);
+          if (!en || hasCJK(en)) return { skipped: true, zh: true };
+          words = en;
+        }
+        res = P.source === 'epmc' ? await epmcPage(words, page, key, en) : await arxivPage(words, page, key, en);
+      }
+      searchPages.set(`${key}|${page}`, { t: Date.now(), res });
+      if (res.added) send('feed:batch', { added: 0, label: 'search', count: Object.keys(store.papers).length });
+      return res;
+    } catch (e) { return { error: e?.code === 'limit' ? limitError() : { code: 'network', message: String(e?.message || e) } }; }
   });
 
   // Smart search: the AI plans arXiv searches from a request in your own words, then screens what they find
@@ -644,7 +741,9 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       let failed = 0;
       for (const q of plan.queries) {
         try {
-          const papers = await arxivSearch(withDates(q, plan), 40, 0, { sort: 'relevance', urgent: true });
+          const papers = pack().source === 'epmc'
+            ? (await epmcSearch(`(${q}) AND ${EPMC_BASE}${plan.from || plan.to ? ` AND FIRST_PDATE:[${plan.from || '1990-01-01'} TO ${plan.to || new Date().toISOString().slice(0, 10)}]` : ''}`, { pageSize: 40, sort: '', urgent: true })).papers
+            : await arxivSearch(withDates(q, plan), 40, 0, { sort: 'relevance', urgent: true });
           addFound(papers);
           for (const p of papers) if (store.papers[p.id] && !found.has(p.id)) found.set(p.id, store.papers[p.id]);
         } catch { failed++; }

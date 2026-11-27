@@ -422,6 +422,7 @@
     // keep filling while the bottom of the feed is still in view
     requestAnimationFrame(() => {
       if (!feed.done && scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 1400) load(false);
+      else if (feed.done && view.query && scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 1400) arxivNext();
     });
   }
 
@@ -466,7 +467,9 @@
   }
 
   new IntersectionObserver((entries) => {
-    if (entries.some((e) => e.isIntersecting) && !feed.loading && !feed.done && feed.order.length) load(false);
+    if (!entries.some((e) => e.isIntersecting) || feed.loading) return;
+    if (!feed.done && feed.order.length) load(false);
+    else if (feed.done && view.query) arxivNext();
   }, { root: scroller, rootMargin: '1400px 0px' }).observe(more);
 
   // ---------- status line ----------
@@ -791,7 +794,9 @@
     document.querySelectorAll('[data-pack]').forEach((x) => x.classList.toggle('is-current', x === b));
     document.body.classList.add('is-switching-pack');
     const tip = document.createElement('div');
-    tip.className = 'pack-switching';
+    tip.className = 'share-note'; // the app's toast (a glass banner in Glass)
+    tip.dataset.glass = 'banner';
+    tip.setAttribute('role', 'status');
     tip.textContent = t('packSwitching', { name: P ? P[lang] || P.en : b.textContent });
     document.body.append(tip);
     setTimeout(() => window.portal.setPack(b.dataset.pack), 260);
@@ -836,16 +841,35 @@
   }
   // A plain search on all of arXiv; say(text, busy) reports on it, still() tells whether it is still wanted.
   const CJK_RE = /[\u2E80-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]/;
-  async function searchArxiv(q, say, still = () => true) {
+  // A plain search in the pack's own source (all of arXiv, or Europe PMC), page by page: say(text, busy) reports on it,
+  // still() tells whether it is still wanted. s carries one query's progress (pages asked, papers added).
+  const srcName = () => t(META?.pack?.source === 'epmc' ? 'srcEpmc' : 'srcArxiv');
+  function searchSay(s, say) {
+    if (!s.added) return say('');
+    say(s.en ? t('arxivAddedEn', { n: s.added, src: srcName(), en: s.en }) : t('arxivAdded', { n: s.added, src: srcName() }));
+  }
+  async function searchArxiv(q, say, still = () => true, s = { added: 0 }) {
     if (!q || q.length < 2) { say(''); return null; }
-    if (CJK_RE.test(q)) { say(t('arxivZh')); return null; }
-    say(t('arxivSearching'), true);
-    const r = await api.searchArxiv(q);
+    say(t('arxivSearching', { src: srcName() }), true);
+    const r = await api.searchArxiv(q, { page: 0 });
     if (!still()) return r;
-    if (r?.error) say(t('arxivFailed'));
-    else if (r?.added) say(t('arxivAdded', { n: r.added }));
-    else say('');
+    if (r?.skipped && r.zh) say(t('arxivZh', { src: srcName() }));
+    else if (r?.error) say(r.error.code === 'limit' ? t('err_limit', { message: r.error.message || '' }) : t('arxivFailed', { src: srcName() }));
+    else { Object.assign(s, { q, next: 1, more: !!r?.more, en: r?.en || '' }); s.added += r?.added || 0; searchSay(s, say); }
     return r;
+  }
+  // the next page, when the results so far have all been shown: returns the ids it brought (in order)
+  async function searchMore(s, say, still) {
+    if (!s.more || s.busy) return [];
+    s.busy = true;
+    say(t('arxivMore', { src: srcName() }), true);
+    const r = await api.searchArxiv(s.q, { page: s.next });
+    s.busy = false;
+    if (!still()) return [];
+    if (r?.error) { s.more = false; say(t('arxivFailed', { src: srcName() })); return []; }
+    s.next++; s.more = !!r?.more; s.added += r?.added || 0;
+    searchSay(s, say);
+    return r?.ids || [];
   }
 
   // ---------- search, refresh, interests ----------
@@ -898,15 +922,31 @@
   // A plain search also asks arXiv (all of it, not only this library): what it finds joins the results.
   const searchNote = $('#search-note');
   const note = (el, text, busy = false) => { el.hidden = !text; el.textContent = text || ''; el.classList.toggle('is-busy', busy); };
-  let arxivTimer = 0, arxivDone = '';
+  let arxivTimer = 0, arxivDone = '', srch = { added: 0 };
+  const sayGrid = (q) => (text, busy) => { if (view.query === q) note(searchNote, text, busy); };
   function arxivToo(q) {
     clearTimeout(arxivTimer);
-    if (!q) { arxivDone = ''; return note(searchNote, ''); }
+    if (!q) { arxivDone = ''; srch = { added: 0 }; return note(searchNote, ''); }
     if (arxivDone === q) return;
-    arxivTimer = setTimeout(() => searchArxiv(q, (text, busy) => { if (view.query === q) note(searchNote, text, busy); }, () => view.query === q).then((r) => {
-      arxivDone = q;
-      if (r?.added && view.query === q) load(true);
-    }), 650);
+    arxivTimer = setTimeout(() => {
+      srch = { added: 0 };
+      searchArxiv(q, sayGrid(q), () => view.query === q, srch).then((r) => {
+        arxivDone = q;
+        if (r?.added && view.query === q) load(true);
+      });
+    }, 650);
+  }
+  // scrolled past the last result: the next page from the source, added at the end
+  async function arxivNext() {
+    const q = view.query;
+    if (!q || view.smart || srch.q !== q || !srch.more || srch.busy) return;
+    const ids = (await searchMore(srch, sayGrid(q), () => view.query === q)).filter((id) => !feed.cards.has(id));
+    if (!ids.length || view.query !== q) return;
+    const res = await api.list({ ids });
+    if (view.query !== q) return;
+    addCards(res.items);
+    feed.total += res.items.length;
+    end.hidden = true;
   }
   $('#refresh').addEventListener('click', () => refreshFeed());
 
@@ -1009,9 +1049,8 @@
     if (!p.cover || !p.inst?.length) api.covers([id]);
 
     const authors = p.authors.length > 12 ? `${p.authors.slice(0, 12).join(', ')} ${t('moreAuthors', { n: p.authors.length - 12 })}` : p.authors.join(', ');
-    const links = [
-      ['abs', 'arXiv'], ['pdf', 'PDF'], ['html', 'HTML'], ['hf', 'Hugging Face'],
-    ].map(([k, label]) => `<a href="${esc(p.links[k])}" target="_blank" rel="noopener">${label} ↗</a>`).join('')
+    // [label, url]: arXiv / PDF / HTML / Hugging Face, or Europe PMC / DOI / PMC / PubMed (ids.mjs)
+    const links = (Array.isArray(p.links) ? p.links : []).map(([label, url]) => `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)} ↗</a>`).join('')
       + (p.github ? `<a href="${esc(p.github)}" target="_blank" rel="noopener">${esc(t('code'))}${p.stars ? ` ★ ${p.stars}` : ''} ↗</a>` : '');
 
     sheet.innerHTML = `
@@ -2068,7 +2107,7 @@
     openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView, openDirs, closeDirs, paintDirBtn, fitTabs,
     // the swipe view's Saved / Liked tabs open here, in the grid
     showMode(mode) { hooks.exit?.(); if (view.mode !== mode || view.query) setView({ mode, collection: '' }); else relayout(); },
-    sideSwipe, trStream, longPress, smart, smartStart, onSmart, smartHtml, searchArxiv, packModes, modeLabel,
+    sideSwipe, trStream, longPress, smart, smartStart, onSmart, smartHtml, searchArxiv, searchMore, packModes, modeLabel,
     act: async (c, kind) => (kind === 'like' ? toggleLike(c) : toggleSave(c)),
     get META() { return META; }, get AI() { return AI; }, get trOn() { return trOn; }, get sheetId() { return sheetState.id; }, get sheetPaper() { return sheetState.data?.paper || null; },
     gridShown() { if (!feed.order.length && !feed.loading) load(true); else relayout(); },

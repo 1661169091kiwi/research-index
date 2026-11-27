@@ -55,7 +55,7 @@ function find(text, fallbackYear) {
     // the year written next to it (2026, '26), else the paper's own
     const near = text.slice(Math.max(0, m.index - 30), m.index + m[0].length + 40);
     const y = /\b(20\d{2})\b/.exec(near)?.[1] || (/'(\d{2})\b/.exec(near) ? `20${/'(\d{2})\b/.exec(near)[1]}` : '');
-    const bare = new RegExp(`^\\W*(?:${m[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\W*(?:20\\d{2}|'\\d{2})?\\b`, 'i').test(text);
+    const bare = new RegExp(`^\\W*(?:${m[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\W*(?:20\\d{2}|'\\d{2})?(?:\\b|$)`, 'i').test(text); // (a name may end in a bracket: "Lancet (London, England)")
     if (!TAKEN.test(text) && !y && !bare) continue;
     const year = +(y || fallbackYear) || 0;
     const note = NOTE.exec(text)?.[1];

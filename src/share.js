@@ -89,7 +89,7 @@
     const names = p.authors || [];
     const insts = (p.inst || []).slice(0, 3).map((x) => F.instName(x)).join(' · ') || p.org || '';
     const who = [names.slice(0, 6).join(', ') + (names.length > 6 ? (lang === 'zh' ? ' 等' : ' et al.') : ''), insts].filter(Boolean).join(' · ');
-    const link = `https://arxiv.org/abs/${p.id}`;
+    const link = p.url || `https://arxiv.org/abs/${p.id}`;
     const all = [title, p.title, abstract, who, topic, t('shareScan'), t('shareApp'), t('shareGet'), t('abstract'), link].join(' ');
     // fonts, the icon and the figure at once, none of them able to hold the card up for long
     const [, icon, fig] = await Promise.all([
@@ -233,13 +233,13 @@
     m.querySelector('.share-img').innerHTML = `<img src="${url}" alt="${esc(plain(p.title))}">`;
     m.querySelectorAll('[data-share]').forEach((b) => { b.disabled = false; });
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    const name = `paper-${p.id}.png`;
+    const name = `paper-${String(p.id).replace(/[^\w.-]+/g, '-')}.png`; // (a DOI has slashes)
     m.addEventListener('click', async (e) => {
       if (e.target.closest('[data-share-close]') || e.target.matches('[data-share-bg]')) return close();
       const kind = e.target.closest('[data-share]')?.dataset.share;
       if (!kind) return;
       try {
-        if (kind === 'send') { await portal.shareImage(name, bytes, t('shareTitle'), `${plain(p.title)}\nhttps://arxiv.org/abs/${p.id}`); return; }
+        if (kind === 'send') { await portal.shareImage(name, bytes, t('shareTitle'), `${plain(p.title)}\n${p.url || `https://arxiv.org/abs/${p.id}`}`); return; }
         if (kind === 'copy') { const r = await portal.copyImage(bytes); note(r?.ok ? t('shareCopied') : t('shareFailed')); return; }
         if (portal.saveImage) {
           const r = await portal.saveImage(name, bytes);

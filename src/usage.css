@@ -226,15 +226,16 @@ html.fl .usage-body { gap: 20px; padding-top: 14px; }
 .u-limit.is-near .ul-bar i { background: var(--u4); }
 .u-limit.is-over .ul-bar i { background: #e5484d; }
 .ul-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.ul-chip { appearance: none; display: inline-flex; align-items: center; gap: 2px; height: 34px; padding: 0 14px; border: 1.5px solid var(--hair); border-radius: 999px; background: var(--paper); color: var(--ink); font: 600 14px var(--display); font-variant-numeric: tabular-nums; cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.15s; }
-.ul-chip:active { transform: scale(0.95); }
-.ul-chip.is-on { border-color: var(--u1); background: color-mix(in srgb, var(--u1) 10%, var(--paper)); color: var(--u1); }
+.ul-chip { appearance: none; display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 0 13px; border: var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font: 600 13px var(--display); font-variant-numeric: tabular-nums; cursor: pointer; transition: background 0.2s, color 0.2s, opacity 0.15s; }
+.ul-chip:active { opacity: 0.72; }
+.ul-chip.is-on { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .ul-custom { padding: 0 6px 0 12px; cursor: text; }
 .ul-custom input { width: 64px; border: 0; background: none; font: inherit; color: inherit; outline: none; padding: 0; }
 .ul-hint { margin: 0; font: 500 12px/1.5 var(--display); color: var(--muted); }
 html.fl .ul-bar { background: var(--fill-2); }
-html.fl .ul-chip { border-color: transparent; background: var(--fill); color: var(--on); }
-html.fl .ul-chip.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--card)); color: var(--primary); }
+html.fl .ul-chip { border: 0; background: var(--fill); color: var(--on); }
+html.fl .ul-chip:hover { background: var(--fill-2); }
+html.fl .ul-chip.is-on { background: var(--primary); color: var(--on-primary); }
 html.fl .ul-bar i { background: var(--primary); }
 html.fl .u-limit.is-near .ul-bar i { background: var(--u4); }
 html.fl .u-limit.is-over .ul-bar i { background: #e5484d; }

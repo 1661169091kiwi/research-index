@@ -4,6 +4,7 @@
 // Requests go out 40 papers at a time (and 50 authors at a time), one every 400 ms. Shared by both apps.
 import { httpGet } from './sources.mjs';
 import { fromOpenAlex } from './affil.mjs';
+import { doiOf } from './ids.mjs';
 
 const BASE = 'https://api.openalex.org';
 const DAY = 864e5;
@@ -43,14 +44,15 @@ const arxivId = (doi) => (/arxiv\.(.+)$/i.exec(String(doi || '')) || [])[1] || '
 export async function enrich(papers, onPaper) {
   const now = Date.now();
   for (let i = 0; i < papers.length; i += 40) {
-    const batch = papers.slice(i, i + 40);
-    const filter = batch.map((p) => `10.48550/arxiv.${p.id}`).join('|');
+    const batch = papers.slice(i, i + 40).filter((p) => doiOf(p));
+    if (!batch.length) continue;
+    const filter = batch.map((p) => doiOf(p)).join('|');
     let works;
     try {
       const j = await queued(`${BASE}/works?filter=doi:${encodeURIComponent(filter)}&per-page=50&select=doi,cited_by_count,authorships`);
       works = j?.results || [];
     } catch { continue; }
-    const found = new Map(works.map((w) => [arxivId(w.doi).toLowerCase(), w]));
+    const found = new Map(works.map((w) => [String(w.doi || '').replace(/^https?:\/\/doi\.org\//i, '').toLowerCase(), w]));
     // the authors' records, for the papers found
     const authorIds = new Set();
     for (const w of works) for (const a of (w.authorships || []).slice(0, 12)) { const id = a.author?.id?.split('/').pop(); if (id) authorIds.add(id); }
@@ -63,7 +65,7 @@ export async function enrich(papers, onPaper) {
       } catch { /* the h-indices are left out */ }
     }
     for (const p of batch) {
-      const w = found.get(p.id.toLowerCase());
+      const w = found.get(doiOf(p));
       if (!w) { onPaper(p.id, { t: now, miss: true }); continue; }
       const inst = [], seen = new Set();
       const hs = [];

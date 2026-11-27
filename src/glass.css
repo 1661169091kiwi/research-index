@@ -693,40 +693,56 @@ html.fl .tr-en { color: var(--on-2); }
 html.fl [data-pop].is-closing { animation: flFold 0.17s cubic-bezier(0.4, 0, 0.7, 0.2) both !important; }
 @keyframes flFold { to { opacity: 0; transform: scale(0.7); } }
 
-/* the export panel stays liquid glass; what sits behind it is softened a little, and the controls on it are
-   frosted cards, so its text reads as clearly as on a solid sheet */
+/* the export panel stays liquid glass, its controls frosted cards on it; chosen = solid primary, as everywhere */
 html.fl .ex-panel { border: 0; border-radius: var(--r-xl); padding: 20px; }
-html.fl .ex-scrim { background: rgba(10, 10, 14, 0.26); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
-html.fl .ex-x { border: 0; background: var(--glass-tint); color: var(--on); }
-html.fl .ex-seg { border: 0; background: color-mix(in srgb, var(--card) 45%, transparent); border-radius: 14px; }
-html.fl .ex-seg-thumb { background: var(--card); border-radius: 11px; }
+html.fl .ex-scrim { background: var(--scrim, rgba(0, 0, 0, 0.32)); }
+html.fl .ex-x { border: 0; background: var(--fill); color: var(--on); }
+html.fl .ex-seg { border: 0; background: var(--fill); border-radius: 999px; padding: 2px; }
+html.fl .ex-seg-thumb { top: 2px; bottom: 2px; left: 2px; width: calc(50% - 2px); background: var(--thumb-fill, var(--card)); border-radius: 999px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14); }
+html.fl .ex-seg button { color: var(--on-2); padding: 7px 8px; }
 html.fl .ex-seg button.is-on { color: var(--on); }
-html.fl .ex-fmt { border: 1.5px solid transparent; background: color-mix(in srgb, var(--card) 62%, transparent); border-radius: 18px; color: var(--on); }
-html.fl .ex-fmt.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--card)); }
-html.fl .ex-fmt.is-on svg { color: var(--primary); }
-html.fl .ex-go { background: var(--primary); border-radius: 999px; box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 32%, transparent); }
+html.fl .ex-fmt { border: 0; background: color-mix(in srgb, var(--card) 70%, transparent); border-radius: var(--r-lg); color: var(--on); }
+html.fl .ex-fmt span { color: var(--on-2); }
+html.fl .ex-fmt.is-on { background: var(--primary); color: var(--on-primary); }
+html.fl .ex-fmt.is-on svg { color: var(--on-primary); }
+html.fl .ex-fmt.is-on span { color: rgba(255, 255, 255, 0.8); }
+html.fl .ex-go { background: var(--primary); color: var(--on-primary); border-radius: 999px; }
+html.fl .ex-go:hover:not(:disabled) { background: var(--primary-press); }
 html.fl .ex-md-wrap { background: var(--card); border-radius: 26px; }
 html.fl .ex-md { color: var(--on); }
-html.fl .sw-shelf-export { border: 0; background: var(--glass-tint, var(--fill)); color: var(--on); }
-@media (max-width: 640px) { html.fl .ex-panel { border-radius: 26px 26px 0 0; } }
+@media (max-width: 640px) { html.fl .ex-panel { border-radius: var(--r-xxl) var(--r-xxl) 0 0; } }
 @supports (corner-shape: superellipse(1.5)) { html.fl .ex-panel, html.fl .ex-fmt { corner-shape: superellipse(1.5); } }
 
-html.fl .pick-export { border: 0; background: var(--fill); color: var(--on); }
+/* picking: Export is a quiet fill pill (like .tool on the page), solid primary once there is something to export */
+html.fl .pick-export, html.fl .sw-shelf-export { border: 0; background: var(--card); color: var(--on); }
+html.fl .pick-export:hover:not(:disabled), html.fl .sw-shelf-export:hover:not(:disabled) { background: color-mix(in srgb, var(--card), var(--on) 6%); }
 html.fl .pick-txt { color: var(--primary); }
-html.fl .is-picking .pick-export:not(:disabled), html.fl .is-picking .sw-shelf-export:not(:disabled) { background: var(--primary); color: #fff; box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 30%, transparent); }
+html.fl .is-picking .pick-export:not(:disabled), html.fl .is-picking .sw-shelf-export:not(:disabled) { background: var(--primary); color: var(--on-primary); }
 html.fl #grid.is-picking .card.is-picked, html.fl .sw-shelf-grid.is-picking .sw-tile.is-picked { box-shadow: 0 0 0 3px var(--primary); }
 html.fl #grid.is-picking .card.is-picked::after, html.fl .sw-shelf-grid.is-picking .sw-tile.is-picked::after { background-color: var(--primary); }
 html.fl .ex-sub { color: var(--on-2); }
 
-html.fl .sm { border: 0; background: var(--card); border-radius: var(--r-xl); box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,.04)); }
-html.fl .sm-x { background: var(--fill); color: var(--on-2); }
-html.fl .sm-steps li i { background: var(--fill-2); }
-html.fl .sm-what b, html.fl .sm-line { color: var(--on); }
+/* smart search: the ✦ switch is a quiet fill until it is on (then solid primary, like 中文翻译); the field rings like
+   any focused field; the panel is a card in the list (no border, no shadow) */
+html.fl .bar .bar-search .bs-smart { color: var(--on-2); }
 html.fl .bar .bar-search .bs-smart:hover { background: var(--fill); color: var(--on); }
-html.fl .bar .bar-search.is-smart input { background: linear-gradient(var(--card), var(--card)) padding-box, linear-gradient(120deg, #6a5cff, #1f8bff, #19c3a6) border-box; border: 1.5px solid transparent; box-shadow: 0 0 0 4px rgba(90, 100, 255, .12); }
-html.fl .sm-steps li.is-done i { background: var(--primary); }
+html.fl .bar .bar-search.is-smart .bs-smart { background: var(--primary); color: var(--on-primary); }
+html.fl .bar .bar-search.is-smart input { background: var(--card); box-shadow: 0 0 0 2px var(--primary); border-color: transparent; }
+html.fl .sm { border: 0; background: var(--card); border-radius: var(--r-lg); }
+html.fl .sm-spark { background: var(--primary); color: var(--on-primary); border-radius: var(--r-sm, 8px); }
+html.fl .sm-x { background: var(--fill); color: var(--on-2); }
+html.fl .sm-what b, html.fl .sm-line { color: var(--on); }
+html.fl .sm-what span, html.fl .sm-note { color: var(--on-2); }
+html.fl .sm-steps li { color: var(--muted); }
+html.fl .sm-steps li i { background: var(--fill-2); }
 html.fl .sm-steps li.is-done { color: var(--on-2); }
+html.fl .sm-steps li.is-done i, html.fl .sm-steps li.is-on i::after { background: var(--primary); }
 html.fl .sm-steps li.is-on { color: var(--on); }
+html.fl .sm.is-error .sm-line { color: var(--like-c); }
+html.fl .search-note.is-busy::before { border-color: var(--fill-2); border-top-color: var(--primary); }
+@supports (corner-shape: superellipse(1.5)) { html.fl .sm { corner-shape: superellipse(1.5); } }
 
+/* the pack: the switch is the same segmented control as Language and Style; the heading's tag is a fill pill */
 html.fl .pack-switch button { border-radius: 999px; color: var(--on-2); }
-html.fl .pack-switch button.is-current { background: var(--card); color: var(--on); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+html.fl .pack-switch button.is-current { background: var(--thumb-fill, var(--card)); color: var(--on); box-shadow: 0 1px 3px rgba(0, 0, 0, .14); }
+html.fl .pack-chip { border: 0; border-radius: 999px; background: var(--fill); color: var(--on-2); padding: 4px 11px; }

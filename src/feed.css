@@ -583,7 +583,8 @@ html.fl .inst-more { background: var(--fill); }
 @keyframes popOut { to { opacity: 0; transform: translateY(-5px) scale(0.98); } }
 @media (prefers-reduced-motion: reduce) { [data-pop].is-closing { animation: none !important; } }
 
-/* ---------- export: a small panel, then the result (in the share view) ---------- */
+/* ---------- export: a small panel, then the result (in the share view) ----------
+   (like the rest of the app: quiet controls are fills, what is chosen is solid blue with white text) */
 .ex-modal { position: fixed; inset: 0; z-index: 74; display: grid; place-items: center; -webkit-app-region: no-drag; }
 .ex-scrim { position: absolute; inset: 0; background: rgba(15, 15, 15, 0.3); animation: fade 0.2s ease both; }
 .ex-panel {
@@ -606,19 +607,19 @@ html.fl .inst-more { background: var(--fill); }
 .ex-seg-thumb { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 9px; background: var(--paper-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); transition: transform 0.36s cubic-bezier(0.2, 1.25, 0.35, 1); }
 .ex-seg.is-second .ex-seg-thumb { transform: translateX(100%); }
 .ex-fmts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.ex-fmt { appearance: none; display: grid; justify-items: start; gap: 3px; padding: 14px 14px 13px; text-align: left; border: 1.5px solid var(--hair); border-radius: 14px; background: var(--paper); color: var(--ink); cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.15s; }
-.ex-fmt:active { transform: scale(0.97); }
-.ex-fmt svg { width: 26px; height: 26px; margin-bottom: 6px; color: var(--muted); transition: color 0.2s, transform 0.3s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.ex-fmt { appearance: none; display: grid; justify-items: start; gap: 3px; padding: 14px 14px 13px; text-align: left; border: var(--line); border-radius: 14px; background: var(--paper); color: var(--ink); cursor: pointer; transition: background 0.2s, color 0.2s, opacity 0.15s; }
+.ex-fmt:active { opacity: 0.72; }
+.ex-fmt svg { width: 26px; height: 26px; margin-bottom: 6px; color: var(--muted); transition: color 0.2s; }
 .ex-fmt b { font: 650 15px var(--display); }
-.ex-fmt span { font: 500 12px/1.35 var(--display); color: var(--muted); }
-.ex-fmt.is-on { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 6%, var(--paper)); }
-.ex-fmt.is-on svg { color: var(--blue); transform: scale(1.08); }
+.ex-fmt span { font: 500 12px/1.35 var(--display); color: var(--muted); transition: color 0.2s; }
+.ex-fmt.is-on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.ex-fmt.is-on svg { color: #fff; }
+.ex-fmt.is-on span { color: rgba(255, 255, 255, 0.8); }
 .ex-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 2px; font: 600 14px var(--display); cursor: pointer; }
-.ex-go { appearance: none; height: 46px; border: 0; border-radius: 14px; background: var(--blue); color: #fff; font: 650 15.5px var(--display); cursor: pointer; transition: opacity 0.2s, transform 0.15s; position: relative; overflow: hidden; }
-.ex-go:active:not(:disabled) { transform: scale(0.98); }
+.ex-go { appearance: none; height: 46px; border: 0; border-radius: 14px; background: var(--blue); color: #fff; font: 650 15.5px var(--display); cursor: pointer; transition: opacity 0.2s; }
+.ex-go:active:not(:disabled) { opacity: 0.72; }
 .ex-go:disabled { opacity: 0.45; cursor: default; }
-.ex-go.is-busy { opacity: 0.9; }
-.ex-go.is-busy::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%) 0 0 / 250% 100%; animation: qSheen 1.2s linear infinite; }
+.ex-go.is-busy { opacity: 0.72; }
 .ex-md-wrap { background: var(--paper); }
 .ex-md { margin: 0; padding: 22px 22px 120px; white-space: pre-wrap; word-break: break-word; font: 500 13px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--ink); text-align: left; }
 @media (max-width: 640px) {
@@ -636,27 +637,27 @@ html.fl .inst-more { background: var(--fill); }
 .pick-n { font: 600 14px var(--display); color: var(--muted); transition: color 0.2s; }
 .is-picking .pick-n, .pick-bar.is-picking .pick-n { color: var(--ink); }
 .pick-tools { display: inline-flex; align-items: center; gap: 6px; }
-.pick-txt { appearance: none; border: 0; background: none; padding: 8px 10px; font: 600 14px var(--display); color: var(--blue); cursor: pointer; border-radius: 999px; animation: pickIn 0.24s var(--ease) both; }
+.pick-txt { appearance: none; border: 0; background: none; padding: 8px 10px; font: 600 13px var(--display); color: var(--blue); cursor: pointer; border-radius: 999px; animation: pickIn 0.24s var(--ease) both; }
+.pick-txt:active { opacity: 0.72; }
 .pick-txt[hidden] { display: none; }
-@keyframes pickIn { from { opacity: 0; transform: translateX(8px); } }
-.pick-export, .sw-shelf-export { appearance: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 15px 0 12px; border: var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font: 600 14px var(--display); cursor: pointer; transition: background 0.2s, color 0.2s, opacity 0.2s, transform 0.15s; }
-.pick-export svg, .sw-shelf-export svg { width: 16px; height: 16px; }
-.pick-export:active, .sw-shelf-export:active { transform: scale(0.96); }
-.is-picking .pick-export:not(:disabled), .is-picking .sw-shelf-export:not(:disabled) { background: var(--blue); border-color: var(--blue); color: #fff; }
+@keyframes pickIn { from { opacity: 0; } }
+/* Export: a quiet pill like the other tools; solid blue once there are papers to export */
+.pick-export, .sw-shelf-export { appearance: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px 0 11px; border: var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font: 600 13px var(--display); cursor: pointer; transition: background 0.2s, color 0.2s, opacity 0.2s; }
+.pick-export svg, .sw-shelf-export svg { width: 15px; height: 15px; }
+.pick-export:active, .sw-shelf-export:active { opacity: 0.72; }
+.is-picking .pick-export:not(:disabled), .is-picking .sw-shelf-export:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .pick-export:disabled, .sw-shelf-export:disabled { opacity: 0.45; cursor: default; }
-/* the papers: a round check on each while picking; a picked one sinks a little and its check fills */
+/* the papers: a round check on each while picking; a picked one is ringed and its check fills */
 #grid .card, .sw-tile { -webkit-touch-callout: none; user-select: none; }
-#grid.is-picking .card, .sw-shelf-grid.is-picking .sw-tile { transition: transform 0.25s cubic-bezier(0.2, 1.2, 0.4, 1), box-shadow 0.2s; }
 #grid.is-picking .card::after, .sw-shelf-grid.is-picking .sw-tile::after {
-  content: ""; position: absolute; top: 10px; left: 10px; z-index: 3; width: 26px; height: 26px; border-radius: 50%;
-  border: 2px solid #fff; background: rgba(0, 0, 0, 0.28) center / 16px no-repeat; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  animation: pickDot 0.3s cubic-bezier(0.2, 1.5, 0.4, 1) both; pointer-events: none;
+  content: ""; position: absolute; top: 10px; left: 10px; z-index: 3; width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid #fff; background: rgba(0, 0, 0, 0.25) center / 15px no-repeat;
+  animation: pickDot 0.25s var(--ease) both; pointer-events: none;
 }
 .sw-shelf-grid.is-picking .sw-tile::after { left: auto; right: 8px; top: 8px; }
-@keyframes pickDot { from { opacity: 0; transform: scale(0.4); } }
-#grid.is-picking .card.is-picked, .sw-shelf-grid.is-picking .sw-tile.is-picked { transform: scale(0.95); box-shadow: 0 0 0 3px var(--blue); }
-#grid.is-picking .card.is-picked::after, .sw-shelf-grid.is-picking .sw-tile.is-picked::after { background-color: var(--blue); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); animation: pickCheck 0.32s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
-@keyframes pickCheck { 0% { transform: scale(0.6); } 100% { transform: none; } }
+@keyframes pickDot { from { opacity: 0; } }
+#grid.is-picking .card.is-picked, .sw-shelf-grid.is-picking .sw-tile.is-picked { box-shadow: 0 0 0 3px var(--blue); }
+#grid.is-picking .card.is-picked::after, .sw-shelf-grid.is-picking .sw-tile.is-picked::after { background-color: var(--blue); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 #grid.is-picking .card { position: relative; }
 .ex-sub { margin: -4px 0 0; font: 600 14px var(--display); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .pick-txt, #grid.is-picking .card::after, .sw-shelf-grid.is-picking .sw-tile::after { animation: none; } }
@@ -665,27 +666,23 @@ html.fl .inst-more { background: var(--fill); }
 #grid .card .cv-top { transition: opacity 0.2s; }
 #grid.is-picking .card .cv-top, #grid.is-picking .card .cv-save { opacity: 0; pointer-events: none; }
 
-/* ---------- smart search ---------- */
-.bar .bar-search .bs-smart { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 7px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 650 12px var(--display); cursor: pointer; transition: background .2s, color .2s, box-shadow .2s; }
-.bar .bar-search .bs-smart svg { width: 14px; height: 14px; }
+/* ---------- smart search ----------
+   The ✦ switch sits in the search field like its "/" hint: quiet until it is on, then solid (as the 中文翻译 tool).
+   Its panel is an ordinary card; the step bars are the only thing that moves. */
+.bar .bar-search .bs-smart { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 7px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 12px var(--display); cursor: pointer; transition: background .2s, color .2s; }
+.bar .bar-search .bs-smart svg { width: 13px; height: 13px; }
 .bar .bar-search .bs-smart:hover { color: var(--ink); background: var(--paper-2); }
+.bar .bar-search .bs-smart:active { opacity: 0.72; }
 .bar .bar-search kbd { right: 74px; }
 .bar .bar-search input { padding-right: 96px; }
-.bar .bar-search.is-smart .bs-smart { color: #fff; background: linear-gradient(120deg, #6a5cff, #1f8bff); box-shadow: 0 3px 10px rgba(80, 90, 255, .35); }
-.bar .bar-search.is-smart .bs-smart svg { animation: smTwinkle 2.4s ease-in-out infinite; }
-.bar .bar-search.is-smart input { border-color: transparent; background: linear-gradient(var(--paper), var(--paper)) padding-box, linear-gradient(120deg, #6a5cff, #1f8bff, #19c3a6) border-box; border: 1.5px solid transparent; }
+.bar .bar-search.is-smart .bs-smart { color: var(--paper); background: var(--ink); }
+.bar .bar-search.is-smart input { border-color: var(--blue); }
 .bar .bar-search.is-smart kbd { opacity: 0; }
-@keyframes smTwinkle { 50% { transform: rotate(18deg) scale(1.12); } }
 .smart-panel[hidden], .search-note[hidden] { display: none; }
 .smart-panel { margin: 0 0 18px; animation: popIn .3s var(--ease) both; }
-.sm { position: relative; padding: 16px 18px 15px; border-radius: 18px; background: var(--paper); border: var(--line); overflow: hidden; }
-.sm::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, #6a5cff, #1f8bff, #19c3a6, #6a5cff) 0 0 / 300% 100%; opacity: 0; transition: opacity .3s; }
-.sm.is-busy::before { opacity: 1; animation: smFlow 1.6s linear infinite; }
-@keyframes smFlow { to { background-position: 300% 0; } }
+.sm { position: relative; padding: 16px 18px 15px; background: var(--paper); border: var(--line); }
 .sm-head { display: flex; align-items: flex-start; gap: 10px; }
-.sm-spark { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9px; color: #fff; font-size: 15px; background: linear-gradient(135deg, #6a5cff, #1f8bff); box-shadow: 0 4px 12px rgba(80, 90, 255, .3); }
-.sm.is-busy .sm-spark { animation: smPulse 1.6s ease-in-out infinite; }
-@keyframes smPulse { 50% { transform: scale(1.08) rotate(10deg); box-shadow: 0 6px 18px rgba(80, 90, 255, .45); } }
+.sm-spark { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: var(--paper); font-size: 14px; background: var(--ink); }
 .sm-what { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .sm-what b { font: 700 16px/1.3 var(--display); color: var(--ink); }
 .sm-what span { font: 500 12.5px/1.4 var(--display); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -694,23 +691,23 @@ html.fl .inst-more { background: var(--fill); }
 .sm-steps li { flex: 1; display: grid; gap: 6px; font: 600 11.5px var(--display); color: var(--faint); transition: color .3s; }
 .sm-steps li i { height: 4px; border-radius: 99px; background: var(--hair); overflow: hidden; position: relative; }
 .sm-steps li.is-done { color: var(--muted); }
-.sm-steps li.is-done i { background: #1f8bff; }
+.sm-steps li.is-done i { background: var(--blue); }
 .sm-steps li.is-on { color: var(--ink); }
-.sm-steps li.is-on i::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: inherit; background: linear-gradient(90deg, #6a5cff, #1f8bff); animation: smRun 1.1s ease-in-out infinite; }
+.sm-steps li.is-on i::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: inherit; background: var(--blue); animation: smRun 1.1s ease-in-out infinite; }
 @keyframes smRun { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 .sm-line { margin: 12px 0 0; font: 600 13.5px/1.5 var(--display); color: var(--ink); }
-.sm.is-error .sm-line { color: #c2412b; }
+.sm.is-error .sm-line { color: #b42318; }
 .sm-note { margin: 6px 0 0; font: 500 13px/1.55 var(--display); color: var(--muted); }
 .sm-key { margin-top: 10px; }
-.card-reason.is-smart { color: #4b52e0; }
 .search-note { margin: -4px 0 14px; font: 500 13px/1.5 var(--display); color: var(--muted); }
-.search-note.is-busy::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 7px; vertical-align: -1px; border-radius: 50%; border: 2px solid var(--hair); border-top-color: #1f8bff; animation: uSpin .8s linear infinite; }
+.search-note.is-busy::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 7px; vertical-align: -1px; border-radius: 50%; border: 2px solid var(--hair); border-top-color: var(--blue); animation: uSpin .8s linear infinite; }
 @keyframes uSpin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .sm.is-busy::before, .sm-spark, .sm-steps li.is-on i::after, .bs-smart svg { animation: none !important; } }
-@media (prefers-color-scheme: dark) { .card-reason.is-smart { color: #8f95ff; } .sm.is-error .sm-line { color: #ff7b66; } }
+@media (prefers-reduced-motion: reduce) { .sm-steps li.is-on i::after { animation: none !important; } }
 
 /* ---------- the discipline pack ---------- */
-.pack-chip { display: inline-block; margin-left: 12px; padding: 4px 12px; border-radius: 999px; vertical-align: 0.35em; font: 650 14px/1.3 var(--display); letter-spacing: 0; color: #fff; background: linear-gradient(120deg, #14805e, #1f8bff); box-shadow: 0 4px 12px rgba(20, 128, 94, .25); }
+/* by the heading: a tag, like the directions' tags (not a button) */
+.pack-chip { display: inline-block; margin-left: 12px; padding: 3px 10px; border: var(--line); vertical-align: 0.4em; font: 600 13px/1.4 var(--display); letter-spacing: 0; color: var(--muted); background: var(--paper); }
 .pack-switch button { appearance: none; border: 0; background: none; padding: 4px 11px; font: 600 12.5px var(--display); color: var(--muted); cursor: pointer; }
-.pack-switching { position: fixed; left: 50%; bottom: 40px; z-index: 90; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px; background: var(--ink); color: var(--paper); font: 600 14px var(--display); box-shadow: 0 12px 30px rgba(0, 0, 0, .25); animation: popIn .25s var(--ease) both; }
-body.is-switching-pack .scroller, body.is-switching-pack .swipe { transition: opacity .25s, filter .25s; opacity: .35; filter: blur(3px); }
+.pack-switch button.is-current { background: var(--ink); color: var(--paper); cursor: default; }
+/* switching: the page fades while the app starts again with the other library (the note is the share view's toast) */
+body.is-switching-pack .scroller, body.is-switching-pack .swipe { transition: opacity .25s; opacity: .4; }

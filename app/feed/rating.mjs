@@ -15,13 +15,13 @@ For each paper give four integer scores from 1 to 10:
 - s: significance (would people in the area care, build on it, cite it?)
 - c: clarity (is it clear what was done and what was found?)
 
-Calibrate: 5 is a typical arXiv paper in its area; 8 or more would be ${pack().rateBar}; 3 or less is weak, vague or mostly claims. Use the whole range. Do not reward buzzwords, scale of claims or famous names.
+Calibrate: 5 is a typical paper in its area; 8 or more would be ${pack().rateBar}; 3 or less is weak, vague or mostly claims.${pack().rateNote ? ` ${pack().rateNote}` : ''} Use the whole range. Do not reward buzzwords, scale of claims or famous names.
 
 Reply with one JSON object and nothing else: {"<id>": [n, r, s, c], ...} with every id you were given.`;
 
 // the request's user message: the papers as compact JSON lines
 export function ratingPrompt(papers) {
-  return papers.map((p) => JSON.stringify({ id: p.id, title: p.title, abstract: String(p.abstract || '').slice(0, 2600) })).join('\n');
+  return papers.map((p) => JSON.stringify({ id: p.id, title: p.title, ...(p.src === 'epmc' && p.comment ? { type: p.comment } : {}), ...(p.src === 'epmc' && p.journal ? { journal: p.journal } : {}), abstract: String(p.abstract || '').slice(0, 2600) })).join('\n');
 }
 
 // { id: [n, r, s, c] } from the model's reply (tolerant of code fences and stray text); bad entries are dropped
