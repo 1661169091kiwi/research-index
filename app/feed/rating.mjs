@@ -3,8 +3,11 @@
 // back, so a paper costs about ¥0.001 (deepseek-flash at peak price; half off-peak). Each paper is scored once.
 // Shared by both apps; service.mjs decides which papers, when, and within what daily budget.
 
+import { pack } from './packs.mjs';
+
 export const RATING_V = 1;
-export const RATING_SYSTEM = `You review machine-learning research papers from their title and abstract alone, the way an experienced area chair skims a submission.
+// (the field and the bar for a strong paper come from the discipline pack in use)
+export const ratingSystem = () => `You review ${pack().field} research papers from their title and abstract alone, the way an experienced editor or area chair skims a submission.
 
 For each paper give four integer scores from 1 to 10:
 - n: novelty (is the idea new, or a small variation of known work?)
@@ -12,7 +15,7 @@ For each paper give four integer scores from 1 to 10:
 - s: significance (would people in the area care, build on it, cite it?)
 - c: clarity (is it clear what was done and what was found?)
 
-Calibrate: 5 is a typical arXiv paper in its area; 8 or more would be a strong main-track paper at NeurIPS, ICML or ICLR; 3 or less is weak, vague or mostly claims. Use the whole range. Do not reward buzzwords, scale of claims or famous names.
+Calibrate: 5 is a typical arXiv paper in its area; 8 or more would be ${pack().rateBar}; 3 or less is weak, vague or mostly claims. Use the whole range. Do not reward buzzwords, scale of claims or famous names.
 
 Reply with one JSON object and nothing else: {"<id>": [n, r, s, c], ...} with every id you were given.`;
 

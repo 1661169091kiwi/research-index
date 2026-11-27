@@ -3,6 +3,7 @@
 
 import { CATS, SURVEY_RE, TOPICS, tagTopics } from './topics.mjs';
 import { affiliationsFromHtml } from './affil.mjs';
+import { pack } from './packs.mjs';
 
 const UA = 'ResearchIndex/1.2 (personal paper reader; desktop app)';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -78,6 +79,9 @@ export function parseAtom(xml) {
     const cats = [...e.matchAll(/<category[^>]*term="([^"]+)"/g)].map((c) => c[1]);
     const primary = (/<arxiv:primary_category[^>]*term="([^"]+)"/.exec(e) || [])[1] || cats[0] || '';
     const comment = clean(tag(e, 'arxiv:comment'));
+    // where it was published, when the authors say (venues.mjs reads it), and its DOI
+    const journal = clean(tag(e, 'arxiv:journal_ref'));
+    const doi = clean(tag(e, 'arxiv:doi'));
     out.push({
       id: idm[1],
       version: idm[2] || 'v1',
@@ -85,6 +89,7 @@ export function parseAtom(xml) {
       published: clean(tag(e, 'published')).slice(0, 10),
       updated: clean(tag(e, 'updated')).slice(0, 10),
       categories: cats, primary, comment,
+      ...(journal ? { journal } : {}), ...(doi ? { doi } : {}),
     });
   }
   return out;
@@ -247,25 +252,28 @@ const TAKEN_CO = '(co:accepted OR co:"to appear" OR co:"camera ready" OR co:"cam
 export async function fetchAll({ onBatch, onProgress, onCursor, deepSurveys = false, firstRun = false, venues = '', backfill = null, only = '' }) {
   const jobs = [];
   const per = firstRun ? 100 : 60;
+  // the discipline pack in use (packs.mjs): a direction may search its own categories; journals by journal reference
+  const P = pack(), catsOf = (t) => t.cats || CATS;
+  const VENUES_Q = P.venueQuery || `${VENUE_CO} AND ${TAKEN_CO}`;
   if (only !== 'backfill') {
-    for (const t of TOPICS) jobs.push({ label: t.en, run: () => arxivSearch(`(${t.q}) AND ${CATS}`, per) });
+    for (const t of TOPICS) jobs.push({ label: t.en, run: () => arxivSearch(`(${t.q}) AND ${catsOf(t)}`, per) });
     jobs.push({ label: 'Surveys', run: () => arxivSearch(`(ti:survey OR ti:review OR ti:overview OR ti:tutorial) AND ${CATS}`, 200) });
     if (deepSurveys) {
-      for (const t of TOPICS) jobs.push({ label: `${t.en} surveys`, run: () => arxivSearch(`(ti:survey OR ti:review OR ti:overview) AND (${t.q}) AND ${CATS}`, 30) });
+      for (const t of TOPICS) jobs.push({ label: `${t.en} surveys`, run: () => arxivSearch(`(ti:survey OR ti:review OR ti:overview) AND (${t.q}) AND ${catsOf(t)}`, 30) });
     }
-    if (venues) jobs.push({ label: 'Top venues', run: () => arxivSearch(`${VENUE_CO} AND ${TAKEN_CO} AND ${CATS}`, 200) });
+    if (venues) jobs.push({ label: 'Top venues', run: () => arxivSearch(`${VENUES_Q} AND ${CATS}`, 200) });
     if (venues === 'deep') {
-      for (const t of TOPICS) jobs.push({ label: `${t.en} venues`, run: () => arxivSearch(`(${t.q}) AND ${VENUE_CO} AND ${TAKEN_CO} AND ${CATS}`, 100) });
+      for (const t of TOPICS) jobs.push({ label: `${t.en} venues`, run: () => arxivSearch(`(${t.q}) AND ${VENUES_Q} AND ${catsOf(t)}`, 100) });
     }
   }
   for (const t of TOPICS) {
     const start = backfill?.[t.id];
     if (start == null) continue;
-    jobs.push({ label: t.en, run: () => arxivSearch(`(${t.q}) AND ${CATS}`, 100, start), after: (papers) => onCursor?.(t.id, papers) });
+    jobs.push({ label: t.en, run: () => arxivSearch(`(${t.q}) AND ${catsOf(t)}`, 100, start), after: (papers) => onCursor?.(t.id, papers) });
   }
   let done = 0, failed = 0;
   // Hugging Face runs alongside the arXiv searches: where it is slow or blocked, arXiv does not wait for it
-  const hf = only === 'backfill' ? Promise.resolve() : hfDaily(100)
+  const hf = only === 'backfill' || P.hf === false ? Promise.resolve() : hfDaily(100)
     .then((papers) => onBatch(papers.map(finish), 'Hugging Face'))
     .catch((e) => { failed++; console.error('[feed] source failed: Hugging Face', e.message); });
   for (const job of jobs) {

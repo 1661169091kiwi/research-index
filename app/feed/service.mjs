@@ -4,16 +4,17 @@
 
 import { createRecommender } from './recommend.mjs';
 import { fetchAll, findFigure, fetchFullText, arxivSearch, arxivIds } from './sources.mjs';
-import { plainQuery, ARXIV_ID, PLAN_SYSTEM, PICK_SYSTEM, planPrompt, pickPrompt, parsePlan, parsePicks, withDates } from './smartsearch.mjs';
+import { plainQuery, ARXIV_ID, planSystem, pickSystem, planPrompt, pickPrompt, parsePlan, parsePicks, withDates } from './smartsearch.mjs';
+import { pack, PACK_LIST } from './packs.mjs';
 import { TOPICS, PALETTE } from './topics.mjs';
 import { venueOf } from './venues.mjs';
 import { costOf, summarize as usageSummary } from './usage.mjs';
 import { canonical } from './affil.mjs';
 import { enrich, due as oaDue } from './openalex.mjs';
 import { scoreAll } from './quality.mjs';
-import { RATING_SYSTEM, RATING_V, ratingPrompt, parseRatings } from './rating.mjs';
+import { ratingSystem, RATING_V, ratingPrompt, parseRatings } from './rating.mjs';
 import { deepseekPeak } from './usage.mjs';
-import { systemPrompt, userPrompt, chatSystem, chatPaper, TITLES_SYSTEM, ABSTRACT_SYSTEM, parseTitleMap } from './prompts.mjs';
+import { systemPrompt, userPrompt, chatSystem, chatPaper, titlesSystem, abstractSystem, parseTitleMap } from './prompts.mjs';
 
 // store: createStoreCore(); keys: { get(provider), set(provider, key), hint?(provider) };
 // send(channel, data): events to the page; providers: { deepseek: {...}, claude?: {...} } (see index.mjs)
@@ -208,6 +209,8 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   }
   handle('feed:meta', () => ({
     topics: TOPICS.map(({ id, en, zh, color }) => ({ id, en, zh, color })),
+    // the discipline pack in use, and the others to switch to
+    pack: { id: pack().id, en: pack().en, zh: pack().zh, hf: pack().hf !== false, venuesLabel: pack().venuesLabel, list: PACK_LIST },
     palette: PALETTE,
     ...boards(),
     interests: store.state.interests,
@@ -364,7 +367,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
         if (!papers.length) { batch.forEach((id) => rateBusy.delete(id)); continue; }
         let got = {};
         try {
-          const text = await complete({ system: RATING_SYSTEM, user: ratingPrompt(papers), maxTokens: 500 }, 'rate');
+          const text = await complete({ system: ratingSystem(), user: ratingPrompt(papers), maxTokens: 500 }, 'rate');
           got = parseRatings(text, papers.map((p) => p.id));
         } catch (e) {
           if (debug) console.error('[feed] rating', e.message);
@@ -633,7 +636,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
     (async () => {
       say({ stage: 'plan' });
       const today = new Date().toISOString().slice(0, 10);
-      const plan = parsePlan(await complete({ system: PLAN_SYSTEM.replace('{today}', today), user: planPrompt(request, lang), maxTokens: 700 }, 'search'), request);
+      const plan = parsePlan(await complete({ system: planSystem(today), user: planPrompt(request, lang), maxTokens: 700 }, 'search'), request);
       if (!live()) return;
       say({ stage: 'search', intent: plan.intent, queries: plan.queries, got: 0 });
       // arXiv, one query after another (ahead of any feed refresh), then the library
@@ -658,7 +661,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
         return say({ stage: 'done', n: 0, intent: plan.intent, note: '', cost: spent(), offline: failed === plan.queries.length });
       }
       say({ stage: 'filter', intent: plan.intent, candidates: candidates.length });
-      const pick = parsePicks(await complete({ system: PICK_SYSTEM, user: pickPrompt(request, lang, candidates.map((p) => ({ ...p, venue: venueOf(p) }))), maxTokens: 2600 }, 'search'), candidates.map((p) => p.id));
+      const pick = parsePicks(await complete({ system: pickSystem(), user: pickPrompt(request, lang, candidates.map((p) => ({ ...p, venue: venueOf(p) }))), maxTokens: 2600 }, 'search'), candidates.map((p) => p.id));
       if (!live()) return;
       smartLast = { sid, request, intent: plan.intent, note: pick.note, ids: pick.picks.map((x) => x.id), why: Object.fromEntries(pick.picks.map((x) => [x.id, x.why])), cost: spent() };
       wantCovers(smartLast.ids.slice(0, 12));
@@ -705,7 +708,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
         }
       };
       const onText = (d) => { acc += d; const now = Date.now(); if (now - at > 45) { at = now; progress(false); } };
-      complete({ system: TITLES_SYSTEM, user: JSON.stringify(input, null, 1), maxTokens: 4000, onText })
+      complete({ system: titlesSystem(), user: JSON.stringify(input, null, 1), maxTokens: 4000, onText })
         .then((text) => {
           acc = text; progress(true);
           const map = parseTitleMap(text);
@@ -733,7 +736,7 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       // the translation so far, at most every 40 ms: the page writes it over the English as it comes
       let acc = '', at = 0;
       const onText = (d) => { acc += d; const now = Date.now(); if (now - at > 40) { at = now; const part = zhAbs(acc, true); if (part) send('feed:tr', { id, abstractPart: part }); } };
-      complete({ system: ABSTRACT_SYSTEM, user: `Title: ${p.title}\n\nAbstract:\n${p.abstract}`, maxTokens: 6000, onText })
+      complete({ system: abstractSystem(), user: `Title: ${p.title}\n\nAbstract:\n${p.abstract}`, maxTokens: 6000, onText })
         .then((text) => {
           const abstract = zhAbs(text);
           if (!abstract) throw new Error('empty translation');

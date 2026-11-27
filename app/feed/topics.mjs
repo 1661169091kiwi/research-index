@@ -1,7 +1,8 @@
 // Research directions ("channels"): how to search arXiv for each, how to tag a paper with it,
 // and how its generated card cover looks. Edit freely — order here is the order of the chips.
 
-export const CATS = '(cat:cs.CL OR cat:cs.LG OR cat:cs.AI OR cat:cs.CV OR cat:cs.RO OR cat:cs.MA OR cat:cs.SE OR cat:cs.IR)';
+// The AI pack's categories and directions; another discipline pack (packs.mjs) swaps in its own with setTopics.
+export const AI_CATS = '(cat:cs.CL OR cat:cs.LG OR cat:cs.AI OR cat:cs.CV OR cat:cs.RO OR cat:cs.MA OR cat:cs.SE OR cat:cs.IR)';
 
 // Card cover palette (Swiss): background / ink
 export const PALETTE = {
@@ -16,7 +17,7 @@ export const PALETTE = {
   slate: ['#3b3a36', '#f6f5f1'],
 };
 
-export const TOPICS = [
+export const AI_TOPICS = [
   { id: 'agents', en: 'LLM agents', zh: '智能体', color: 'blue',
     q: '(abs:"LLM agent" OR abs:"LLM agents" OR abs:"language agent" OR abs:agentic OR ti:agent OR ti:agents)',
     kw: [/\bagent(s|ic)?\b/i] },
@@ -66,6 +67,11 @@ export const TOPICS = [
     q: '(abs:"vision-language-action" OR abs:"embodied agent" OR abs:"robot learning" OR abs:"robotic manipulation")',
     kw: [/embodied|robot|vision[- ]language[- ]action|\bVLA\b|manipulation/i] },
 ];
+
+// the pack in use (live bindings: importers see the switch)
+export let TOPICS = AI_TOPICS;
+export let CATS = AI_CATS;
+export function setTopics(topics, cats) { TOPICS = topics || AI_TOPICS; CATS = cats || AI_CATS; }
 
 export const SURVEY_RE = /\b(survey|surveys|a review|systematic review|literature review|overview|tutorial|primer|roadmap|taxonomy|position paper|state of the art)\b/i;
 

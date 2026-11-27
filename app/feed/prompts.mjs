@@ -1,4 +1,6 @@
-// The briefing prompt shared by every summary provider (DeepSeek, Claude).
+// The briefing prompt shared by every summary provider (DeepSeek, Claude). Who the reader is and the field's
+// terminology come from the discipline pack in use (packs.mjs).
+import { pack } from './packs.mjs';
 
 // What you wrote about yourself under "About you and your project" in the AI settings. Nothing about you is
 // built into the app: without it the ideas are general instead of aimed at your own project.
@@ -13,9 +15,9 @@ const SECTIONS = {
 export function systemPrompt(lang, context, mode) {
   const [tldr, isNew, how, evidence, limits, ideas] = SECTIONS[lang] || SECTIONS.en;
   const language = lang === 'zh'
-    ? 'Write in Simplified Chinese. Keep model names, method names, benchmarks, metrics and numbers as in the paper; English technical terms inside Chinese sentences are fine.'
+    ? `Write in Simplified Chinese. Keep ${pack().terms} as in the paper; English technical terms inside Chinese sentences are fine.`
     : 'Write in English.';
-  return `You help an AI researcher get up to speed on a paper quickly and turn it into research ideas.${aboutReader(context)}
+  return `You help ${pack().reader} get up to speed on a paper quickly and turn it into research ideas.${aboutReader(context)}
 
 ${language}
 
@@ -32,7 +34,7 @@ Use "- " for bullets and **bold** sparingly. Be specific to this paper and use i
 
 // ---------- questions about one paper (direct questions and follow-ups on a take) ----------
 export function chatSystem(lang, context) {
-  return `You answer an AI researcher's questions about one research paper. The paper (and, when there is one, an earlier summary of it) is in the first message.${aboutReader(context)}
+  return `You answer the questions of ${pack().reader} about one research paper. The paper (and, when there is one, an earlier summary of it) is in the first message.${aboutReader(context)}
 
 - Answer the question that was asked, directly: lead with the answer, then the support. Short questions get short answers.
 - Ground answers in the paper and say where (section, table, figure, equation) when you can. If the paper does not say, say so plainly; you may then add your own informed view, marked as yours.
@@ -51,12 +53,12 @@ export function chatPaper(p, fullText, summary) {
 }
 
 // ---------- translation into Chinese ----------
-export const TITLES_SYSTEM = `You translate English titles of machine-learning research papers into concise, natural Simplified Chinese for a Chinese ML researcher.
-- Keep method names, model names, dataset and benchmark names, and acronyms in English (for example GRPO, LLM, ALFWorld, SWE-bench). If a title starts with a name followed by a colon, keep that name and translate the rest.
-- Use the standard Chinese ML terms: reinforcement learning → 强化学习, agent → 智能体, world model → 世界模型, large language model → 大语言模型, benchmark → 基准.
-- Reply with only a JSON object that maps each given id to its translated title.`;
+export const titlesSystem = () => { const P = pack(); return `You translate English titles of ${P.field} research papers into concise, natural Simplified Chinese for a Chinese researcher in the field.
+- Keep ${P.keep} in English. If a title starts with a name followed by a colon, keep that name and translate the rest.
+- Use the field's standard Chinese terms: ${P.glossary}.
+- Reply with only a JSON object that maps each given id to its translated title.`; };
 
-export const ABSTRACT_SYSTEM = `Translate the abstract of a machine-learning paper into fluent, accurate Simplified Chinese for a Chinese ML researcher. Keep method, model, dataset and benchmark names, math and numbers as in the original, and use standard Chinese ML terminology. Reply with only the translated abstract, without any preamble.`;
+export const abstractSystem = () => { const P = pack(); return `Translate the abstract of a ${P.field} paper into fluent, accurate Simplified Chinese for a Chinese researcher in the field. Keep ${P.keep}, math and numbers as in the original, and use the field's standard Chinese terminology (${P.glossary}). Reply with only the translated abstract, without any preamble.`; };
 
 // Pulls the JSON object out of a reply (tolerates code fences or text around it).
 export function parseTitleMap(text) {

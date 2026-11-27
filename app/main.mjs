@@ -249,6 +249,14 @@ ipcMain.handle('ri:save-text', async (e, name, text) => {
   fs.writeFileSync(res.filePath, text, 'utf8');
   return { ok: true, path: res.filePath };
 });
+// switching the discipline pack (packs.mjs): written next to the libraries, then the app starts again with it
+ipcMain.handle('ri:set-pack', (e, id) => {
+  if (e.sender !== win?.webContents || !/^[a-z][a-z0-9-]{0,30}$/.test(String(id))) return false;
+  try { fs.writeFileSync(path.join(app.getPath('userData'), 'pack.json'), JSON.stringify({ id })); } catch { return false; }
+  try { feed?.flush?.(); } catch { /* relaunch anyway */ } // the library as it is now, before the app starts again
+  setTimeout(() => { app.relaunch(); app.exit(0); }, 120);
+  return true;
+});
 ipcMain.handle('ri:fetch-image', async (e, url) => {
   if (e.sender !== win?.webContents || typeof url !== 'string' || !/^https:\/\//i.test(url)) return null;
   try {

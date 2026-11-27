@@ -727,3 +727,6 @@ html.fl .bar .bar-search.is-smart input { background: linear-gradient(var(--card
 html.fl .sm-steps li.is-done i { background: var(--primary); }
 html.fl .sm-steps li.is-done { color: var(--on-2); }
 html.fl .sm-steps li.is-on { color: var(--on); }
+
+html.fl .pack-switch button { border-radius: 999px; color: var(--on-2); }
+html.fl .pack-switch button.is-current { background: var(--card); color: var(--on); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }

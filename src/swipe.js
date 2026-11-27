@@ -28,6 +28,8 @@
     smart: false, // showing a smart search's results (feed.js runs it)
   };
   if (!MODES.includes(sw.mode)) sw.mode = 'recommended'; // "For you" is part of Recommended now
+  // the tabs of the discipline pack in use (no Trending outside AI; feed.js knows)
+  const modes = () => F.packModes?.().filter((m) => MODES.includes(m)) || MODES;
   const live = () => LIVE.has(sw.mode) && !sw.query;
   // a grid instead of single cards: your own papers (Saved, Liked), and search results
   const shelfOn = () => (SHELF.has(sw.mode) || !!sw.query || sw.smart) && !sw.player;
@@ -516,7 +518,8 @@
   // ---------- top bar: tabs and menu ----------
   function renderModes() {
     const row = $('#sw-modes');
-    row.innerHTML = MODES.map((m) => `<button type="button" data-sw-mode="${m}" class="${sw.mode === m ? 'is-on' : ''}">${esc(t(`mode_${m}`))}</button>`).join('');
+    if (!modes().includes(sw.mode)) sw.mode = 'recommended';
+    row.innerHTML = modes().map((m) => `<button type="button" data-sw-mode="${m}" class="${sw.mode === m ? 'is-on' : ''}">${esc(F.modeLabel ? F.modeLabel(m) : t(`mode_${m}`))}</button>`).join('');
     fitModes();
     inkTo?.(row);
   }
@@ -590,7 +593,7 @@
     return true;
   }
   // a deliberate sideways swipe: the tab before or after
-  F.sideSwipe?.(track, { tabs: () => MODES, current: () => sw.mode, go: setMode, moveEl: () => track, skip: '.sw-actions' });
+  F.sideSwipe?.(track, { tabs: () => modes(), current: () => sw.mode, go: setMode, moveEl: () => track, skip: '.sw-actions' });
 
   // the view's own state shows in its chrome: a grid of your papers, reading them, searching
   function paintChrome() {
@@ -696,7 +699,7 @@
     if (pick.on) togglePick(b.dataset.id); // picking: a tap picks, it does not open
     else openPlayer(+b.dataset.tile);
   });
-  F.sideSwipe?.(shelfEl, { tabs: () => MODES, current: () => sw.mode, go: setMode, moveEl: () => shelfGrid });
+  F.sideSwipe?.(shelfEl, { tabs: () => modes(), current: () => sw.mode, go: setMode, moveEl: () => shelfGrid });
   function openPlayer(i) {
     if (!shelf.items[i]) return;
     viewEnd();

@@ -3,7 +3,7 @@
 // Shared by the desktop app and the phone app.
 
 // [label, how it is written: the short name, or the full name]
-const VENUES = [
+export const AI_VENUES = [
   ['NeurIPS', /\b(?:NeurIPS|NIPS)\b|Neural Information Processing Systems/i],
   ['ICML', /\bICML\b|International Conference on Machine Learning/i],
   ['ICLR', /\bICLR\b|International Conference on Learning Representations/i],
@@ -42,7 +42,10 @@ const AT = /\w\s*@\s*(?:\*?[A-Z][A-Za-z]*[A-Z]|[A-Z]{2,})\b/;
 const TAKEN = /\b(?:accepted|to appear|appear(?:s|ed)? (?:in|at)|published|camera[- ]ready|proceedings|oral|spotlight|poster|main (?:track|conference))\b/i;
 const NOTE = /\b(oral|spotlight)\b/i;
 
+// the pack in use (packs.mjs): its own journals and conferences
+let VENUES = AI_VENUES;
 const cache = new Map(); // id -> [comment, venue]
+export function setVenues(list) { VENUES = list || AI_VENUES; cache.clear(); }
 
 function find(text, fallbackYear) {
   if (!text || NOT.test(text) || AT.test(text)) return null;

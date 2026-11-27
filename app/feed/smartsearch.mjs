@@ -5,6 +5,7 @@
 //          already in your library) are put in front of it, and it keeps the ones that really match, saying why
 
 const CJK = /[⺀-鿿豈-﫿＀-￯]/;
+import { pack } from './packs.mjs';
 export const ARXIV_ID = /^(?:arxiv:)?(\d{4}\.\d{4,5})(v\d+)?$/i;
 
 // A search typed into the box, as an arXiv search_query; '' when arXiv cannot answer it (Chinese text).
@@ -21,18 +22,19 @@ export function plainQuery(text) {
   return terms.slice(0, 8).map((t) => `all:${t}`).join(' AND ');
 }
 
-export const PLAN_SYSTEM = `You help a machine-learning researcher find papers on arXiv. Turn their request (in any language) into arXiv API searches.
+// (the reader, the field and its arXiv categories come from the discipline pack in use)
+export const planSystem = (today) => `You help ${pack().reader} find papers on arXiv. Turn their request (in any language) into arXiv API searches.
 
 Reply with only a JSON object:
 {"intent": "...", "queries": ["...", "..."], "keywords": "...", "from": "YYYY-MM-DD or null", "to": "YYYY-MM-DD or null"}
 
 - intent: the request restated in at most 24 characters, in the reader's language.
-- queries: 2 to 4 arXiv search_query strings. Syntax: ti: (title), abs: (abstract), au: (author surname), cat: (category: cs.CL, cs.LG, cs.AI, cs.CV, cs.RO, cs.MA, cs.SE, cs.IR, stat.ML, ...), combined with AND, OR, ANDNOT and parentheses; quote phrases, e.g. abs:"world model". Use English technical terms. One query precise, the others covering synonyms and common acronyms. abs: for concepts, ti: for specific method or benchmark names, au: only when an author is named. No dates inside queries.
+- queries: 2 to 4 arXiv search_query strings. Syntax: ti: (title), abs: (abstract), au: (author surname), cat: (category; for this field: ${pack().categories}), combined with AND, OR, ANDNOT and parentheses; quote phrases, e.g. ${pack().id === 'ai' ? 'abs:"world model"' : 'abs:"solid electrolyte"'}. Use English technical terms. One query precise, the others covering synonyms and common acronyms. abs: for concepts, ti: for specific method or benchmark names, au: only when an author is named. No dates inside queries.
 - keywords: 5 to 10 English keywords for a full-text search of the reader's own library.
-- from / to: only when the request limits the time ("recent" = the last 6 months; "this year"; "since 2024"); otherwise null. Today is {today}.
+- from / to: only when the request limits the time ("recent" = the last 6 months; "this year"; "since 2024"); otherwise null. Today is ${today}.
 - A wish for well-known venues or quality is not part of the queries (it is used when the results are screened).`;
 
-export const PICK_SYSTEM = `You screen arXiv search results for a machine-learning researcher. You get their request and candidate papers (id, date, venue if accepted, title, the start of the abstract). Keep the papers that truly match the request.
+export const pickSystem = () => `You screen arXiv search results for ${pack().reader}. You get their request and candidate papers (id, date, venue if accepted, title, the start of the abstract). Keep the papers that truly match the request.
 
 Reply with only a JSON object:
 {"picks": [{"id": "...", "why": "..."}], "note": "..."}

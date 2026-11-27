@@ -6,6 +6,13 @@ import { createFeedService } from './feed/service.mjs';
 import { useFetch } from './feed/sources.mjs';
 import { summarizeDeepSeek, streamDeepSeek, completeDeepSeek, classifyDeepSeekError, DEEPSEEK_DEFAULTS, useAiFetch } from './feed/deepseek.mjs';
 import { files, httpFetch, createKeys, isNative, isWeb, device } from './native.mjs';
+import { usePack } from './feed/packs.mjs';
+
+// the discipline pack (packs.mjs), chosen in the settings: each keeps its own files (<id>/<name>; AI: <name>)
+let PACK_ID = 'ai';
+try { PACK_ID = localStorage.getItem('ri-pack') || 'ai'; } catch { /* storage off */ }
+const PACK = usePack(PACK_ID);
+const fileName = (name) => (PACK.id === 'ai' ? name : `${PACK.id}/${name}`);
 
 // the same pages run in the iPhone app: say so before the page's other scripts read it
 if (window.Capacitor?.getPlatform?.() === 'ios') {
@@ -26,14 +33,16 @@ async function seedFile(name) {
 }
 
 const keys = createKeys();
+// everything waiting to be written, written (before the page goes away, e.g. to switch packs)
+let flushAll = async () => {};
 let service = null;
 const ready = (async () => {
   useFetch(httpFetch);
   useAiFetch(httpFetch);
   const data = {};
-  for (const n of FILES) data[n] = await files.read(`${n}.json`);
-  // first start: begin from the snapshot of the desktop app's papers built into the app (if any)
-  if (!data.papers) {
+  for (const n of FILES) data[n] = await files.read(fileName(`${n}.json`));
+  // first start: begin from the snapshot of the desktop app's papers built into the app (if any; AI pack only)
+  if (!data.papers && PACK.id === 'ai') {
     data.papers = await seedFile('papers');
     data.translations = data.translations || await seedFile('translations');
     data.state = data.state || await seedFile('state');
@@ -47,12 +56,19 @@ const ready = (async () => {
         const [name] = Object.keys(pending);
         const value = pending[name];
         delete pending[name];
-        try { await files.write(`${name}.json`, value); } catch (e) { console.error('[ri] save failed', name, e?.message); }
+        try { await files.write(fileName(`${name}.json`), value); } catch (e) { console.error('[ri] save failed', name, e?.message); }
       }
       writing = null;
     })();
   }, { delay: 600 });
   if (!data.papers || !Object.keys(data.papers).length) store.flush();
+  flushAll = async () => { store.flush(); while (writing) await writing; };
+  // another pack opened for the first time: the AI settings (provider, model, limits, "about you") of the main one
+  if (PACK.id !== 'ai' && !store.state.ai) {
+    const main = await files.read('state.json');
+    if (main?.ai) store.setAi(main.ai);
+    if (main?.aiContext) store.setAiContext(main.aiContext);
+  }
   await keys.load(['deepseek']);
   // the web version starts with the 7-day AI limit on (¥5): its key lives in the browser, so a cap is a sensible default
   if (isWeb && !store.state.ai?.limit) store.setAi({ limit: { on: true, cap: 5 } });
@@ -88,6 +104,13 @@ window.portal = {
   isWeb,
   native: isNative,
   openFile() {}, reveal() {}, openFolder() {}, chooseFolder() {},
+  // switch the discipline pack: the page starts again with that pack's library
+  async setPack(id) {
+    try { localStorage.setItem('ri-pack', String(id)); } catch { /* storage off */ }
+    try { await flushAll(); } catch { /* reload anyway */ }
+    location.reload();
+    return true;
+  },
   // a paper as an image: the Android share sheet, or Pictures/Research Index
   shareImage: device?.shareImage,
   saveImage: device?.saveImage ? (name, bytes) => device.saveImage(name, bytes).catch((e) => ({ ok: false, error: String(e?.message || e) })) : undefined,

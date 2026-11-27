@@ -3,6 +3,8 @@
 
 import { ipcMain, net, session } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
+import { usePack, packDir } from './packs.mjs';
 import { createStore } from './store.mjs';
 import { useFetch } from './sources.mjs';
 import { createKeyStore } from './keys.mjs';
@@ -16,7 +18,20 @@ export function setupFeed({ userDataDir, getWindow }) {
   const fetchSession = session.fromPartition('ri-fetch', { cache: false });
   useFetch((url, init) => fetchSession.fetch(url, init));
   useAiFetch((url, init) => net.fetch(url, init));
-  const store = createStore(path.join(userDataDir, 'feed'));
+  // the discipline pack (pack.json in the data folder, set from the settings): each keeps its own library;
+  // the API key stays in feed/ for all of them
+  let packId = 'ai';
+  try { packId = JSON.parse(fs.readFileSync(path.join(userDataDir, 'pack.json'), 'utf8')).id || 'ai'; } catch { /* the default */ }
+  const P = usePack(packId);
+  const store = createStore(path.join(userDataDir, packDir(P.id)));
+  // a pack opened for the first time takes the AI settings (provider, model, limits, "about you") of the main one
+  if (P.id !== 'ai' && !store.state.ai) {
+    try {
+      const main = JSON.parse(fs.readFileSync(path.join(userDataDir, 'feed', 'state.json'), 'utf8'));
+      if (main.ai) store.setAi(main.ai);
+      if (main.aiContext) store.setAiContext(main.aiContext);
+    } catch { /* nothing to copy */ }
+  }
   const keys = createKeyStore(path.join(userDataDir, 'feed'));
   const send = (channel, data) => { const w = getWindow(); if (w && !w.isDestroyed()) w.webContents.send(channel, data); };
   const service = createFeedService({

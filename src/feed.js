@@ -579,11 +579,15 @@
 
   // ---------- modes, directions, boards ----------
   const MODES = ['recommended', 'latest', 'trending', 'venues', 'surveys', 'saved', 'liked'];
+  // the discipline pack in use (META.pack): "Trending" comes from Hugging Face (AI papers only), and a pack may call
+  // its venues "Top journals"
+  const packModes = () => (META?.pack?.hf === false ? MODES.filter((m) => m !== 'trending') : MODES);
+  const modeLabel = (m) => (m === 'venues' && META?.pack?.venuesLabel ? META.pack.venuesLabel[lang] || META.pack.venuesLabel.en : t(`mode_${m}`));
   const modeCount = (m) => (m === 'saved' ? META.savedTotal : m === 'liked' ? META.likedTotal : 0);
   // the tabs shown here (the phone app has no surveys)
   const shownModes = () => [...$('#modes').querySelectorAll('[data-mode]')].filter((b) => b.offsetParent !== null).map((b) => b.dataset.mode);
   function renderModes() {
-    $('#modes').innerHTML = MODES.map((m) => `<button type="button" data-mode="${m}" class="${view.mode === m && !view.query ? 'is-on' : ''}"${S[`modeTip_${m}`] ? ` title="${esc(t(`modeTip_${m}`))}"` : ''}>${esc(t(`mode_${m}`))}${modeCount(m) ? `<span class="count">${modeCount(m)}</span>` : ''}</button>`).join('');
+    $('#modes').innerHTML = packModes().map((m) => `<button type="button" data-mode="${m}" class="${view.mode === m && !view.query ? 'is-on' : ''}"${S[`modeTip_${m}`] && !(m === 'venues' && META?.pack?.venuesLabel) ? ` title="${esc(t(`modeTip_${m}`))}"` : ''}>${esc(modeLabel(m))}${modeCount(m) ? `<span class="count">${modeCount(m)}</span>` : ''}</button>`).join('');
     inkTo($('#modes'));
     fitTabs($('#modes'));
   }
@@ -768,6 +772,30 @@
     });
   }
   async function refreshBoards() { Object.assign(META, await api.boards()); if (view.mode === 'saved') renderChips(); renderModes(); }
+
+  // ---------- the discipline pack (packs.mjs): which one is on, and switching ----------
+  function paintPack() {
+    const P = META?.pack;
+    if (!P) return;
+    document.querySelectorAll('[data-pack]').forEach((b) => { const on = b.dataset.pack === P.id; b.classList.toggle('is-current', on); b.setAttribute('aria-pressed', String(on)); });
+    if (!packModes().includes(view.mode)) view.mode = 'recommended';
+    // a chip by the heading when it is not the AI pack
+    const h = $('.feed-title h1');
+    if (h && P.id !== 'ai' && !h.querySelector('.pack-chip')) h.insertAdjacentHTML('beforeend', `<span class="pack-chip">${esc(P[lang] || P.en)}</span>`);
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pack]');
+    if (!b || b.classList.contains('is-current') || !window.portal?.setPack) return;
+    e.preventDefault(); e.stopPropagation();
+    const P = META?.pack?.list?.find((x) => x.id === b.dataset.pack);
+    document.querySelectorAll('[data-pack]').forEach((x) => x.classList.toggle('is-current', x === b));
+    document.body.classList.add('is-switching-pack');
+    const tip = document.createElement('div');
+    tip.className = 'pack-switching';
+    tip.textContent = t('packSwitching', { name: P ? P[lang] || P.en : b.textContent });
+    document.body.append(tip);
+    setTimeout(() => window.portal.setPack(b.dataset.pack), 260);
+  }, true);
 
   // ---------- smart search (shared by the grid and the swipe view) ----------
   // The service plans arXiv searches with the AI, runs them, and has the AI pick the real matches (smartsearch.mjs);
@@ -2040,7 +2068,7 @@
     openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView, openDirs, closeDirs, paintDirBtn, fitTabs,
     // the swipe view's Saved / Liked tabs open here, in the grid
     showMode(mode) { hooks.exit?.(); if (view.mode !== mode || view.query) setView({ mode, collection: '' }); else relayout(); },
-    sideSwipe, trStream, longPress, smart, smartStart, onSmart, smartHtml, searchArxiv,
+    sideSwipe, trStream, longPress, smart, smartStart, onSmart, smartHtml, searchArxiv, packModes, modeLabel,
     act: async (c, kind) => (kind === 'like' ? toggleLike(c) : toggleSave(c)),
     get META() { return META; }, get AI() { return AI; }, get trOn() { return trOn; }, get sheetId() { return sheetState.id; }, get sheetPaper() { return sheetState.data?.paper || null; },
     gridShown() { if (!feed.order.length && !feed.loading) load(true); else relayout(); },
@@ -2064,6 +2092,7 @@
   const scriptsRun = new Promise((r) => { document.addEventListener('DOMContentLoaded', r, { once: true }); setTimeout(r, 3000); });
   (async function init() {
     META = await api.meta();
+    paintPack();
     AI = await api.ai();
     for (const x of META.topics) topicsById[x.id] = x;
     if (view.topic && !topicsById[view.topic]) view.topic = '';
