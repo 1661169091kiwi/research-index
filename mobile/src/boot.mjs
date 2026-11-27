@@ -126,6 +126,7 @@ window.portal = {
     takeGet: invoke('feed:take:get'), takeRun: invoke('feed:take:run'), takeStop: invoke('feed:take:stop'),
     chatGet: invoke('feed:chat:get'), chatAsk: invoke('feed:chat:ask'), chatStop: invoke('feed:chat:stop'), chatClear: invoke('feed:chat:clear'),
     trTitles: invoke('feed:tr:titles'), trAbstract: invoke('feed:tr:abstract'),
+    searchArxiv: invoke('feed:search:arxiv'), smartRun: invoke('feed:smart:run'), smartGet: invoke('feed:smart:get'), smartStop: invoke('feed:smart:stop'),
     usage: invoke('feed:usage'), balance: invoke('feed:balance'),
     on(channel, cb) {
       if (!listeners.has(channel)) listeners.set(channel, new Set());

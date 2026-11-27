@@ -59,6 +59,8 @@ export function createStoreCore(data, write, { delay = 400 } = {}) {
       const old = papers[p.id];
       if (!old) added++;
       const merged = { ...(old || {}), ...p, firstSeen: old?.firstSeen || now };
+      // found by a search, then fetched by the feeds as well: an ordinary paper of the library from now on
+      if (old?.found && !('found' in p)) delete merged.found;
       // keep richer fields from earlier sources
       if (old?.hf && !p.hf) merged.hf = old.hf;
       if (old?.hf && p.hf) merged.hf = { ...old.hf, ...p.hf, upvotes: Math.max(old.hf.upvotes || 0, p.hf.upvotes || 0) };

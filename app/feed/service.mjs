@@ -3,7 +3,8 @@
 // calls the same handlers directly. Every handler is named after its IPC channel.
 
 import { createRecommender } from './recommend.mjs';
-import { fetchAll, findFigure, fetchFullText } from './sources.mjs';
+import { fetchAll, findFigure, fetchFullText, arxivSearch, arxivIds } from './sources.mjs';
+import { plainQuery, ARXIV_ID, PLAN_SYSTEM, PICK_SYSTEM, planPrompt, pickPrompt, parsePlan, parsePicks, withDates } from './smartsearch.mjs';
 import { TOPICS, PALETTE } from './topics.mjs';
 import { venueOf } from './venues.mjs';
 import { costOf, summarize as usageSummary } from './usage.mjs';
@@ -215,6 +216,12 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
   handle('feed:boards', () => boards());
   handle('feed:status', () => status());
   handle('feed:list', (params = {}) => {
+    if (params.mode === 'smart') {
+      const s = smartLast, ids = s?.ids || [], offset = params.offset || 0, limit = params.limit || 30;
+      const items = ids.slice(offset, offset + limit).map((id) => store.papers[id]).filter(Boolean)
+        .map((p) => (params.withAbstract ? fullCard : card)(p, { type: 'smart', text: s.why[p.id] || '' }));
+      return { items, total: ids.length, deck: '', offset };
+    }
     const t0 = Date.now();
     const { items, reasons, total, deck, dropped, basis, offset, unseenLeft } = rec.page({ mode: 'foryou', offset: 0, limit: 30, ...params });
     // what "For you" and "Recommended" have shown is held back from the next few refreshes
@@ -578,6 +585,87 @@ export function createFeedService({ store, keys, send, providers, envKey = () =>
       : DS.complete({ ...args, apiKey, baseUrl: s.baseUrl, model: s.model, onUsage });
   };
   const trError = (err) => (err?.code === 'limit' ? limitError() : (aiSettings().provider === 'claude' ? CL.classify : DS.classify)(err));
+
+  // ---------- searching all of arXiv (smartsearch.mjs) ----------
+  // What a search brings in joins the library marked as found (p.found): it shows up in searches, and in the feeds
+  // only once you have opened, liked or saved it.
+  function addFound(papers) {
+    const now = Date.now();
+    const list = papers.map((p) => { const old = store.papers[p.id]; return old ? (old.found ? { ...p, found: old.found } : p) : { ...p, found: now }; });
+    return store.upsert(list);
+  }
+  const arxivAsked = new Map(); // what was typed -> { t, ids }, for 10 minutes
+  // A plain search, on all of arXiv: the papers it finds join the library, and the page searches again.
+  handle('feed:search:arxiv', async (text) => {
+    const raw = String(text || '').trim();
+    const idm = ARXIV_ID.exec(raw);
+    const query = idm ? '' : plainQuery(raw);
+    if (!idm && (!query || raw.length < 2)) return { skipped: true };
+    const hit = arxivAsked.get(raw);
+    if (hit && Date.now() - hit.t < 10 * 60e3) return { ids: hit.ids, added: 0, cached: true };
+    try {
+      const papers = idm ? await arxivIds([idm[1]]) : await arxivSearch(query, 40, 0, { sort: 'relevance', urgent: true });
+      const added = addFound(papers);
+      const ids = papers.map((p) => p.id);
+      arxivAsked.set(raw, { t: Date.now(), ids });
+      if (added) send('feed:batch', { added: 0, label: 'search', count: Object.keys(store.papers).length });
+      return { ids, added };
+    } catch (e) { return { error: { code: 'network', message: String(e?.message || e) } }; }
+  });
+
+  // Smart search: the AI plans arXiv searches from a request in your own words, then screens what they find
+  // (and matching papers already in the library) and keeps the real matches, each with a reason.
+  // Progress arrives as feed:smart events { sid, stage: plan | search | filter | done | error, ... }.
+  let smartRun = '', smartLast = null;
+  handle('feed:smart:get', () => (smartLast ? { sid: smartLast.sid, request: smartLast.request, intent: smartLast.intent, note: smartLast.note, n: smartLast.ids.length, cost: smartLast.cost } : null));
+  handle('feed:smart:stop', () => { smartRun = ''; return true; });
+  handle('feed:smart:run', (request, lang) => {
+    request = String(request || '').trim().slice(0, 800);
+    if (!request) return { error: { code: 'unknown', message: 'empty request' } };
+    if (!keyFor(aiSettings().provider)) return { error: { code: 'nokey' } };
+    if (overLimit()) return { error: limitError() };
+    lang = lang === 'zh' ? 'zh' : 'en';
+    const sid = `s${Date.now().toString(36)}`, t0 = Date.now();
+    smartRun = sid;
+    const live = () => smartRun === sid;
+    const say = (o) => { if (live()) send('feed:smart', { sid, ...o }); };
+    const spent = () => (store.state.usage?.log || []).reduce((s, e) => (e.k === 'search' && e.t >= t0 ? s + (e.CNY ?? (e.USD || 0) * 7.1) : s), 0);
+    (async () => {
+      say({ stage: 'plan' });
+      const today = new Date().toISOString().slice(0, 10);
+      const plan = parsePlan(await complete({ system: PLAN_SYSTEM.replace('{today}', today), user: planPrompt(request, lang), maxTokens: 700 }, 'search'), request);
+      if (!live()) return;
+      say({ stage: 'search', intent: plan.intent, queries: plan.queries, got: 0 });
+      // arXiv, one query after another (ahead of any feed refresh), then the library
+      const found = new Map();
+      let failed = 0;
+      for (const q of plan.queries) {
+        try {
+          const papers = await arxivSearch(withDates(q, plan), 40, 0, { sort: 'relevance', urgent: true });
+          addFound(papers);
+          for (const p of papers) if (store.papers[p.id] && !found.has(p.id)) found.set(p.id, store.papers[p.id]);
+        } catch { failed++; }
+        if (!live()) return;
+        say({ stage: 'search', intent: plan.intent, queries: plan.queries, got: found.size });
+      }
+      const inRange = (p) => (!plan.from || (p.published || '') >= plan.from) && (!plan.to || (p.published || '') <= plan.to);
+      const local = rec.page({ mode: 'latest', query: plan.keywords || request, offset: 0, limit: 40 }).items.filter(inRange);
+      // the screening sees at most 70: arXiv's best matches first, then the library's
+      const candidates = [];
+      for (const p of [...found.values(), ...local]) if (candidates.length < 70 && !candidates.some((x) => x.id === p.id)) candidates.push(p);
+      if (!candidates.length) {
+        smartLast = { sid, request, intent: plan.intent, note: '', ids: [], why: {}, cost: spent() };
+        return say({ stage: 'done', n: 0, intent: plan.intent, note: '', cost: spent(), offline: failed === plan.queries.length });
+      }
+      say({ stage: 'filter', intent: plan.intent, candidates: candidates.length });
+      const pick = parsePicks(await complete({ system: PICK_SYSTEM, user: pickPrompt(request, lang, candidates.map((p) => ({ ...p, venue: venueOf(p) }))), maxTokens: 2600 }, 'search'), candidates.map((p) => p.id));
+      if (!live()) return;
+      smartLast = { sid, request, intent: plan.intent, note: pick.note, ids: pick.picks.map((x) => x.id), why: Object.fromEntries(pick.picks.map((x) => [x.id, x.why])), cost: spent() };
+      wantCovers(smartLast.ids.slice(0, 12));
+      say({ stage: 'done', n: smartLast.ids.length, intent: plan.intent, note: pick.note, cost: smartLast.cost, candidates: candidates.length });
+    })().catch((err) => say({ stage: 'error', error: err?.code === 'limit' ? limitError() : trError(err) }));
+    return { sid };
+  });
 
   handle('feed:tr:titles', (ids) => {
     if (!keyFor(aiSettings().provider)) return { error: { code: 'nokey' } };

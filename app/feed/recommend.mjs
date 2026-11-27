@@ -221,10 +221,13 @@ export function createRecommender(store, { qualityOf = null } = {}) {
     return null;
   }
 
+  // Papers that came in only through a search (p.found) show up in searches, and in the feeds once you have opened,
+  // liked or saved them; otherwise the feeds stay with the directions you follow.
   function filterBase(f) {
     const st = store.state;
     return Object.values(store.papers).filter((p) =>
       !st.hidden[p.id] &&
+      (!p.found || f.query || st.opened[p.id] || st.likes[p.id] || st.saves[p.id]) &&
       (!f.topic || p.topics?.includes(f.topic)) &&
       (!f.surveysOnly || p.survey) &&
       (!f.venuesOnly || venueOf(p)) &&
@@ -262,7 +265,7 @@ export function createRecommender(store, { qualityOf = null } = {}) {
       return { list, reasons };
     }
 
-    const base = filterBase({ topic, surveysOnly: mode === 'surveys', venuesOnly: mode === 'venues', minQ });
+    const base = filterBase({ topic, surveysOnly: mode === 'surveys', venuesOnly: mode === 'venues', minQ, query });
     const maxUp = Math.max(10, ...base.map((p) => p.hf?.upvotes || 0));
 
     if (query) {

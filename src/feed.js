@@ -200,6 +200,7 @@
     if (r.type === 'trending') return t('trending');
     if (r.type === 'explore') return t('explore');
     if (r.type === 'new') return t('justIn');
+    if (r.type === 'smart') return r.text ? `✦ ${r.text}` : '';
     return '';
   }
   // Institutions (from the paper's arXiv page or OpenAlex): the Chinese name in the Chinese interface when there is
@@ -265,7 +266,7 @@
       ${coverHtml(c)}
       <button class="cv-save${c.saved ? ' on' : ''}" type="button" data-act="save" aria-label="${esc(t('save'))}" title="${esc(t('save'))}">${ICON.mark}</button>
       <div class="card-body">
-        ${(view.mode === 'foryou' || view.mode === 'recommended') && c.reason ? `<p class="card-reason">${esc(reasonText(c.reason))}</p>` : ''}
+        ${(view.mode === 'foryou' || view.mode === 'recommended' || view.smart) && c.reason ? `<p class="card-reason${c.reason.type === 'smart' ? ' is-smart' : ''}">${esc(reasonText(c.reason))}</p>` : ''}
         ${c.venue || c.q != null || c.qp ? `<p class="card-venue">${qualityBadge(c)}${venueHtml(c)}</p>` : ''}
         ${titleBlock(c)}
         <div class="card-meta">
@@ -368,6 +369,13 @@
   const sessionSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch { /* ignore */ } };
   const liveView = () => view.mode === 'recommended' && !view.query;
   async function load(reset, { fresh = false, keep = null, focus = null } = {}) {
+    paintSmart();
+    if (view.smart && smart.stage !== 'done') {
+      // smart search still working: the panel shows how far it has got, the grid waits
+      ++feed.token; feed.loading = false; feed.done = true; feed.order = []; feed.cards.clear(); feed.total = 0;
+      makeColumns(colCount()); end.hidden = true; msg.hidden = true; basisEl.hidden = true;
+      return;
+    }
     if (feed.loading && !reset) { if (keep) feed.redealAfter = true; return; }
     const token = ++feed.token;
     feed.loading = true;
@@ -385,7 +393,7 @@
       if (scroller.scrollTop > headH) scroller.scrollTop = headH;
     }
     const res = await api.list({
-      mode: view.mode === 'liked' ? 'saved' : view.mode, topic: personal() ? '' : view.topic, query: view.query, minQ: personal() ? 0 : minQ,
+      mode: view.smart ? 'smart' : view.mode === 'liked' ? 'saved' : view.mode, topic: personal() ? '' : view.topic, query: view.query, minQ: personal() ? 0 : minQ,
       collection: view.mode === 'liked' ? '__liked' : view.collection,
       offset: feed.offset, limit: liveView() ? 12 : 30, deck: feed.deck || '', fresh: reset && fresh,
       ...(keep ? { keep } : {}),
@@ -403,6 +411,7 @@
     feed.done = feed.offset >= res.total;
     addCards(res.items);
     feed.loading = false;
+    if (reset && !view.smart) arxivToo(view.query);
     end.hidden = !(feed.done && feed.total > 0);
     if (!feed.total) showEmpty();
     renderModes();
@@ -697,6 +706,7 @@
   }
   function setView(patch, { keepQuery = false } = {}) {
     if ('mode' in patch && patch.mode !== view.mode && picking.on) { picking.on = false; picking.ids.clear(); }
+    if (!('smart' in patch)) view.smart = false; // any other view leaves the smart search's results
     Object.assign(view, patch);
     if (!keepQuery && !('query' in patch)) { view.query = ''; $('#fq').value = ''; }
     store.set('ri-feed-view', { mode: view.mode, topic: view.topic, collection: view.collection });
@@ -759,14 +769,117 @@
   }
   async function refreshBoards() { Object.assign(META, await api.boards()); if (view.mode === 'saved') renderChips(); renderModes(); }
 
+  // ---------- smart search (shared by the grid and the swipe view) ----------
+  // The service plans arXiv searches with the AI, runs them, and has the AI pick the real matches (smartsearch.mjs);
+  // its progress arrives as feed:smart events. Views subscribe with onSmart(fn).
+  const smart = { sid: '', stage: '', request: '', intent: '', got: 0, candidates: 0, n: 0, note: '', cost: 0, error: null, offline: false };
+  const smartSubs = new Set();
+  const onSmart = (fn) => { smartSubs.add(fn); return () => smartSubs.delete(fn); };
+  const smartEmit = () => smartSubs.forEach((fn) => { try { fn(smart); } catch (e) { console.error(e); } });
+  async function smartStart(request) {
+    Object.assign(smart, { sid: '', stage: 'plan', request, intent: '', got: 0, candidates: 0, n: 0, note: '', cost: 0, error: null, offline: false });
+    smartEmit();
+    const res = await api.smartRun(request, lang);
+    if (res?.error) Object.assign(smart, { stage: 'error', error: res.error });
+    else smart.sid = res.sid;
+    smartEmit();
+    return smart;
+  }
+  api.on('feed:smart', (ev) => { if (!ev || ev.sid !== smart.sid) return; Object.assign(smart, ev); smartEmit(); });
+  const money3 = (v) => (v > 0 && v < 0.001 ? '<¥0.001' : `¥${(v || 0).toFixed(3)}`);
+  function smartHtml() {
+    const s = smart, order = ['plan', 'search', 'filter', 'done'];
+    const at = s.stage === 'error' ? -1 : order.indexOf(s.stage);
+    const steps = order.map((k, i) => `<li class="${i < at || s.stage === 'done' ? 'is-done' : i === at ? 'is-on' : ''}"><i></i><span>${esc(t(`smartStep_${k}`))}</span></li>`).join('');
+    let line = '', cls = '';
+    if (s.stage === 'plan') line = t('smartPlan');
+    else if (s.stage === 'search') line = t('smartSearching', { n: s.got || 0 });
+    else if (s.stage === 'filter') line = t('smartFiltering', { n: s.candidates || 0 });
+    else if (s.stage === 'done') line = s.n ? t('smartDone', { n: s.n, cost: money3(s.cost) }) : (s.offline ? t('smartOffline') : t('smartNone'));
+    else if (s.stage === 'error') { cls = ' is-error'; line = s.error?.code === 'nokey' ? t('smartNeedKey') : t(`err_${s.error?.code}`, { message: s.error?.message || '' }); }
+    const busy = at >= 0 && s.stage !== 'done';
+    return `<div class="sm${busy ? ' is-busy' : ''}${cls}" data-stage="${esc(s.stage)}">
+      <div class="sm-head"><span class="sm-spark" aria-hidden="true">✦</span><div class="sm-what"><b>${esc(s.intent || s.request)}</b>${s.intent ? `<span>${esc(s.request)}</span>` : ''}</div><button type="button" class="sm-x" data-smart-close aria-label="${esc(t('smartClose'))}">×</button></div>
+      ${s.stage === 'error' ? '' : `<ol class="sm-steps">${steps}</ol>`}
+      <p class="sm-line" role="status">${esc(line)}</p>
+      ${s.stage === 'error' && s.error?.code === 'nokey' ? `<button type="button" class="btn-primary sm-key" data-smart-key>${esc(t('smartAddKey'))}</button>` : ''}
+      ${s.note && s.stage === 'done' ? `<p class="sm-note">${esc(s.note)}</p>` : ''}
+    </div>`;
+  }
+  // A plain search on all of arXiv; say(text, busy) reports on it, still() tells whether it is still wanted.
+  const CJK_RE = /[\u2E80-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]/;
+  async function searchArxiv(q, say, still = () => true) {
+    if (!q || q.length < 2) { say(''); return null; }
+    if (CJK_RE.test(q)) { say(t('arxivZh')); return null; }
+    say(t('arxivSearching'), true);
+    const r = await api.searchArxiv(q);
+    if (!still()) return r;
+    if (r?.error) say(t('arxivFailed'));
+    else if (r?.added) say(t('arxivAdded', { n: r.added }));
+    else say('');
+    return r;
+  }
+
   // ---------- search, refresh, interests ----------
   let qTimer = 0;
   $('#fq').addEventListener('input', (e) => {
+    if (smartMode) return; // a smart search starts on Enter
     if (swipeOn()) hooks.exit?.();
     clearTimeout(qTimer);
     qTimer = setTimeout(() => setView({ query: e.target.value.trim() }, { keepQuery: true }), 320);
   });
-  $('#fq').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.target.value = ''; setView({ query: '' }, { keepQuery: true }); e.target.blur(); } });
+  $('#fq').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.target.value = ''; if (smartMode) setSmartMode(false); setView({ query: '' }, { keepQuery: true }); e.target.blur(); }
+    if (e.key === 'Enter' && smartMode && e.target.value.trim()) {
+      e.preventDefault();
+      if (swipeOn()) hooks.exit?.();
+      const request = e.target.value.trim();
+      e.target.blur();
+      smartStart(request).then(() => setView({ smart: true, query: '' }, { keepQuery: true }));
+    }
+  });
+  // ✦: the search box switches between searching as you type and smart search
+  let smartMode = false;
+  function setSmartMode(on) {
+    smartMode = on;
+    const b = $('#fq-smart'), q = $('#fq');
+    b.setAttribute('aria-pressed', String(on));
+    b.closest('.bar-search').classList.toggle('is-smart', on);
+    q.placeholder = t(on ? 'smartPlaceholder' : 'searchPapers');
+    if (!on && view.smart) setView({ smart: false }, { keepQuery: true });
+  }
+  $('#fq-smart').addEventListener('click', (e) => {
+    e.preventDefault();
+    setSmartMode(!smartMode);
+    const q = $('#fq');
+    if (smartMode && view.query) { q.value = view.query; }
+    q.focus();
+  });
+  $('#smart-panel').addEventListener('click', (e) => {
+    if (e.target.closest('[data-smart-close]')) { api.smartStop(); setView({ smart: false }, { keepQuery: true }); }
+    if (e.target.closest('[data-smart-key]')) $('#ai-btn')?.click();
+  });
+  function paintSmart() {
+    const el = $('#smart-panel');
+    el.hidden = !view.smart;
+    if (view.smart) el.innerHTML = smartHtml();
+    if (view.smart) { searchNote.hidden = true; }
+  }
+  onSmart(() => { if (!view.smart) return; paintSmart(); if (smart.stage === 'done') load(true); });
+
+  // A plain search also asks arXiv (all of it, not only this library): what it finds joins the results.
+  const searchNote = $('#search-note');
+  const note = (el, text, busy = false) => { el.hidden = !text; el.textContent = text || ''; el.classList.toggle('is-busy', busy); };
+  let arxivTimer = 0, arxivDone = '';
+  function arxivToo(q) {
+    clearTimeout(arxivTimer);
+    if (!q) { arxivDone = ''; return note(searchNote, ''); }
+    if (arxivDone === q) return;
+    arxivTimer = setTimeout(() => searchArxiv(q, (text, busy) => { if (view.query === q) note(searchNote, text, busy); }, () => view.query === q).then((r) => {
+      arxivDone = q;
+      if (r?.added && view.query === q) load(true);
+    }), 650);
+  }
   $('#refresh').addEventListener('click', () => refreshFeed());
 
   const tune = $('#tune-pop');
@@ -1927,7 +2040,7 @@
     openSheet, closeSheet, runTake, refreshBoards, renderStatus, setView, openDirs, closeDirs, paintDirBtn, fitTabs,
     // the swipe view's Saved / Liked tabs open here, in the grid
     showMode(mode) { hooks.exit?.(); if (view.mode !== mode || view.query) setView({ mode, collection: '' }); else relayout(); },
-    sideSwipe, trStream, longPress,
+    sideSwipe, trStream, longPress, smart, smartStart, onSmart, smartHtml, searchArxiv,
     act: async (c, kind) => (kind === 'like' ? toggleLike(c) : toggleSave(c)),
     get META() { return META; }, get AI() { return AI; }, get trOn() { return trOn; }, get sheetId() { return sheetState.id; }, get sheetPaper() { return sheetState.data?.paper || null; },
     gridShown() { if (!feed.order.length && !feed.loading) load(true); else relayout(); },

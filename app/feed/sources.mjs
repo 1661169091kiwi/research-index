@@ -12,18 +12,27 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let doFetch = (url, init) => fetch(url, init);
 export function useFetch(fn) { doFetch = fn; }
 
+// One request at a time, at least minGapMs apart. An urgent task (a search you are waiting for) goes ahead of
+// the background ones (a refresh can queue fifty arXiv requests, three seconds apart).
 function makeQueue(minGapMs) {
-  let last = 0;
-  let chain = Promise.resolve();
-  return (task) => {
-    const run = chain.then(async () => {
+  let last = 0, running = false;
+  const q = [];
+  async function pump() {
+    if (running) return;
+    running = true;
+    while (q.length) {
+      const job = q.shift();
       const wait = last + minGapMs - Date.now();
       if (wait > 0) await sleep(wait);
-      try { return await task(); } finally { last = Date.now(); }
-    });
-    chain = run.catch(() => {});
-    return run;
-  };
+      try { job.resolve(await job.task()); } catch (e) { job.reject(e); } finally { last = Date.now(); }
+    }
+    running = false;
+  }
+  return (task, { urgent = false } = {}) => new Promise((resolve, reject) => {
+    const job = { task, resolve, reject, urgent };
+    if (urgent) { const i = q.findIndex((j) => !j.urgent); q.splice(i < 0 ? q.length : i, 0, job); } else q.push(job);
+    pump();
+  });
 }
 const apiQueue = makeQueue(3100);
 const hfQueue = makeQueue(500);
@@ -81,9 +90,15 @@ export function parseAtom(xml) {
   return out;
 }
 
-export function arxivSearch(query, max = 60, start = 0) {
-  const params = new URLSearchParams({ search_query: query, sortBy: 'submittedDate', sortOrder: 'descending', start: String(start), max_results: String(max) });
-  return apiQueue(() => get(`https://export.arxiv.org/api/query?${params}`)).then((xml) => (xml ? parseAtom(xml) : []));
+// sort: 'submittedDate' (newest first: the feeds) or 'relevance' (a search you typed); urgent: ahead of the feeds
+export function arxivSearch(query, max = 60, start = 0, { sort = 'submittedDate', urgent = false } = {}) {
+  const params = new URLSearchParams({ search_query: query, sortBy: sort, sortOrder: 'descending', start: String(start), max_results: String(max) });
+  return apiQueue(() => get(`https://export.arxiv.org/api/query?${params}`, { tries: urgent ? 2 : 3 }), { urgent }).then((xml) => (xml ? parseAtom(xml) : []));
+}
+// papers by their arXiv ids
+export function arxivIds(ids) {
+  const params = new URLSearchParams({ id_list: ids.join(','), max_results: String(ids.length) });
+  return apiQueue(() => get(`https://export.arxiv.org/api/query?${params}`, { tries: 2 }), { urgent: true }).then((xml) => (xml ? parseAtom(xml) : []));
 }
 
 // ---------- Hugging Face daily papers ----------

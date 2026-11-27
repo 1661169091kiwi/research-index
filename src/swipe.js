@@ -25,12 +25,13 @@
     on: false, mode: store.get('ri-sw-mode', 'recommended'), topic: store.get('ri-sw-topic', ''), deck: '', items: [], cards: new Map(),
     idx: -1, maxSeen: -1, loading: false, done: false, token: 0, redealAfter: false, atEnd: false, off: 0,
     query: '', player: false, // player: reading Saved / Liked one at a time, opened from their grid
+    smart: false, // showing a smart search's results (feed.js runs it)
   };
   if (!MODES.includes(sw.mode)) sw.mode = 'recommended'; // "For you" is part of Recommended now
   const live = () => LIVE.has(sw.mode) && !sw.query;
   // a grid instead of single cards: your own papers (Saved, Liked), and search results
-  const shelfOn = () => (SHELF.has(sw.mode) || !!sw.query) && !sw.player;
-  const shelfKey = () => (sw.query ? `q:${sw.query}` : sw.mode);
+  const shelfOn = () => (SHELF.has(sw.mode) || !!sw.query || sw.smart) && !sw.player;
+  const shelfKey = () => (sw.smart ? `smart:${F.smart.sid}` : sw.query ? `q:${sw.query}` : sw.mode);
 
   // ---------- time on each card ----------
   // Counted only while the card is the one on screen, the app is visible and no paper is open on top.
@@ -64,7 +65,7 @@
   const likeCount = (c) => (c.up + (c.liked ? 1 : 0)) || '';
   // one line above the title: why it was picked (Recommended, For you), else its other directions
   function eyebrow(c) {
-    if (c.reason && (sw.mode === 'recommended' || sw.mode === 'foryou')) return `<p class="sw-eyebrow is-reason">${esc(reasonText(c.reason))}</p>`;
+    if (c.reason && (sw.mode === 'recommended' || sw.mode === 'foryou' || sw.smart)) return `<p class="sw-eyebrow is-reason">${esc(reasonText(c.reason))}</p>`;
     const tags = c.topics.slice(1, 3);
     return tags.length ? `<p class="sw-eyebrow">${tags.map((x) => `<span class="sw-tag"><i style="background:${topicColor(x)}"></i>${esc(topicLabel(x))}</span>`).join('')}</p>` : '';
   }
@@ -258,8 +259,8 @@
   // ---------- dealing ----------
   // a search looks through every paper (any non-personal tab ranks a search the same way)
   const baseParams = () => ({
-    mode: sw.query ? 'latest' : sw.mode, topic: sw.query ? '' : sw.topic, query: sw.query, collection: '', slot: 'swipe', withAbstract: true,
-    minQ: sw.query || SHELF.has(sw.mode) ? 0 : F.minQ,
+    mode: sw.smart ? 'smart' : sw.query ? 'latest' : sw.mode, topic: sw.query || sw.smart ? '' : sw.topic, query: sw.smart ? '' : sw.query, collection: '', slot: 'swipe', withAbstract: true,
+    minQ: sw.query || sw.smart || SHELF.has(sw.mode) ? 0 : F.minQ,
     ...(live() ? { focusAuto: true, div: 0.6, exploreEvery: 8, anchorCap: 3, capWindow: 3 } : {}),
   });
   async function reset({ fresh = false } = {}) {
@@ -545,7 +546,7 @@
     setMode(b.dataset.swMode);
   });
   function setMode(m) {
-    if (searchOpen || sw.query) { searchOpen = false; sw.query = ''; qInput.blur(); }
+    if (searchOpen || sw.query || sw.smart) { searchOpen = false; sw.query = ''; sw.smart = false; qInput.blur(); }
     park();
     sw.mode = m;
     sw.player = false;
@@ -598,7 +599,11 @@
     root.classList.toggle('is-player', sw.player);
     root.classList.toggle('is-search', searchOpen);
     shelfEl.hidden = !shelfShown;
-    $('#sw-shelf-head').hidden = !shelfShown || !!sw.query;
+    $('#sw-shelf-head').hidden = !shelfShown || !!sw.query || sw.smart;
+    const sp = $('#sw-smart-panel');
+    sp.hidden = !(shelfShown && sw.smart);
+    if (!sp.hidden) sp.innerHTML = F.smartHtml();
+    if (!shelfShown || sw.smart) $('#sw-search-note').hidden = true;
     if (!shelfShown) $('#sw-pick-cancel').removeAttribute('data-back-close'); // picking ends with the grid (loadShelf)
     searchForm.hidden = !searchOpen;
     const back = $('#sw-back');
@@ -653,6 +658,7 @@
     return `<button type="button" class="sw-tile${c.cover?.url ? ' has-fig' : ''}${pick.ids.has(c.id) ? ' is-picked' : ''}" data-tile="${i}" data-id="${esc(c.id)}">${coverHtml(c, { ratio: false })}<span class="sw-tile-title">${titleMath(zh ? c.title_zh : c.title)}</span></button>`;
   }
   async function loadShelf({ fresh = false } = {}) {
+    if (sw.smart && F.smart.stage !== 'done') { shelf.token++; Object.assign(shelf, { mode: '', items: [], off: 0, done: true, loading: false, total: 0 }); shelfGrid.innerHTML = ''; shelfEmpty.hidden = true; return; }
     if (!fresh && shelf.mode === shelfKey() && shelf.items.length) return; // back from reading them: the grid as it was
     shelf.token++;
     Object.assign(shelf, { mode: shelfKey(), items: [], off: 0, done: false, loading: false, total: 0 });
@@ -675,7 +681,7 @@
     shelf.done = shelf.off >= res.total || !res.items.length;
     shelfGrid.insertAdjacentHTML('beforeend', res.items.map((c, k) => tileHtml(sw.cards.get(c.id), from + k)).join(''));
     wireFigure(shelfGrid);
-    shelfEmpty.textContent = t(sw.query ? 'swNoResults' : sw.mode === 'liked' ? 'shelfEmptyLiked' : 'shelfEmptySaved');
+    shelfEmpty.textContent = sw.smart ? '' : t(sw.query ? 'swNoResults' : sw.mode === 'liked' ? 'shelfEmptyLiked' : 'shelfEmptySaved');
     shelf.total = res?.total || 0;
     paintPick();
     shelfEmpty.hidden = shelf.items.length > 0;
@@ -734,8 +740,8 @@
   });
   let searchAnim = 0;
   function closeSearch() {
-    if (!searchOpen && !sw.query) return;
-    const had = !!sw.query;
+    if (!searchOpen && !sw.query && !sw.smart) return;
+    let had = !!sw.query;
     qInput.blur();
     // the field folds back into the search button, then the tabs come back
     root.classList.add('is-search-out');
@@ -744,6 +750,7 @@
       root.classList.remove('is-search-out');
       searchOpen = false;
       sw.query = '';
+      if (sw.smart) { sw.smart = false; F.api?.smartStop?.(); had = true; }
       paintChrome();
       root.classList.add('is-search-back');
       searchAnim = setTimeout(() => root.classList.remove('is-search-back'), 320);
@@ -756,13 +763,38 @@
     const q = qInput.value.trim();
     qInput.blur();
     if (!q) return closeSearch();
-    if (q === sw.query && !sw.player) return;
+    if (smartOn) {
+      if (sw.player) closePlayer();
+      sw.query = ''; sw.smart = true; sw.player = false; sw.deck = '';
+      F.smartStart(q).then(() => reset());
+      return;
+    }
+    if (q === sw.query && !sw.player && !sw.smart) return;
     if (sw.player) closePlayer();
     sw.query = q;
+    sw.smart = false;
     sw.player = false;
     sw.deck = '';
     reset();
+    // all of arXiv too: what it finds joins the results
+    const say = (text, busy) => { if (sw.query !== q) return; const n = $('#sw-search-note'); n.hidden = !text || !shelfOn(); n.textContent = text || ''; n.classList.toggle('is-busy', !!busy); };
+    F.searchArxiv(q, say, () => sw.query === q).then((r) => { if (r?.added && sw.query === q) loadShelf({ fresh: true }); });
   });
+  // ✦ in the search field: smart search (the AI searches all of arXiv and picks the matches)
+  let smartOn = false;
+  $('#sw-smart').addEventListener('click', (e) => {
+    e.preventDefault();
+    smartOn = !smartOn;
+    $('#sw-smart').setAttribute('aria-pressed', String(smartOn));
+    searchForm.classList.toggle('is-smart', smartOn);
+    qInput.placeholder = t(smartOn ? 'smartPlaceholder' : 'searchPapers');
+    qInput.focus();
+  });
+  $('#sw-smart-panel').addEventListener('click', (e) => {
+    if (e.target.closest('[data-smart-close]')) closeSearch();
+    if (e.target.closest('[data-smart-key]')) $('#ai-btn')?.click();
+  });
+  F.onSmart(() => { if (!sw.smart) return; paintChrome(); if (F.smart.stage === 'done') loadShelf({ fresh: true }); });
   // ---------- directions (the categories of the grid view): one button opens them all ----------
   const dirBtn = $('#sw-dir');
   function renderChips() {

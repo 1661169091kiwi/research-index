@@ -492,3 +492,15 @@ body.swipe-on .scroller > main { animation: none; }
 .is-mobile .sw-shelf-head { padding: 0 12px; margin-bottom: 8px; }
 .sw-shelf-head.is-picking .sw-shelf-n { color: var(--ink); }
 html.fl .sw-shelf-head.is-picking .sw-shelf-n { color: var(--on); }
+
+/* smart search in the swipe view */
+.sw-search-field { position: relative; }
+.sw-smart { flex: none; appearance: none; width: 32px; height: 32px; margin-right: -6px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; transition: background .2s, color .2s, box-shadow .2s; }
+.sw-smart svg { width: 18px; height: 18px; }
+.sw-search.is-smart .sw-smart { color: #fff; background: linear-gradient(120deg, #6a5cff, #1f8bff); box-shadow: 0 3px 10px rgba(80, 90, 255, .35); }
+.sw-search.is-smart .sw-smart svg { animation: smTwinkle 2.4s ease-in-out infinite; }
+.sw-search.is-smart .sw-search-field { box-shadow: 0 0 0 1.5px rgba(106, 92, 255, .55), 0 0 0 5px rgba(90, 100, 255, .12); }
+.sw-smart-panel { max-width: calc(var(--sw-card-w) + 2 * var(--sw-rail)); margin: 0 auto 12px; }
+.is-mobile .sw-smart-panel { margin: 0 12px 10px; }
+.sw-shelf .search-note { max-width: calc(var(--sw-card-w) + 2 * var(--sw-rail)); margin: 0 auto 10px; padding: 0 4px; }
+.is-mobile .sw-shelf .search-note { padding: 0 14px; }

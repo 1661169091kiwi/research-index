@@ -42,7 +42,8 @@ export const PRICE_NOTE = { deepseekModels: Object.keys(DEEPSEEK), claude: CLAUD
 const DAY = 864e5;
 const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-// log: [{ t, p (provider), m (model), k (kind: take | chat | translate | rate), hit, miss, out, CNY, USD }]
+// log: [{ t, p (provider), m (model), k (kind: take | chat | search | translate | rate), hit, miss, out, CNY, USD }]
+// (smart search is counted with the questions: both are the AI working on something you asked)
 // balances: [{ t, currency, total, granted, toppedUp, available }]
 export function summarize({ log = [], balances = [] }, { days = 30, currency = '' } = {}) {
   const now = Date.now();
@@ -60,7 +61,7 @@ export function summarize({ log = [], balances = [] }, { days = 30, currency = '
     if (dayKey(e.t) === dayKey(now)) today += c;
     if (e.t < since) continue;
     const d = byDate.get(dayKey(e.t));
-    const kind = e.k in totals.byKind ? e.k : 'take';
+    const kind = e.k === 'search' ? 'chat' : e.k in totals.byKind ? e.k : 'take';
     if (d) { d[kind] += c; d.calls++; }
     totals.cost += c;
     totals.calls++;
