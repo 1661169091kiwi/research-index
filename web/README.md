@@ -26,9 +26,13 @@ Without a relay the web version still works, with papers from Hugging Face only.
 
 ## Publishing
 
-`.github/workflows/web.yml` builds and publishes the site on every published release, or by hand
-(**Actions → Web version → Run workflow**). GitHub Pages must be set to **Source: GitHub Actions** once
-(Settings → Pages).
+`.github/workflows/web.yml` builds and publishes the **latest published release** (never unreleased work on
+`main`): every day at 04:30 Beijing time, and by hand right after a release (**Actions → Web version → Run
+workflow**, or `gh workflow run web.yml --ref main`). GitHub Pages is set to **Source: GitHub Actions**.
+
+Each build also runs [`snapshot.mjs`](snapshot.mjs): the app's own fetching code, once per discipline pack, saving
+the newest papers into the site (`assets/mobile/seed/`). A first visit starts from that snapshot, so papers show
+at once; the page brings itself up to date in the background afterwards.
 
 ## Trying it locally
 

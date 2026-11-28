@@ -998,9 +998,11 @@
     go(dir);
     F.openSheet(next);
   };
-  // the phone opens in the swipe feed; the desktop where you left it
+  // the phone and the web version open in the swipe feed (one paper at a time); the desktop app where you left it
+  // (and after you switch view, everywhere: the choice is remembered)
   hooks.startsOpen = () => {
-    const v = store.get('ri-view', isMobile ? 'swipe' : 'grid');
+    const isWeb = document.documentElement.dataset.platform === 'web';
+    const v = store.get('ri-view', isMobile || isWeb ? 'swipe' : 'grid');
     if (v !== 'swipe') return false;
     enter();
     return true;

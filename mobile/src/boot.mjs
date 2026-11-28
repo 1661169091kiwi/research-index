@@ -28,8 +28,11 @@ const clone = (v) => (v === undefined ? v : typeof structuredClone === 'function
 const listeners = new Map(); // channel -> Set(callback)
 const send = (channel, data) => { for (const cb of listeners.get(channel) || []) { try { cb(clone(data)); } catch (e) { console.error(e); } } };
 
+// the snapshot a first start begins from: in the phone app the desktop app's papers (AI pack); on the web the
+// newest papers of each pack, fetched when the site was built (web/snapshot.mjs): seed/<name>.json, seed/<pack>/<name>.json
 async function seedFile(name) {
-  try { const r = await fetch(new URL(`./seed/${name}.json`, import.meta.url)); return r.ok ? await r.json() : undefined; } catch { return undefined; }
+  const rel = `./seed/${PACK.id === 'ai' ? '' : `${PACK.id}/`}${name}.json`;
+  try { const r = await fetch(new URL(rel, import.meta.url)); return r.ok ? await r.json() : undefined; } catch { return undefined; }
 }
 
 const keys = createKeys();
@@ -41,11 +44,12 @@ const ready = (async () => {
   useAiFetch(httpFetch);
   const data = {};
   for (const n of FILES) data[n] = await files.read(fileName(`${n}.json`));
-  // first start: begin from the snapshot of the desktop app's papers built into the app (if any; AI pack only)
-  if (!data.papers && PACK.id === 'ai') {
-    data.papers = await seedFile('papers');
-    data.translations = data.translations || await seedFile('translations');
-    data.state = data.state || await seedFile('state');
+  // first start: begin from the snapshot built into the app or the site (if there is one for this pack)
+  if (!data.papers) {
+    const [papers, translations, state] = await Promise.all(['papers', 'translations', 'state'].map(seedFile));
+    data.papers = papers;
+    data.translations = data.translations || translations;
+    data.state = data.state || state;
   }
   const pending = {};
   let writing = null;

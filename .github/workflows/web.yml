@@ -1,16 +1,20 @@
 # The web version: the phone app's pages for any browser, published on GitHub Pages
-# (https://1661169091kiwi.github.io/research-index/).
-#   - by hand, from main: Actions → "Web version" → Run workflow (or: gh workflow run web.yml --ref main),
-#     right after each release is published
-# (not on the release itself: a release runs from its tag, and the github-pages environment only lets main deploy;
-#  to have releases deploy by themselves, add a "v*" tag rule under Settings → Environments → github-pages)
+# (https://1661169091kiwi.github.io/research-index/). It is always the latest published release (never unreleased
+# work on main), with a fresh snapshot of each pack's newest papers (web/snapshot.mjs) so a first visit shows papers
+# at once.
+#   - every day at 04:30 Beijing time (a fresh snapshot)
+#   - by hand, from main, right after each release: Actions → "Web version" → Run workflow
+#     (or: gh workflow run web.yml --ref main)
+# (not on the release event itself: that runs from the release's tag, and the github-pages environment only lets
+#  main deploy; to have releases deploy by themselves, add a "v*" tag rule under Settings → Environments → github-pages)
 # arXiv's search API goes through the relay in web/relay/worker.js (a Cloudflare Worker); its address is the
-# repository variable RI_RELAY (Settings → Secrets and variables → Actions → Variables). Without it the web
-# version still runs, with papers from Hugging Face only.
+# repository variable RI_RELAY (Settings → Secrets and variables → Actions → Variables).
 name: Web version
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '30 20 * * *'
 
 permissions:
   contents: read
@@ -24,9 +28,17 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
+      - name: The latest published release
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.rel.outputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
@@ -35,10 +47,16 @@ jobs:
       - name: Packages (fonts, KaTeX, QR codes; not Electron)
         run: npm ci --omit=dev --ignore-scripts
 
-      - name: Build the web version
+      - name: Build the web version (${{ steps.rel.outputs.tag }})
         env:
           RI_RELAY: ${{ vars.RI_RELAY }}
         run: node build.mjs --web
+
+      # the newest papers of each pack, fetched now and saved into the site (if this release has the script);
+      # if it fails, the site goes out without it and the page fetches on its own as before
+      - name: Snapshot of the newest papers
+        run: |
+          if [ -f web/snapshot.mjs ]; then node web/snapshot.mjs web/www --minutes=8 || echo "snapshot failed: published without it"; else echo "this release has no snapshot script"; fi
 
       - uses: actions/upload-pages-artifact@v3
         with:
